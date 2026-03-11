@@ -1,0 +1,839 @@
+{% extends "base.html" %}
+{% block title %}{{ t.child.study_title }}{% endblock %}
+{% block lang_switch %}{% endblock %}
+{% block head %}
+<style>
+    body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+
+    /* ---- Layout ---- */
+    .study-layout {
+        display: flex;
+        min-height: 100vh;
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+
+    /* ---- Sidebar (PC/Tablet only) ---- */
+    .study-sidebar {
+        display: none;
+    }
+
+    @media (min-width: 768px) {
+        .study-sidebar {
+            display: flex;
+            flex-direction: column;
+            width: 280px;
+            flex-shrink: 0;
+            padding: 1.5rem 1rem 1.5rem 1.5rem;
+        }
+
+        .study-main {
+            flex: 1;
+            min-width: 0;
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .study-sidebar { width: 320px; }
+    }
+
+    .sidebar-card {
+        background: rgba(255,255,255,0.12);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 20px;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+    }
+
+    .sidebar-title {
+        font-size: 11px;
+        font-weight: 700;
+        color: rgba(255,255,255,0.5);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 0.75rem;
+    }
+
+    /* Session Stats */
+    .session-stats {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .session-stat {
+        flex: 1;
+        text-align: center;
+        padding: 10px 4px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 12px;
+    }
+
+    .session-stat-val {
+        font-size: 20px;
+        font-weight: 800;
+        color: white;
+    }
+
+    .session-stat-lbl {
+        font-size: 9px;
+        font-weight: 600;
+        color: rgba(255,255,255,0.5);
+        text-transform: uppercase;
+        margin-top: 2px;
+    }
+
+    /* Question Nav List */
+    .q-nav-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .q-nav-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: rgba(255,255,255,0.6);
+        font-size: 13px;
+        font-weight: 500;
+    }
+
+    .q-nav-item:hover {
+        background: rgba(255,255,255,0.1);
+        color: white;
+    }
+
+    .q-nav-item.active {
+        background: rgba(255,255,255,0.2);
+        color: white;
+        font-weight: 700;
+    }
+
+    .q-nav-num {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 700;
+        flex-shrink: 0;
+        background: rgba(255,255,255,0.1);
+        color: rgba(255,255,255,0.6);
+        transition: all 0.2s;
+    }
+
+    .q-nav-item.active .q-nav-num {
+        background: white;
+        color: #6366f1;
+    }
+
+    .q-nav-item.correct .q-nav-num {
+        background: #10b981;
+        color: white;
+    }
+
+    .q-nav-item.wrong .q-nav-num {
+        background: #ef4444;
+        color: white;
+    }
+
+    .q-nav-text {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .q-nav-status {
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+
+    /* ---- Main Content ---- */
+    .study-main {
+        flex: 1;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+    }
+
+    @media (min-width: 768px) {
+        .study-main { padding: 1.5rem 1.5rem 1.5rem 1rem; }
+    }
+
+    /* Header bar */
+    .study-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 0;
+        margin-bottom: 1rem;
+    }
+
+    .study-back {
+        color: white;
+        text-decoration: none;
+        font-size: 14px;
+        opacity: 0.8;
+        transition: opacity 0.2s;
+    }
+
+    .study-back:hover { opacity: 1; }
+
+    .study-header-right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .lang-btn {
+        color: rgba(255,255,255,0.6);
+        text-decoration: none;
+        font-size: 14px;
+        transition: color 0.2s;
+    }
+
+    .lang-btn:hover { color: white; }
+
+    .points-badge {
+        background: rgba(255,255,255,0.2);
+        backdrop-filter: blur(10px);
+        color: white;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 14px;
+    }
+
+    /* ---- Mobile Accordion Panel ---- */
+    .mobile-panel {
+        margin-bottom: 1rem;
+    }
+
+    @media (min-width: 768px) {
+        .mobile-panel { display: none; }
+    }
+
+    .accordion-toggle {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(255,255,255,0.15);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 14px;
+        padding: 10px 16px;
+        color: white;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .accordion-toggle:hover { background: rgba(255,255,255,0.2); }
+
+    .accordion-toggle-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .accordion-toggle .acc-progress {
+        font-size: 11px;
+        opacity: 0.7;
+    }
+
+    .accordion-toggle .acc-chevron {
+        transition: transform 0.3s ease;
+        font-size: 12px;
+    }
+
+    .accordion-toggle.open .acc-chevron {
+        transform: rotate(180deg);
+    }
+
+    .accordion-body {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+    }
+
+    .accordion-body.open {
+        max-height: 600px;
+    }
+
+    .accordion-inner {
+        padding: 0.75rem 0 0;
+    }
+
+    /* Mobile stats row */
+    .mobile-stats {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 0.75rem;
+    }
+
+    .mobile-stat {
+        flex: 1;
+        text-align: center;
+        padding: 8px 4px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 10px;
+    }
+
+    .mobile-stat-val { font-size: 16px; font-weight: 800; color: white; }
+    .mobile-stat-lbl { font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.5); text-transform: uppercase; margin-top: 1px; }
+
+    /* Mobile question nav - horizontal pills */
+    .mobile-q-nav {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .mobile-q-pill {
+        width: 36px; height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: rgba(255,255,255,0.1);
+        color: rgba(255,255,255,0.6);
+        border: 1px solid transparent;
+    }
+
+    .mobile-q-pill:active { transform: scale(0.9); }
+    .mobile-q-pill.active { background: rgba(255,255,255,0.3); color: white; border-color: rgba(255,255,255,0.4); }
+    .mobile-q-pill.correct { background: #10b981; color: white; }
+    .mobile-q-pill.wrong { background: #ef4444; color: white; }
+
+    /* Progress bar inside accordion */
+    .progress-bar-container {
+        background: rgba(255,255,255,0.2);
+        border-radius: 10px;
+        height: 6px;
+        overflow: hidden;
+        margin-top: 0.75rem;
+    }
+
+    .progress-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #fbbf24, #f59e0b);
+        border-radius: 10px;
+        transition: width 0.5s ease;
+    }
+
+    /* Question card */
+    .question-card {
+        background: white;
+        border-radius: 24px;
+        padding: 2rem 1.5rem;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    @media (min-width: 768px) {
+        .question-card { padding: 2.5rem 2rem; }
+    }
+
+    .question-number {
+        font-size: 12px;
+        font-weight: 700;
+        color: #6366f1;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 0.75rem;
+    }
+
+    .question-text {
+        font-size: 18px;
+        font-weight: 600;
+        color: #1e293b;
+        line-height: 1.6;
+        margin-bottom: 1.5rem;
+    }
+
+    @media (min-width: 768px) {
+        .question-text { font-size: 20px; }
+    }
+
+    /* Choices */
+    .choices {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        flex: 1;
+    }
+
+    .choice-btn {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        background: #f8fafc;
+        border: 2px solid #e2e8f0;
+        border-radius: 14px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 15px;
+        color: #334155;
+        text-align: left;
+    }
+
+    @media (min-width: 768px) {
+        .choice-btn { padding: 16px 20px; font-size: 16px; }
+    }
+
+    .choice-btn:hover {
+        border-color: #6366f1;
+        background: #eef2ff;
+    }
+
+    .choice-btn:active { transform: scale(0.98); }
+
+    .choice-label {
+        width: 32px; height: 32px;
+        border-radius: 8px;
+        background: #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 14px;
+        color: #64748b;
+        flex-shrink: 0;
+    }
+
+    .choice-btn:hover .choice-label { background: #6366f1; color: white; }
+
+    .choice-btn.correct { border-color: #10b981; background: #d1fae5; animation: pop 0.3s ease; }
+    .choice-btn.correct .choice-label { background: #10b981; color: white; }
+    .choice-btn.wrong { border-color: #ef4444; background: #fee2e2; animation: shake 0.4s ease; }
+    .choice-btn.wrong .choice-label { background: #ef4444; color: white; }
+    .choice-btn.disabled { pointer-events: none; opacity: 0.5; }
+
+    /* Explanation */
+    .explanation {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #fffbeb;
+        border-radius: 12px;
+        border-left: 4px solid #f59e0b;
+        font-size: 14px;
+        color: #92400e;
+        line-height: 1.5;
+        animation: slideUp 0.3s ease;
+    }
+
+    /* Next button */
+    .next-btn {
+        margin-top: 1rem;
+        padding: 14px;
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+        border: none;
+        border-radius: 14px;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+        animation: slideUp 0.3s ease;
+    }
+
+    .next-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(99,102,241,0.4); }
+
+    /* Result overlay */
+    .result-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 100;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .result-overlay.show { display: flex; }
+
+    .result-card {
+        background: white;
+        border-radius: 24px;
+        padding: 2.5rem 2rem;
+        text-align: center;
+        max-width: 440px;
+        width: 90%;
+        animation: pop 0.4s ease;
+    }
+
+    .result-emoji { font-size: 64px; margin-bottom: 1rem; }
+    .result-title { font-size: 24px; font-weight: 800; color: #1e293b; margin-bottom: 0.5rem; }
+    .result-score { font-size: 48px; font-weight: 800; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; }
+    .result-detail { font-size: 14px; color: #64748b; margin-bottom: 1.5rem; }
+    .result-points { display: inline-block; background: linear-gradient(135deg, #fbbf24, #f59e0b); color: white; padding: 8px 24px; border-radius: 20px; font-weight: 700; font-size: 16px; margin-bottom: 1.5rem; animation: sparkle 1s ease infinite; }
+    .result-btn { display: block; width: 100%; padding: 14px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; border-radius: 14px; font-size: 16px; font-weight: 700; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+    .result-btn:hover { transform: translateY(-2px); }
+
+    /* Point popup */
+    .point-popup {
+        position: fixed;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 32px;
+        font-weight: 800;
+        color: #fbbf24;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        z-index: 200;
+        pointer-events: none;
+        animation: pointFly 1s ease forwards;
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="study-layout">
+
+    <!-- Sidebar (PC / Tablet) -->
+    <div class="study-sidebar">
+        <!-- Session Stats -->
+        <div class="sidebar-card">
+            <div class="sidebar-title">{{ t.child.session_stats if t.child.session_stats else 'Session' }}</div>
+            <div class="session-stats">
+                <div class="session-stat">
+                    <div class="session-stat-val" id="sideScore">0</div>
+                    <div class="session-stat-lbl">{{ t.child.sidebar_correct if t.child.sidebar_correct else 'Correct' }}</div>
+                </div>
+                <div class="session-stat">
+                    <div class="session-stat-val" id="sideTotal">0</div>
+                    <div class="session-stat-lbl">{{ t.child.sidebar_answered if t.child.sidebar_answered else 'Answered' }}</div>
+                </div>
+                <div class="session-stat">
+                    <div class="session-stat-val" id="sidePoints">0</div>
+                    <div class="session-stat-lbl">{{ t.child.stat_points }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Question Navigation -->
+        <div class="sidebar-card" style="flex:1;">
+            <div class="sidebar-title">{{ t.child.question_list if t.child.question_list else 'Questions' }}</div>
+            <div class="q-nav-list" id="qNavList"></div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="study-main">
+        <!-- Header -->
+        <div class="study-header">
+            <a href="{{ '/ja/child/dashboard' if lang == 'ja' else '/child/dashboard' }}" class="study-back">
+                ← {{ t.child.back }}
+            </a>
+            <div class="study-header-right">
+                <a href="{{ switch_lang_url }}" class="lang-btn"><i class="fas fa-globe"></i></a>
+                <div class="points-badge" id="pointsBadge">★ <span id="sessionPoints">0</span> pts</div>
+            </div>
+        </div>
+
+        <!-- Mobile Accordion Panel -->
+        <div class="mobile-panel">
+            <button class="accordion-toggle" id="accToggle" onclick="toggleAccordion()">
+                <span class="accordion-toggle-left">
+                    <i class="fas fa-list-ol"></i>
+                    <span id="accLabel">{{ t.child.question_list }}</span>
+                    <span class="acc-progress" id="accProgress"></span>
+                </span>
+                <span class="acc-chevron"><i class="fas fa-chevron-down"></i></span>
+            </button>
+            <div class="accordion-body" id="accBody">
+                <div class="accordion-inner">
+                    <div class="mobile-stats">
+                        <div class="mobile-stat">
+                            <div class="mobile-stat-val" id="mobileScore">0</div>
+                            <div class="mobile-stat-lbl">{{ t.child.sidebar_correct }}</div>
+                        </div>
+                        <div class="mobile-stat">
+                            <div class="mobile-stat-val" id="mobileAnswered">0</div>
+                            <div class="mobile-stat-lbl">{{ t.child.sidebar_answered }}</div>
+                        </div>
+                        <div class="mobile-stat">
+                            <div class="mobile-stat-val" id="mobilePoints">0</div>
+                            <div class="mobile-stat-lbl">{{ t.child.stat_points }}</div>
+                        </div>
+                    </div>
+                    <div class="mobile-q-nav" id="mobileQNav"></div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill" id="progressBar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Question Card -->
+        <div class="question-card" id="questionCard">
+            <div class="question-number" id="questionNumber"></div>
+            <div class="question-text" id="questionText"></div>
+            <div class="choices" id="choices"></div>
+            <div id="explanationArea"></div>
+            <button class="next-btn" id="nextBtn" style="display:none;" onclick="nextQuestion()">
+                {{ t.child.next_question }}
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Result Overlay -->
+<div class="result-overlay" id="resultOverlay">
+    <div class="result-card">
+        <div class="result-emoji" id="resultEmoji">🎉</div>
+        <div class="result-title" id="resultTitle"></div>
+        <div class="result-score" id="resultScore"></div>
+        <div class="result-detail" id="resultDetail"></div>
+        <div class="result-points" id="resultPoints"></div>
+        <a href="{{ '/ja/child/dashboard' if lang == 'ja' else '/child/dashboard' }}" class="result-btn">
+            {{ t.child.back_to_dashboard }}
+        </a>
+    </div>
+</div>
+
+<script>
+const demoQuestions = [
+    {
+        question: "{{ t.child.demo_q1 }}",
+        choices: ["{{ t.child.demo_q1_a }}", "{{ t.child.demo_q1_b }}", "{{ t.child.demo_q1_c }}", "{{ t.child.demo_q1_d }}"],
+        correct: 0,
+        explanation: "{{ t.child.demo_q1_exp }}"
+    },
+    {
+        question: "{{ t.child.demo_q2 }}",
+        choices: ["84", "96", "88", "104"],
+        correct: 1,
+        explanation: "{{ t.child.demo_q2_exp }}"
+    },
+    {
+        question: "{{ t.child.demo_q3 }}",
+        choices: ["{{ t.child.demo_q3_a }}", "{{ t.child.demo_q3_b }}", "{{ t.child.demo_q3_c }}", "{{ t.child.demo_q3_d }}"],
+        correct: 2,
+        explanation: "{{ t.child.demo_q3_exp }}"
+    }
+];
+
+const labels = ['A', 'B', 'C', 'D'];
+let current = 0;
+let score = 0;
+let totalPoints = 0;
+let answered = false;
+let answeredCount = 0;
+const results = new Array(demoQuestions.length).fill(null); // null=unanswered, true=correct, false=wrong
+
+// Build sidebar question nav
+function buildQNav() {
+    const list = document.getElementById('qNavList');
+    if (!list) return;
+    list.innerHTML = demoQuestions.map((q, i) => `
+        <div class="q-nav-item ${i === current ? 'active' : ''} ${results[i] === true ? 'correct' : results[i] === false ? 'wrong' : ''}"
+             onclick="jumpToQuestion(${i})" id="qnav-${i}">
+            <span class="q-nav-num">${i + 1}</span>
+            <span class="q-nav-text">${q.question}</span>
+            <span class="q-nav-status">${results[i] === true ? '✅' : results[i] === false ? '❌' : ''}</span>
+        </div>
+    `).join('');
+}
+
+function updateQNav() {
+    demoQuestions.forEach((q, i) => {
+        const el = document.getElementById(`qnav-${i}`);
+        if (!el) return;
+        el.className = `q-nav-item ${i === current ? 'active' : ''} ${results[i] === true ? 'correct' : results[i] === false ? 'wrong' : ''}`;
+        el.querySelector('.q-nav-status').textContent = results[i] === true ? '✅' : results[i] === false ? '❌' : '';
+    });
+}
+
+function updateSideStats() {
+    const el = (id) => document.getElementById(id);
+    if (el('sideScore')) el('sideScore').textContent = score;
+    if (el('sideTotal')) el('sideTotal').textContent = answeredCount;
+    if (el('sidePoints')) el('sidePoints').textContent = totalPoints;
+}
+
+function jumpToQuestion(idx) {
+    if (idx === current) return;
+    current = idx;
+    renderQuestion();
+    updateQNav();
+}
+
+function renderQuestion() {
+    const q = demoQuestions[current];
+    document.getElementById('questionNumber').textContent =
+        `{{ t.child.question_label }} ${current + 1} / ${demoQuestions.length}`;
+    document.getElementById('questionText').textContent = q.question;
+    document.getElementById('progressBar').style.width = `${(current / demoQuestions.length) * 100}%`;
+    document.getElementById('progressText').textContent = `${current + 1} / ${demoQuestions.length}`;
+
+    const choicesEl = document.getElementById('choices');
+
+    if (results[current] !== null) {
+        // Already answered - show result state
+        choicesEl.innerHTML = q.choices.map((c, i) => {
+            let cls = 'choice-btn';
+            if (i === q.correct) cls += ' correct';
+            else cls += ' disabled';
+            return `<button class="${cls}"><span class="choice-label">${labels[i]}</span><span>${c}</span></button>`;
+        }).join('');
+        document.getElementById('explanationArea').innerHTML =
+            `<div class="explanation">${results[current] ? '✅ ' : '❌ '}${q.explanation}</div>`;
+        // Show next if not last
+        const nextBtn = document.getElementById('nextBtn');
+        nextBtn.style.display = current < demoQuestions.length - 1 ? 'block' : 'none';
+    } else {
+        choicesEl.innerHTML = q.choices.map((c, i) => `
+            <button class="choice-btn" onclick="selectAnswer(${i})">
+                <span class="choice-label">${labels[i]}</span>
+                <span>${c}</span>
+            </button>
+        `).join('');
+        document.getElementById('explanationArea').innerHTML = '';
+        document.getElementById('nextBtn').style.display = 'none';
+    }
+
+    answered = results[current] !== null;
+    updateQNav();
+}
+
+function selectAnswer(idx) {
+    if (answered) return;
+    answered = true;
+    answeredCount++;
+
+    const q = demoQuestions[current];
+    const btns = document.querySelectorAll('.choice-btn');
+    const isCorrect = idx === q.correct;
+
+    results[current] = isCorrect;
+
+    btns.forEach((btn, i) => {
+        if (i === q.correct) btn.classList.add('correct');
+        else if (i === idx && !isCorrect) btn.classList.add('wrong');
+        if (i !== idx && i !== q.correct) btn.classList.add('disabled');
+    });
+
+    if (isCorrect) {
+        score++;
+        const pts = 10;
+        totalPoints += pts;
+        document.getElementById('sessionPoints').textContent = totalPoints;
+        showPointPopup(`+${pts}`);
+    }
+
+    document.getElementById('explanationArea').innerHTML =
+        `<div class="explanation">${isCorrect ? '✅ ' : '❌ '}${q.explanation}</div>`;
+
+    updateSideStats();
+    updateQNav();
+
+    if (current < demoQuestions.length - 1) {
+        document.getElementById('nextBtn').style.display = 'block';
+    } else if (results.every(r => r !== null)) {
+        setTimeout(showResult, 1200);
+    }
+}
+
+function nextQuestion() {
+    // Find next unanswered, or just go to next
+    let next = current + 1;
+    if (next >= demoQuestions.length) next = 0;
+    current = next;
+    renderQuestion();
+}
+
+function showResult() {
+    document.getElementById('progressBar').style.width = '100%';
+    const pct = Math.round((score / demoQuestions.length) * 100);
+
+    document.getElementById('resultEmoji').textContent = pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '💪';
+    document.getElementById('resultTitle').textContent =
+        pct >= 80 ? '{{ t.child.result_great }}' : pct >= 50 ? '{{ t.child.result_good }}' : '{{ t.child.result_tryagain }}';
+    document.getElementById('resultScore').textContent = `${score} / ${demoQuestions.length}`;
+    document.getElementById('resultDetail').textContent = `${pct}% {{ t.child.result_correct }}`;
+    document.getElementById('resultPoints').textContent = `+${totalPoints} {{ t.child.points_label }}`;
+
+    document.getElementById('resultOverlay').classList.add('show');
+}
+
+function showPointPopup(text) {
+    const popup = document.createElement('div');
+    popup.className = 'point-popup';
+    popup.textContent = text;
+    document.body.appendChild(popup);
+    setTimeout(() => popup.remove(), 1000);
+}
+
+// ---- Mobile Accordion ----
+function toggleAccordion() {
+    document.getElementById('accToggle').classList.toggle('open');
+    document.getElementById('accBody').classList.toggle('open');
+}
+
+function buildMobileQNav() {
+    const nav = document.getElementById('mobileQNav');
+    if (!nav) return;
+    nav.innerHTML = demoQuestions.map((q, i) => `
+        <div class="mobile-q-pill ${i === current ? 'active' : ''} ${results[i] === true ? 'correct' : results[i] === false ? 'wrong' : ''}"
+             onclick="jumpToQuestion(${i})" id="mqnav-${i}">${i + 1}</div>
+    `).join('');
+}
+
+function updateMobileQNav() {
+    demoQuestions.forEach((q, i) => {
+        const el = document.getElementById(`mqnav-${i}`);
+        if (!el) return;
+        el.className = `mobile-q-pill ${i === current ? 'active' : ''} ${results[i] === true ? 'correct' : results[i] === false ? 'wrong' : ''}`;
+    });
+}
+
+function updateMobileStats() {
+    const el = (id) => document.getElementById(id);
+    if (el('mobileScore')) el('mobileScore').textContent = score;
+    if (el('mobileAnswered')) el('mobileAnswered').textContent = answeredCount;
+    if (el('mobilePoints')) el('mobilePoints').textContent = totalPoints;
+    if (el('accProgress')) el('accProgress').textContent = `${answeredCount}/${demoQuestions.length}`;
+}
+
+// Patch existing functions to also update mobile
+const _origUpdateSideStats = updateSideStats;
+updateSideStats = function() {
+    _origUpdateSideStats();
+    updateMobileStats();
+    updateMobileQNav();
+};
+
+const _origUpdateQNav = updateQNav;
+updateQNav = function() {
+    _origUpdateQNav();
+    updateMobileQNav();
+};
+
+// Init
+buildQNav();
+buildMobileQNav();
+renderQuestion();
+updateSideStats();
+updateMobileStats();
+</script>
+{% endblock %}

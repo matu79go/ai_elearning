@@ -108,6 +108,11 @@ def child_dashboard():
     return render_template('child/dashboard.html')
 
 
+@app.route('/child/study')
+def child_study():
+    return render_template('child/study.html')
+
+
 @app.route('/admin/dashboard')
 def admin_dashboard():
     return render_template('admin/dashboard.html')
@@ -122,6 +127,11 @@ def index_ja():
 @app.route('/ja/child/dashboard')
 def child_dashboard_ja():
     return render_template('child/dashboard.html')
+
+
+@app.route('/ja/child/study')
+def child_study_ja():
+    return render_template('child/study.html')
 
 
 @app.route('/ja/admin/dashboard')
