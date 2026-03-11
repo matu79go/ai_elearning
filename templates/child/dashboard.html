@@ -248,6 +248,43 @@
 
     .nav-tab-play:hover .nav-play-circle { transform: scale(1.1); }
     .nav-tab-play span { color: #6366f1; }
+
+    /* ---- Profile Menu ---- */
+    .profile-menu {
+        position: absolute;
+        bottom: 100%;
+        right: 0;
+        margin-bottom: 8px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        min-width: 180px;
+        overflow: hidden;
+        animation: slideUp 0.2s ease;
+        z-index: 100;
+    }
+
+    .profile-menu-name {
+        padding: 12px 16px;
+        font-size: 14px;
+        font-weight: 700;
+        color: #1e293b;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .profile-menu-item {
+        display: block;
+        padding: 10px 16px;
+        font-size: 13px;
+        color: #475569;
+        text-decoration: none;
+        transition: background 0.2s;
+    }
+
+    .profile-menu-item:hover { background: #f8fafc; }
+
+    .profile-menu-logout { color: #ef4444; }
+    .profile-menu-logout:hover { background: #fef2f2; }
 </style>
 {% endblock %}
 
@@ -258,9 +295,17 @@
     <div class="hero-header">
         <div class="hero-top">
             <div class="hero-user">
-                <div class="hero-avatar">🦊</div>
+                <div class="hero-avatar">
+                    {% if current_user.is_authenticated %}{{ current_user.display_name[0] }}{% else %}🦊{% endif %}
+                </div>
                 <div>
-                    <div class="hero-greeting text-responsive-xl">{{ t.child.greeting }} 👋</div>
+                    <div class="hero-greeting text-responsive-xl">
+                        {% if current_user.is_authenticated %}
+                            {{ t.child.greeting }} {{ current_user.display_name }}! 👋
+                        {% else %}
+                            {{ t.child.greeting }} 👋
+                        {% endif %}
+                    </div>
                     <div class="hero-sub">{{ t.child.lets_play }}</div>
                 </div>
             </div>
@@ -268,35 +313,37 @@
                 <a href="{{ switch_lang_url }}" class="hero-icon-btn" title="{{ t.lang_switch }}">
                     <i class="fas fa-globe"></i>
                 </a>
-                <a href="{{ '/ja/' if lang == 'ja' else '/' }}" class="hero-icon-btn" title="{{ t.child.back }}">
-                    <i class="fas fa-home"></i>
-                </a>
             </div>
         </div>
 
         <!-- Stats Bar -->
         <div class="stats-bar">
             <div class="stat-item">
-                <div class="stat-val">0</div>
+                <div class="stat-val">{{ current_user.total_points if current_user.is_authenticated else 0 }}</div>
                 <div class="stat-lbl">{{ t.child.stat_points }}</div>
             </div>
             <div class="stat-item">
-                <div class="stat-val">1</div>
+                <div class="stat-val">{{ current_user.level if current_user.is_authenticated else 1 }}</div>
                 <div class="stat-lbl">{{ t.child.stat_level }}</div>
             </div>
             <div class="stat-item">
-                <div class="stat-val">0</div>
+                <div class="stat-val">{{ current_user.streak_count if current_user.is_authenticated else 0 }}</div>
                 <div class="stat-lbl">{{ t.child.stat_streak }}</div>
             </div>
         </div>
 
         <!-- Level Progress -->
+        {% set lvl = current_user.level if current_user.is_authenticated else 1 %}
+        {% set xp = current_user.total_points if current_user.is_authenticated else 0 %}
+        {% set xp_for_level = lvl * 100 %}
+        {% set xp_in_level = xp % xp_for_level if xp_for_level > 0 else 0 %}
+        {% set xp_pct = (xp_in_level / xp_for_level * 100) | int if xp_for_level > 0 else 0 %}
         <div class="level-bar">
-            <div class="level-badge">Lv.1</div>
+            <div class="level-badge">Lv.{{ lvl }}</div>
             <div class="level-track">
-                <div class="level-fill" style="width: 0%"></div>
+                <div class="level-fill" style="width: {{ xp_pct }}%"></div>
             </div>
-            <div class="level-text">0 / 100 XP</div>
+            <div class="level-text">{{ xp_in_level }} / {{ xp_for_level }} XP</div>
         </div>
     </div>
 
@@ -420,11 +467,35 @@
             <i class="fas fa-award"></i>
             <span>{{ t.child.nav_badges }}</span>
         </a>
-        <a href="#" class="nav-tab">
+        <div class="nav-tab" style="position: relative; cursor: pointer;" onclick="toggleProfileMenu()">
             <i class="fas fa-user"></i>
             <span>{{ t.child.nav_profile }}</span>
-        </a>
+            <!-- Profile popup menu -->
+            <div id="profileMenu" class="profile-menu" style="display: none;">
+                {% if current_user.is_authenticated %}
+                <div class="profile-menu-name">
+                    <i class="fas fa-child" style="margin-right: 6px; color: #6366f1;"></i>{{ current_user.display_name }}
+                </div>
+                <a href="{{ lang_url('/child/logout') }}" class="profile-menu-item profile-menu-logout">
+                    <i class="fas fa-sign-out-alt" style="margin-right: 6px;"></i>{{ t.child.logout }}
+                </a>
+                {% endif %}
+            </div>
+        </div>
     </div>
 
 </div>
+
+<script>
+function toggleProfileMenu() {
+    const menu = document.getElementById('profileMenu');
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', function(e) {
+    const menu = document.getElementById('profileMenu');
+    if (menu && !e.target.closest('.nav-tab[onclick]')) {
+        menu.style.display = 'none';
+    }
+});
+</script>
 {% endblock %}

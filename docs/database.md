@@ -95,6 +95,7 @@ badge_desc = badge[f'description_{lang}']
 | email | VARCHAR(255) UNIQUE | メールアドレス |
 | password_hash | VARCHAR(255) | パスワードハッシュ |
 | display_name | VARCHAR(100) | 表示名 |
+| family_code | VARCHAR(10) UNIQUE | 家族コード（子供ログイン用、自動生成） |
 
 ### children
 | カラム | 型 | 説明 |

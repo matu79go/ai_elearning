@@ -51,9 +51,11 @@ docker exec elearn_mysql mysql -uroot -p${MYSQL_ROOT_PASSWORD} elearning -e "SQL
 ai_elearning/
 ├── CLAUDE.md          # 基本ルール（このファイル）
 ├── docs/              # 設計ドキュメント
-├── app.py             # Flaskメインアプリ
+├── app.py             # Flaskアプリ初期化 + i18n（薄く保つ）
 ├── config.py          # DB接続等の設定
 ├── requirements.txt   # Pythonパッケージ
+├── models/            # SQLAlchemyモデル（機能単位で分割）
+├── routes/            # Blueprintルート（機能単位で分割）
 ├── Dockerfile
 ├── docker-compose.yml
 ├── docker-compose.override.yml  # ローカル開発用(phpMyAdmin)

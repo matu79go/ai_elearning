@@ -7,13 +7,13 @@
         <p class="text-lg sm:text-xl text-gray-600 mb-8">{{ t.top.subtitle }}</p>
     </div>
     <div class="flex flex-col sm:flex-row gap-4 sm:gap-6 w-full sm:w-auto">
-        <a href="{{ '/ja/child/dashboard' if lang == 'ja' else '/child/dashboard' }}"
+        <a href="{{ lang_url('/child/login') }}"
            class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-4 px-8 rounded-2xl text-lg sm:text-xl shadow-lg transform hover:scale-105 transition-all duration-200 text-center">
-            {{ t.top.start_learning }}
+            {{ t.top.child_login }}
         </a>
-        <a href="{{ '/ja/admin/dashboard' if lang == 'ja' else '/admin/dashboard' }}"
+        <a href="{{ lang_url('/parent/login') }}"
            class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-4 px-8 rounded-2xl text-lg sm:text-xl shadow-lg transform hover:scale-105 transition-all duration-200 text-center">
-            {{ t.top.admin_panel }}
+            {{ t.top.parent_login }}
         </a>
     </div>
 </div>

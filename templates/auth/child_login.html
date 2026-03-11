@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}{{ t.auth.child_login_title }}{% endblock %}
+{% block head %}
+<style>
+    .code-input {
+        letter-spacing: 8px;
+        font-size: 24px;
+        text-align: center;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    .avatar-card {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 3px solid transparent;
+    }
+    .avatar-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.2);
+    }
+    .avatar-card.selected {
+        border-color: #6366f1;
+        background: #eef2ff;
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
+    }
+    .pin-input {
+        letter-spacing: 12px;
+        font-size: 28px;
+        text-align: center;
+        font-weight: 700;
+    }
+
+    @media (min-width: 640px) {
+        .children-grid { grid-template-columns: repeat(3, 1fr); }
+        .code-input { font-size: 28px; letter-spacing: 10px; }
+    }
+</style>
+{% endblock %}
+{% block body %}
+<div class="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-amber-100 flex items-center justify-center px-4 py-8">
+    <div class="page-container narrow">
+        <div class="max-w-lg mx-auto">
+            <!-- Header -->
+            <div class="text-center mb-8 animate-bounce-in">
+                <div class="text-5xl mb-3">&#x1F393;</div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">{{ t.auth.child_login_heading }}</h1>
+            </div>
+
+            <!-- Flash messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="mb-6">
+                {% for category, msg in messages %}
+                <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm animate-shake">
+                    <i class="fas fa-exclamation-circle mr-2"></i>{{ t.auth[msg] if t.auth[msg] is defined else msg }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+
+            {% if step == 'code' %}
+            <!-- ==================== Step 1: Family Code ==================== -->
+            <form method="POST">
+                <input type="hidden" name="step" value="code">
+                <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-lg text-center animate-slide-up">
+                    <div class="text-4xl mb-3">&#x1F3E0;</div>
+                    <p class="text-gray-600 font-medium mb-2">{{ t.auth.family_code_label }}</p>
+                    <p class="text-gray-400 text-xs mb-5">{{ t.auth.family_code_help }}</p>
+                    <input type="text" name="family_code" maxlength="6" required autofocus autocomplete="off"
+                           placeholder="{{ t.auth.family_code_placeholder }}"
+                           class="code-input w-full max-w-[260px] mx-auto block px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
+                           style="text-transform: uppercase;">
+                    <button type="submit"
+                            class="mt-5 w-full max-w-[260px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-[1.02] shadow-md">
+                        {{ t.auth.next }} <i class="fas fa-arrow-right ml-1"></i>
+                    </button>
+                </div>
+            </form>
+
+            {% elif step == 'select' %}
+            <!-- ==================== Step 2: Select Child + PIN ==================== -->
+            <form method="POST" id="childLoginForm">
+                <input type="hidden" name="step" value="pin">
+                <input type="hidden" name="family_code" value="{{ family_code }}">
+
+                <!-- Step 2a: Choose child -->
+                <div id="stepSelect">
+                    <p class="text-center text-gray-600 font-medium mb-4">{{ t.auth.select_name }}</p>
+                    <div class="children-grid grid grid-cols-2 gap-3 sm:gap-4">
+                        {% for child in children %}
+                        <div class="avatar-card bg-white rounded-2xl p-4 sm:p-5 text-center shadow-md {% if selected_child_id is defined and selected_child_id == child.child_id %}selected{% endif %}"
+                             onclick="selectChild({{ child.child_id }}, '{{ child.display_name }}', this)">
+                            <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center mx-auto mb-2 text-white text-xl sm:text-2xl font-bold">
+                                {{ child.display_name[0] }}
+                            </div>
+                            <p class="font-bold text-gray-800 text-sm sm:text-base">{{ child.display_name }}</p>
+                            {% if child.grade %}
+                            <p class="text-xs text-gray-400 mt-1">
+                                {% if lang == 'ja' %}{{ child.grade }}年生{% else %}Grade {{ child.grade }}{% endif %}
+                            </p>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <!-- Back to code input -->
+                    <div class="text-center mt-4">
+                        <button type="button" onclick="window.location.href='{{ lang_url('/child/login') }}'"
+                                class="text-sm text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-arrow-left mr-1"></i>{{ t.auth.try_different_code }}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 2b: PIN input (hidden initially) -->
+                <div id="stepPin" class="hidden">
+                    <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-lg text-center animate-slide-up">
+                        <div class="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center mx-auto mb-3 text-white text-2xl font-bold" id="selectedAvatar"></div>
+                        <p class="font-bold text-lg text-gray-800 mb-5" id="selectedName"></p>
+                        <p class="text-gray-600 text-sm mb-4">{{ t.auth.enter_pin }}</p>
+                        <input type="hidden" name="child_id" id="childIdInput">
+                        <input type="password" name="pin" maxlength="4" pattern="[0-9]{4}" inputmode="numeric" required
+                               placeholder="&#x2022;&#x2022;&#x2022;&#x2022;"
+                               class="pin-input w-full max-w-[200px] mx-auto block px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
+                               id="pinInput">
+                        <button type="submit"
+                                class="mt-5 w-full max-w-[200px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-[1.02] shadow-md">
+                            {{ t.auth.go }}
+                        </button>
+                        <button type="button" onclick="backToSelect()"
+                                class="mt-3 text-sm text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-arrow-left mr-1"></i>{{ t.child.back }}
+                        </button>
+                    </div>
+                </div>
+            </form>
+            {% endif %}
+
+            <!-- Back link -->
+            <div class="text-center mt-6">
+                <a href="{{ lang_url('/') }}" class="text-sm text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-arrow-left mr-1"></i>{{ t.auth.back_to_top }}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function selectChild(childId, name, el) {
+    document.getElementById('childIdInput').value = childId;
+    document.getElementById('selectedName').textContent = name;
+    document.getElementById('selectedAvatar').textContent = name[0];
+
+    document.getElementById('stepSelect').classList.add('hidden');
+    document.getElementById('stepPin').classList.remove('hidden');
+
+    setTimeout(() => document.getElementById('pinInput').focus(), 300);
+}
+
+function backToSelect() {
+    document.getElementById('stepPin').classList.add('hidden');
+    document.getElementById('stepSelect').classList.remove('hidden');
+    document.getElementById('pinInput').value = '';
+    document.querySelectorAll('.avatar-card').forEach(c => c.classList.remove('selected'));
+}
+
+{% if selected_child_id is defined and selected_child_id %}
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.avatar-card');
+    cards.forEach(card => {
+        if (card.classList.contains('selected')) {
+            card.click();
+        }
+    });
+});
+{% endif %}
+</script>
+{% endblock %}

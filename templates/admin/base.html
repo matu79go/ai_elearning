@@ -163,11 +163,6 @@
             border-radius: 2px;
         }
 
-        .header-date {
-            font-size: 13px;
-            color: #64748b;
-        }
-
         .header-right {
             display: flex;
             align-items: center;
@@ -185,12 +180,15 @@
             cursor: pointer;
             text-decoration: none;
             transition: all 0.2s;
+            white-space: nowrap;
         }
 
         .lang-switch-btn:hover {
             background: #e2e8f0;
             color: #1e293b;
         }
+
+        .btn-label { display: inline; }
 
         .header-user {
             display: flex;
@@ -396,6 +394,13 @@
             .content { padding: 1rem; }
 
             .header-user-name { display: none; }
+
+            .header-right { gap: 0.4rem; }
+            .lang-switch-btn { padding: 6px 8px; font-size: 12px; }
+            .btn-label { display: none; }
+
+            .header-user { padding: 4px 8px; }
+            .header-user-avatar { width: 28px; height: 28px; font-size: 12px; }
         }
 
         @media (max-width: 480px) {
@@ -438,6 +443,14 @@
                    class="nav-link {% if request.endpoint in ['admin_dashboard', 'admin_dashboard_ja'] %}active{% endif %}">
                     <i class="fas fa-th-large"></i>
                     <span>{{ t.admin.dashboard }}</span>
+                </a>
+            </div>
+
+            <div class="nav-item">
+                <a href="{{ lang_url('/admin/children') }}"
+                   class="nav-link {% if 'admin_children' in request.endpoint %}active{% endif %}">
+                    <i class="fas fa-child"></i>
+                    <span>{{ t.admin.menu_children }}</span>
                 </a>
             </div>
 
@@ -509,13 +522,24 @@
             <button class="hamburger-btn" onclick="toggleSidebar()">
                 <span></span><span></span><span></span>
             </button>
-            <span class="header-date" id="current-datetime"></span>
         </div>
         <div class="header-right">
             <a href="{{ switch_lang_url }}" class="lang-switch-btn">{{ t.lang_switch }}</a>
-            <a href="{{ '/ja/' if lang == 'ja' else '/' }}" class="lang-switch-btn" style="background: #6366f1; color: white; border-color: #6366f1;">
-                <i class="fas fa-home" style="margin-right: 4px;"></i>{{ t.admin.back_to_top }}
+            {% if current_user.is_authenticated %}
+            <div class="header-user">
+                <div class="header-user-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <span class="header-user-name">{{ current_user.display_name }}</span>
+            </div>
+            <a href="{{ lang_url('/parent/logout') }}" class="lang-switch-btn" style="color: #ef4444; border-color: #fecaca;">
+                <i class="fas fa-sign-out-alt"></i><span class="btn-label" style="margin-left: 4px;">{{ t.admin.logout }}</span>
             </a>
+            {% else %}
+            <a href="{{ lang_url('/parent/login') }}" class="lang-switch-btn" style="background: #6366f1; color: white; border-color: #6366f1;">
+                <i class="fas fa-sign-in-alt"></i><span class="btn-label" style="margin-left: 4px;">{{ t.auth.login }}</span>
+            </a>
+            {% endif %}
         </div>
     </header>
 
@@ -533,14 +557,6 @@
             document.querySelector('.sidebar-overlay').classList.toggle('open');
         }
 
-        // Date display
-        function updateDateTime() {
-            const now = new Date();
-            const opts = { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit' };
-            document.getElementById('current-datetime').textContent = now.toLocaleDateString('{{ lang }}', opts);
-        }
-        updateDateTime();
-        setInterval(updateDateTime, 60000);
     </script>
     {% block scripts %}{% endblock %}
 </body>
