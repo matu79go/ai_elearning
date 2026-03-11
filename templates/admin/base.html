@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ t.admin.heading }}{% endblock %}</title>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+
+        /* ---- Sidebar ---- */
+        .sidebar {
+            position: fixed;
+            top: 0; left: 0;
+            width: 260px; height: 100vh;
+            background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+            padding: 1.5rem 0;
+            overflow-y: auto;
+            z-index: 1200;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-brand {
+            position: relative;
+            padding: 0 1.5rem 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 0.5rem;
+        }
+
+        .sidebar-brand a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }
+
+        .brand-icon {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+
+        .brand-text h3 {
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .brand-text p {
+            color: rgba(255,255,255,0.5);
+            font-size: 11px;
+            margin-top: 2px;
+        }
+
+        .sidebar-close-btn {
+            display: none;
+            position: absolute;
+            top: 0; right: 1rem;
+            width: 32px; height: 32px;
+            background: rgba(255,255,255,0.1);
+            border: none; border-radius: 8px;
+            color: white; font-size: 16px;
+            cursor: pointer;
+            align-items: center; justify-content: center;
+        }
+
+        .sidebar-nav { flex: 1; }
+
+        .nav-item { padding: 2px 0.75rem; }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            color: rgba(255,255,255,0.6);
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover {
+            color: white;
+            background: rgba(255,255,255,0.08);
+        }
+
+        .nav-link.active {
+            color: white;
+            background: rgba(99,102,241,0.3);
+        }
+
+        .nav-link i { width: 20px; text-align: center; font-size: 15px; }
+
+        .nav-category {
+            padding: 1rem 1.5rem 0.25rem;
+        }
+
+        .nav-category-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: rgba(255,255,255,0.3);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-category-label i { font-size: 10px; }
+
+        /* ---- Header ---- */
+        .header {
+            position: fixed;
+            top: 0; left: 260px; right: 0;
+            height: 60px;
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1.5rem;
+            z-index: 1100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .hamburger-btn {
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+        }
+
+        .hamburger-btn span {
+            width: 20px; height: 2px;
+            background: #64748b;
+            border-radius: 2px;
+        }
+
+        .header-date {
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .lang-switch-btn {
+            padding: 6px 14px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #475569;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .lang-switch-btn:hover {
+            background: #e2e8f0;
+            color: #1e293b;
+        }
+
+        .header-user {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+
+        .header-user-avatar {
+            width: 32px; height: 32px;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+        }
+
+        .header-user-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        /* ---- Main Content ---- */
+        .main-content {
+            margin-left: 260px;
+            padding-top: 60px;
+        }
+
+        .content {
+            padding: 1.5rem;
+            max-width: 1400px;
+        }
+
+        /* ---- Section Card ---- */
+        .section-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .section-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title i { color: #6366f1; }
+
+        .section-body { padding: 1rem 1.5rem; }
+
+        /* ---- Stat Cards ---- */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .stat-icon {
+            width: 48px; height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .stat-icon.purple { background: #ede9fe; color: #7c3aed; }
+        .stat-icon.green  { background: #d1fae5; color: #059669; }
+        .stat-icon.amber  { background: #fef3c7; color: #d97706; }
+        .stat-icon.blue   { background: #dbeafe; color: #2563eb; }
+
+        .stat-info .stat-label {
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .stat-info .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1e293b;
+            line-height: 1.2;
+        }
+
+        /* ---- Menu Grid ---- */
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        .menu-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        .menu-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .menu-card-icon {
+            width: 44px; height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            margin-bottom: 1rem;
+        }
+
+        .menu-card h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+
+        .menu-card p {
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.4;
+        }
+
+        /* ---- Sidebar Overlay (mobile) ---- */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1100;
+        }
+
+        /* ---- Mobile Responsive ---- */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .sidebar-close-btn { display: flex; }
+            .sidebar-overlay.open { display: block; }
+
+            .header { left: 0; }
+            .hamburger-btn { display: flex; }
+
+            .main-content { margin-left: 0; }
+
+            .stat-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.75rem;
+            }
+
+            .menu-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .section-header {
+                padding: 0.75rem 1rem;
+            }
+
+            .section-body { padding: 0.75rem 1rem; }
+
+            .content { padding: 1rem; }
+
+            .header-user-name { display: none; }
+        }
+
+        @media (max-width: 480px) {
+            .stat-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .stat-card { padding: 1rem; }
+            .stat-info .stat-value { font-size: 22px; }
+        }
+
+        {% block extra_css %}{% endblock %}
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <!-- Sidebar Overlay (mobile) -->
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <a href="{{ '/ja/admin/dashboard' if lang == 'ja' else '/admin/dashboard' }}">
+                <div class="brand-icon">
+                    <i class="fas fa-graduation-cap"></i>
+                </div>
+                <div class="brand-text">
+                    <h3>{{ t.site_name }}</h3>
+                    <p>{{ t.admin.heading }}</p>
+                </div>
+            </a>
+            <button class="sidebar-close-btn" onclick="toggleSidebar()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-item">
+                <a href="{{ '/ja/admin/dashboard' if lang == 'ja' else '/admin/dashboard' }}"
+                   class="nav-link {% if request.endpoint in ['admin_dashboard', 'admin_dashboard_ja'] %}active{% endif %}">
+                    <i class="fas fa-th-large"></i>
+                    <span>{{ t.admin.dashboard }}</span>
+                </a>
+            </div>
+
+            <div class="nav-category">
+                <div class="nav-category-label">
+                    <i class="fas fa-book"></i>
+                    <span>{{ t.admin.nav_content if t.admin.nav_content else 'Content' }}</span>
+                </div>
+            </div>
+
+            <div class="nav-item">
+                <a href="#" class="nav-link">
+                    <i class="fas fa-file-alt"></i>
+                    <span>{{ t.admin.menu_materials }}</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="#" class="nav-link">
+                    <i class="fas fa-question-circle"></i>
+                    <span>{{ t.admin.menu_questions }}</span>
+                </a>
+            </div>
+
+            <div class="nav-category">
+                <div class="nav-category-label">
+                    <i class="fas fa-users"></i>
+                    <span>{{ t.admin.nav_management if t.admin.nav_management else 'Management' }}</span>
+                </div>
+            </div>
+
+            <div class="nav-item">
+                <a href="#" class="nav-link">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>{{ t.admin.menu_progress }}</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="#" class="nav-link">
+                    <i class="fas fa-coins"></i>
+                    <span>{{ t.admin.menu_points }}</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="#" class="nav-link">
+                    <i class="fas fa-award"></i>
+                    <span>{{ t.admin.menu_badges }}</span>
+                </a>
+            </div>
+
+            <div class="nav-category">
+                <div class="nav-category-label">
+                    <i class="fas fa-cog"></i>
+                    <span>{{ t.admin.nav_settings if t.admin.nav_settings else 'Settings' }}</span>
+                </div>
+            </div>
+
+            <div class="nav-item">
+                <a href="#" class="nav-link">
+                    <i class="fas fa-bell"></i>
+                    <span>{{ t.admin.menu_notifications }}</span>
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="hamburger-btn" onclick="toggleSidebar()">
+                <span></span><span></span><span></span>
+            </button>
+            <span class="header-date" id="current-datetime"></span>
+        </div>
+        <div class="header-right">
+            <a href="{{ switch_lang_url }}" class="lang-switch-btn">{{ t.lang_switch }}</a>
+            <a href="{{ '/ja/' if lang == 'ja' else '/' }}" class="lang-switch-btn" style="background: #6366f1; color: white; border-color: #6366f1;">
+                <i class="fas fa-home" style="margin-right: 4px;"></i>{{ t.admin.back_to_top }}
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="content">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <script>
+        // Sidebar toggle
+        function toggleSidebar() {
+            document.querySelector('.sidebar').classList.toggle('open');
+            document.querySelector('.sidebar-overlay').classList.toggle('open');
+        }
+
+        // Date display
+        function updateDateTime() {
+            const now = new Date();
+            const opts = { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit' };
+            document.getElementById('current-datetime').textContent = now.toLocaleDateString('{{ lang }}', opts);
+        }
+        updateDateTime();
+        setInterval(updateDateTime, 60000);
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

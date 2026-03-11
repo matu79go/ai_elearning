@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{{ t.child.dashboard_title }}{% endblock %}
+{% block body %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <h1 class="text-xl sm:text-2xl font-bold text-indigo-600">{{ t.site_name }}</h1>
+            <div class="flex items-center gap-2 sm:gap-4">
+                <div class="bg-amber-100 text-amber-700 px-3 sm:px-4 py-2 rounded-full font-bold text-sm sm:text-base">
+                    <span class="animate-sparkle inline-block">★</span> 0 {{ t.child.points_label }}
+                </div>
+                <a href="{{ '/ja/' if lang == 'ja' else '/' }}" class="text-gray-500 hover:text-gray-700 text-sm sm:text-base">{{ t.child.back }}</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main class="max-w-6xl mx-auto px-4 py-6 sm:py-8">
+        <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">{{ t.child.greeting }}</h2>
+
+        <!-- Menu Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div class="bg-white rounded-2xl shadow-md p-5 sm:p-6 hover:shadow-lg transform hover:scale-[1.02] transition-all cursor-pointer active:scale-95">
+                <div class="text-3xl sm:text-4xl mb-3">📚</div>
+                <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-2">{{ t.child.menu_study }}</h3>
+                <p class="text-gray-600 text-sm sm:text-base">{{ t.child.menu_study_desc }}</p>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-md p-5 sm:p-6 hover:shadow-lg transform hover:scale-[1.02] transition-all cursor-pointer active:scale-95">
+                <div class="text-3xl sm:text-4xl mb-3">🏆</div>
+                <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-2">{{ t.child.menu_badges }}</h3>
+                <p class="text-gray-600 text-sm sm:text-base">{{ t.child.menu_badges_desc }}</p>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-md p-5 sm:p-6 hover:shadow-lg transform hover:scale-[1.02] transition-all cursor-pointer active:scale-95">
+                <div class="text-3xl sm:text-4xl mb-3">📊</div>
+                <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-2">{{ t.child.menu_history }}</h3>
+                <p class="text-gray-600 text-sm sm:text-base">{{ t.child.menu_history_desc }}</p>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}

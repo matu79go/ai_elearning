@@ -1,0 +1,57 @@
+{
+    "site_name": "AI e-Learning",
+    "lang_switch": "日本語",
+    "lang_code": "en",
+
+    "top": {
+        "title": "AI e-Learning - Welcome!",
+        "heading": "AI e-Learning",
+        "subtitle": "Learn and have fun!",
+        "start_learning": "Start Learning",
+        "admin_panel": "Admin Panel"
+    },
+
+    "child": {
+        "dashboard_title": "My Page - AI e-Learning",
+        "points_label": "Points",
+        "back": "Back",
+        "greeting": "Hello!",
+        "menu_study": "Study",
+        "menu_study_desc": "Challenge yourself with questions!",
+        "menu_badges": "Badge Collection",
+        "menu_badges_desc": "Check out your earned badges!",
+        "menu_history": "History",
+        "menu_history_desc": "Review your progress!"
+    },
+
+    "admin": {
+        "dashboard_title": "Admin Panel - AI e-Learning",
+        "heading": "Admin Panel",
+        "back_to_top": "Top",
+        "dashboard": "Dashboard",
+        "stat_users": "Registered Users",
+        "stat_questions": "Questions",
+        "stat_today": "Today's Study",
+        "stat_points": "Total Points Awarded",
+        "menu_materials": "Material Management",
+        "menu_materials_desc": "Add, edit, delete learning materials",
+        "menu_questions": "Question Management",
+        "menu_questions_desc": "Review & edit AI-generated questions",
+        "menu_progress": "Learning Progress",
+        "menu_progress_desc": "View children's progress at a glance",
+        "menu_points": "Point Management",
+        "menu_points_desc": "View & manually adjust points",
+        "menu_badges": "Badge Management",
+        "menu_badges_desc": "Add badges & set conditions",
+        "menu_notifications": "Notification Settings",
+        "menu_notifications_desc": "Configure email notifications",
+        "nav_content": "Content",
+        "nav_management": "Management",
+        "nav_settings": "Settings",
+        "recent_activity": "Recent Activity",
+        "no_activity": "No activity yet",
+        "learning_summary": "Learning Summary",
+        "no_data": "No data yet",
+        "quick_actions": "Quick Actions"
+    }
+}

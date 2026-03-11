@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ t.site_name }}{% endblock %}</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366f1',
+                        secondary: '#f59e0b',
+                        accent: '#10b981',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes bounce-in {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-bounce-in { animation: bounce-in 0.5s ease-out; }
+        @keyframes sparkle {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+        .animate-sparkle { animation: sparkle 1s ease-in-out infinite; }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Language Switch (global, top-right) -->
+    <div class="fixed top-3 right-3 z-50">
+        <a href="{{ switch_lang_url }}"
+           class="bg-white/90 backdrop-blur text-sm font-medium text-gray-700 px-3 py-1.5 rounded-full shadow hover:shadow-md transition-all border border-gray-200">
+            {{ t.lang_switch }}
+        </a>
+    </div>
+    {% block body %}{% endblock %}
+    {% block scripts %}{% endblock %}
+</body>
+</html>

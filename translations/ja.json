@@ -1,0 +1,57 @@
+{
+    "site_name": "AI e-Learning",
+    "lang_switch": "English",
+    "lang_code": "ja",
+
+    "top": {
+        "title": "AI e-Learning - ようこそ！",
+        "heading": "AI e-Learning",
+        "subtitle": "楽しく学ぼう！",
+        "start_learning": "学習をはじめる",
+        "admin_panel": "管理画面"
+    },
+
+    "child": {
+        "dashboard_title": "マイページ - AI e-Learning",
+        "points_label": "ポイント",
+        "back": "もどる",
+        "greeting": "こんにちは！",
+        "menu_study": "学習する",
+        "menu_study_desc": "問題にチャレンジしよう！",
+        "menu_badges": "バッジコレクション",
+        "menu_badges_desc": "獲得したバッジをみよう！",
+        "menu_history": "きろく",
+        "menu_history_desc": "これまでのがんばりを確認！"
+    },
+
+    "admin": {
+        "dashboard_title": "管理画面 - AI e-Learning",
+        "heading": "管理画面",
+        "back_to_top": "トップへ",
+        "dashboard": "ダッシュボード",
+        "stat_users": "登録ユーザー",
+        "stat_questions": "問題数",
+        "stat_today": "今日の学習",
+        "stat_points": "付与ポイント合計",
+        "menu_materials": "マテリアル管理",
+        "menu_materials_desc": "学習素材の追加・編集・削除",
+        "menu_questions": "問題管理",
+        "menu_questions_desc": "AI自動生成問題の確認・編集",
+        "menu_progress": "学習状況",
+        "menu_progress_desc": "子供の学習進捗を一目で確認",
+        "menu_points": "ポイント管理",
+        "menu_points_desc": "ポイントの確認・手動調整",
+        "menu_badges": "バッジ管理",
+        "menu_badges_desc": "バッジの追加・条件設定",
+        "menu_notifications": "通知設定",
+        "menu_notifications_desc": "メール通知の設定",
+        "nav_content": "コンテンツ",
+        "nav_management": "管理",
+        "nav_settings": "設定",
+        "recent_activity": "最近のアクティビティ",
+        "no_activity": "まだアクティビティがありません",
+        "learning_summary": "学習サマリー",
+        "no_data": "まだデータがありません",
+        "quick_actions": "クイックアクション"
+    }
+}

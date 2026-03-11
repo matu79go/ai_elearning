@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{{ t.top.title }}{% endblock %}
+{% block body %}
+<div class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-amber-100 px-4">
+    <div class="text-center animate-bounce-in">
+        <h1 class="text-4xl sm:text-5xl font-bold text-indigo-600 mb-4">{{ t.top.heading }}</h1>
+        <p class="text-lg sm:text-xl text-gray-600 mb-8">{{ t.top.subtitle }}</p>
+    </div>
+    <div class="flex flex-col sm:flex-row gap-4 sm:gap-6 w-full sm:w-auto">
+        <a href="{{ '/ja/child/dashboard' if lang == 'ja' else '/child/dashboard' }}"
+           class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-4 px-8 rounded-2xl text-lg sm:text-xl shadow-lg transform hover:scale-105 transition-all duration-200 text-center">
+            {{ t.top.start_learning }}
+        </a>
+        <a href="{{ '/ja/admin/dashboard' if lang == 'ja' else '/admin/dashboard' }}"
+           class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-4 px-8 rounded-2xl text-lg sm:text-xl shadow-lg transform hover:scale-105 transition-all duration-200 text-center">
+            {{ t.top.admin_panel }}
+        </a>
+    </div>
+</div>
+{% endblock %}
