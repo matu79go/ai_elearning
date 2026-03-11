@@ -28,6 +28,7 @@
 6. **日英両対応必須** — 新しい画面・文言追加時は必ず `en.json` と `ja.json` の両方に追加する
 7. **マルチデバイス最適化必須** — 全画面でスマホ・タブレット・PC表示を考慮する。`base.html` の共通レスポンシブクラス（`page-container`, `responsive-grid-2`, `h-scroll`, `text-responsive-*`, `px-responsive`, `bottom-nav-shared`）を活用し、各ページ固有のCSSでは重複定義しないこと。ブレークポイント: `sm:640px` / `md:768px` / `lg:1024px`
 8. **作業ログを `docs/blogs/` に記録する** — 技術ブログとして公開するため、作業の経緯をドキュメント化
+9. **DB設計ルールは `docs/database.md` を参照** — マスターテーブルのバイリンガル規約（`_en`/`_ja` カラム必須）等、DB関連のルールはすべて `docs/database.md` に記載
 
 ---
 
