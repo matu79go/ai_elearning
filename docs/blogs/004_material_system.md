@@ -54,24 +54,15 @@ CGPの教科書は著作権があるため直接使えない。オープンソ�
 - **Open Government Licence v3.0**（非商業・教育目的OK）
 - 各レッスンにスライド・ワークシート・クイズ・動画が付属
 
-### スクレイピング手法
+### データ連携
 
-Oak のWebページは Next.js で構成されており、`<script id="__NEXT_DATA__">` タグ内に教材データがJSON形式で埋め込まれている。APIキー不要でアクセス可能。
+Oak National Academyの公式API（https://open-api.thenational.academy/）を利用してデータを取得する。OGLライセンスで公開されたコンテンツに、APIキーでアクセスする形。
 
-取得できるデータ：
-- **Key Learning Points**（学習ポイント）
-- **Keywords + 定義**
-- **Misconceptions**（よくある誤解と修正）
-- **Lesson Transcript**（授業の書き起こし、約20,000-25,000文字/レッスン）
-- **Starter Quiz / Exit Quiz**（問題・選択肢・正解）
-
-### レート制限
-
-サーバー負荷を避けるため以下の間隔を設定：
-- リクエスト間: 2秒
-- 単元間: 3秒
-- 教科間: 5秒
-- User-Agent明示: `OakContentImporter/1.0 (personal education project)`
+APIで取得できるデータ：
+- **Lesson Summary**: レッスンタイトル、Key Learning Points、Keywords、Misconceptions
+- **Lesson Transcript**: 授業の書き起こし（約20,000-25,000文字/レッスン）
+- **Quiz Questions**: Starter Quiz / Exit Quiz（問題・選択肢・正解）
+- **Assets**: スライドデッキ、ワークシートPDF等
 
 ### インポート結果（Year 7）
 
@@ -85,11 +76,7 @@ Oak のWebページは Next.js で構成されており、`<script id="__NEXT_DA
 | Computing | 進行中 | - | - |
 | Spanish | 進行中 | - | - |
 
-### 公式API
-
-Oak National Academyの公式API（https://open-api.thenational.academy/）にもキーを申請済み。承認されればスクレイピングからAPIに切り替え予定。
-
-詳細は `docs/oak_import.md` に記載。
+APIキー申請済み、取り込みバッチスクリプトも作成済み。詳細は `docs/oak_import.md` に記載。
 
 ---
 
@@ -137,7 +124,7 @@ Oak National Academyの公式API（https://open-api.thenational.academy/）に�
 
 - `LLM_PROVIDER` 環境変数でGemini/OpenAIを切り替え
 - `LLM_MODEL_GENERATE` / `LLM_MODEL_SCORING` で用途別にモデル指定可能
-- JSONパース: `__NEXT_DATA__` 的なコードブロック抽出 + 配列検出のフォールバック
+- JSONパース: コードブロック抽出 + 配列検出のフォールバック
 
 ---
 
