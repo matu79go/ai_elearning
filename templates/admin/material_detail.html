@@ -1,0 +1,542 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ material.title }} - AI e-Learning{% endblock %}
+{% block content %}
+
+<!-- Header -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem;">
+    <div>
+        <h1 style="font-size: 22px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">
+            <i class="fas fa-file-alt" style="color: #6366f1; margin-right: 8px;"></i>{{ material.title }}
+        </h1>
+        <div class="material-meta">
+            <span class="badge badge-subject">{{ material.subject or t.admin.subject_other }}</span>
+            <span class="badge badge-lang">{{ material.language|upper }}</span>
+            <span class="badge badge-status badge-{{ material.status }}">{{ t.admin['status_' ~ material.status] }}</span>
+            <span class="badge badge-diff">{{ t.admin['difficulty_' ~ material.difficulty] }}</span>
+        </div>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <a href="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/edit') }}" class="action-btn">
+            <i class="fas fa-edit"></i> {{ t.admin.edit }}
+        </a>
+        <form method="POST" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/delete') }}"
+              onsubmit="return confirm('{{ t.admin.delete_material_confirm }}')" style="display:inline;">
+            <button type="submit" class="action-btn action-btn-danger">
+                <i class="fas fa-trash-alt"></i> {{ t.admin.delete }}
+            </button>
+        </form>
+        <a href="{{ lang_url('/admin/materials/year/' ~ material.year_group ~ '/' ~ material.subject) }}" class="action-btn">
+            <i class="fas fa-arrow-left"></i> {{ t.admin.back_to_materials }}
+        </a>
+    </div>
+</div>
+
+<!-- Flash messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div style="margin-bottom: 1rem;">
+    {% for category, msg in messages %}
+    <div class="flash-msg {{ 'flash-success' if category == 'success' else 'flash-error' }}">
+        <i class="fas {{ 'fa-check-circle' if category == 'success' else 'fa-exclamation-circle' }}" style="margin-right: 6px;"></i>
+        {% if msg.startswith('questions_generated:') %}
+            {{ t.admin.questions_generated }} ({{ msg.split(':')[1] }})
+        {% else %}
+            {{ t.admin[msg] if t.admin[msg] is defined else msg }}
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<!-- Description -->
+{% if material.description %}
+<div class="section-card" style="margin-bottom: 1rem;">
+    <div class="section-body" style="padding: 1rem 1.5rem;">
+        <p style="font-size: 14px; color: #475569;">{{ material.description }}</p>
+    </div>
+</div>
+{% endif %}
+
+<!-- Tabs -->
+<div class="tabs" style="margin-bottom: 1rem;">
+    <button class="tab-btn active" onclick="switchTab('content')">
+        <i class="fas fa-layer-group"></i> {{ t.admin.tab_content }} ({{ chunks|length }})
+    </button>
+    <button class="tab-btn" onclick="switchTab('questions')">
+        <i class="fas fa-question-circle"></i> {{ t.admin.tab_questions }} ({{ total_questions }})
+    </button>
+</div>
+
+<!-- Tab: Content (Chunks) -->
+<div id="tab-content">
+    <!-- Add Chunk Form -->
+    <div class="section-card" style="margin-bottom: 1rem;">
+        <div class="section-header" style="cursor: pointer;" onclick="toggleAddChunk()">
+            <div class="section-title">
+                <i class="fas fa-plus-circle"></i> {{ t.admin.add_chunk }}
+            </div>
+            <i class="fas fa-chevron-down" id="addChunkArrow" style="color: #94a3b8; font-size: 12px;"></i>
+        </div>
+        <div id="addChunkForm" style="display: none;">
+            <div class="section-body">
+                <form method="POST" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks') }}">
+                    <div style="margin-bottom: 0.75rem;">
+                        <label class="form-label">{{ t.admin.chunk_title }} <span style="color: #ef4444;">*</span></label>
+                        <input type="text" name="chunk_title" required
+                               placeholder="{{ t.admin.chunk_title_placeholder }}" class="form-input">
+                    </div>
+                    <div style="margin-bottom: 0.75rem;">
+                        <label class="form-label">{{ t.admin.chunk_content }} <span style="color: #ef4444;">*</span></label>
+                        <textarea name="chunk_content" required
+                                  placeholder="{{ t.admin.chunk_content_placeholder }}"
+                                  class="form-input" style="min-height: 150px; resize: vertical; line-height: 1.6;"></textarea>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                        <button type="submit" class="btn-save">
+                            <i class="fas fa-check" style="margin-right: 4px;"></i>{{ t.admin.save }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chunks List -->
+    {% if chunks %}
+    <div class="chunks-list">
+        {% for chunk in chunks %}
+        <div class="section-card chunk-card">
+            <div class="chunk-header" onclick="toggleChunk({{ chunk.chunk_id }})">
+                <div class="section-title" style="font-size: 14px;">
+                    <span class="chunk-number">{{ loop.index }}</span>
+                    {{ chunk.title }}
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <form method="POST"
+                          action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks/' ~ chunk.chunk_id ~ '/delete') }}"
+                          onsubmit="event.stopPropagation(); return confirm('{{ t.admin.delete_chunk_confirm }}')">
+                        <button type="submit" class="btn-icon-delete" title="{{ t.admin.delete }}">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </form>
+                    <i class="fas fa-chevron-down chunk-arrow" id="arrow-{{ chunk.chunk_id }}" style="color: #94a3b8; font-size: 12px;"></i>
+                </div>
+            </div>
+            <div class="chunk-body" id="chunk-{{ chunk.chunk_id }}" style="display: none;">
+                <div class="section-body">
+                    <pre class="chunk-content">{{ chunk.content }}</pre>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="section-card">
+        <div class="section-body" style="text-align: center; padding: 2rem;">
+            <p style="color: #94a3b8; font-size: 14px;">{{ t.admin.no_chunks_yet }}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if chunks %}
+    <!-- Generate Button -->
+    <div style="text-align: center; margin-top: 1.5rem;">
+        <button class="generate-btn" onclick="showGenerateDialog()">
+            <i class="fas fa-robot" style="margin-right: 6px;"></i>{{ t.admin.generate_questions }}
+        </button>
+    </div>
+
+    <!-- Generate Dialog -->
+    <div id="generateOverlay" class="gen-overlay" style="display:none;" onclick="if(event.target===this)hideGenerateDialog()">
+        <div class="gen-dialog">
+            <h3 style="font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 1rem;">
+                <i class="fas fa-robot" style="color: #6366f1; margin-right: 6px;"></i>{{ t.admin.generate_questions }}
+            </h3>
+            <form method="POST" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/generate') }}" id="generateForm">
+                <div class="gen-row">
+                    <div class="form-group">
+                        <label class="form-label">{{ t.admin.multiple_choice }}</label>
+                        <select name="mc_count" class="form-input">
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4" selected>4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">{{ t.admin.free_response }}</label>
+                        <select name="fr_count" class="form-input">
+                            <option value="1">1</option>
+                            <option value="2" selected>2</option>
+                            <option value="3">3</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">{{ t.admin.material_difficulty }}</label>
+                        <select name="difficulty" class="form-input">
+                            <option value="easy">{{ t.admin.difficulty_easy }}</option>
+                            <option value="normal" selected>{{ t.admin.difficulty_normal }}</option>
+                            <option value="hard">{{ t.admin.difficulty_hard }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 0.75rem;">
+                    <label class="form-label">{{ t.admin.target_sections }}</label>
+                    <div class="chunk-checkboxes">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="selectAll" checked onchange="toggleAllChunks(this)">
+                            <strong>{{ t.admin.all_sections }}</strong>
+                        </label>
+                        {% for chunk in chunks %}
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="chunk_ids" value="{{ chunk.chunk_id }}" class="chunk-cb" checked>
+                            {{ chunk.title }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
+                    <button type="submit" class="btn-save" id="genSubmitBtn">
+                        <i class="fas fa-bolt" style="margin-right: 4px;"></i>{{ t.admin.start_generate }}
+                    </button>
+                    <button type="button" class="btn-cancel" onclick="hideGenerateDialog()">
+                        {{ t.admin.cancel }}
+                    </button>
+                </div>
+            </form>
+            <div id="genLoading" style="display:none; text-align:center; padding: 2rem;">
+                <div class="spinner"></div>
+                <p style="margin-top: 1rem; color: #64748b; font-size: 14px;">{{ t.admin.generating }}...</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Tab: Questions -->
+<div id="tab-questions" style="display: none;">
+    {% if total_questions > 0 %}
+    <div class="questions-list">
+        {% for chunk in chunks %}
+        {% set chunk_questions = questions_by_chunk.get(chunk.chunk_id, []) %}
+        {% if chunk_questions %}
+        <div class="section-card" style="margin-bottom: 1rem;">
+            <div class="q-section-header" onclick="toggleQSection({{ chunk.chunk_id }})">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="chunk-number">{{ loop.index }}</span>
+                    <span style="font-size: 14px; font-weight: 700; color: #1e293b;">{{ chunk.title }}</span>
+                    <span class="badge badge-subject">{{ chunk_questions|length }} {{ t.admin.questions_count }}</span>
+                </div>
+                <i class="fas fa-chevron-down q-section-arrow" id="q-arrow-{{ chunk.chunk_id }}" style="color: #94a3b8; font-size: 12px;"></i>
+            </div>
+            <div id="q-section-{{ chunk.chunk_id }}" style="display: none;">
+                {% for q in chunk_questions %}
+                <div style="padding: 1rem 1.5rem; border-top: 1px solid #f1f5f9;">
+                    <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                        <span class="badge {{ 'badge-mc' if q.question_type == 'multiple_choice' else 'badge-fr' }}">
+                            {{ t.admin.multiple_choice if q.question_type == 'multiple_choice' else t.admin.free_response }}
+                        </span>
+                        <span class="badge badge-source-{{ q.source }}">
+                            {{ q.source|replace('_', ' ')|title }}
+                        </span>
+                    </div>
+                    <p style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 8px;">{{ q.question_text }}</p>
+
+                    {% if q.question_type == 'multiple_choice' and q.options %}
+                    <div class="options-list">
+                        {% for opt in q.options %}
+                        <div class="option {{ 'option-correct' if opt.label == q.correct_answer }}">
+                            <span class="option-label">{{ opt.label }}</span> {{ opt.text }}
+                            {% if opt.label == q.correct_answer %}
+                            <i class="fas fa-check" style="margin-left: 6px; color: #059669;"></i>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% if q.question_type == 'free_response' and q.reference_answer %}
+                    <div class="ref-answer">
+                        <div style="font-size: 12px; font-weight: 600; color: #6366f1; margin-bottom: 4px;">
+                            <i class="fas fa-pen"></i> {{ t.admin.reference_answer }}
+                        </div>
+                        <p style="font-size: 13px; color: #475569;">{{ q.reference_answer }}</p>
+                    </div>
+                    {% endif %}
+
+                    {% if q.explanation %}
+                    <div style="margin-top: 8px; padding: 8px 12px; background: #f8fafc; border-radius: 6px;">
+                        <span style="font-size: 12px; font-weight: 600; color: #64748b;">{{ t.admin.explanation_label }}:</span>
+                        <span style="font-size: 13px; color: #475569;">{{ q.explanation }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+
+        {% if unlinked_questions %}
+        <div class="section-card" style="margin-bottom: 1rem;">
+            <div class="q-section-header" onclick="toggleQSection('unlinked')">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 14px; font-weight: 700; color: #64748b;">{{ t.admin.unlinked_questions }}</span>
+                    <span class="badge badge-subject">{{ unlinked_questions|length }} {{ t.admin.questions_count }}</span>
+                </div>
+                <i class="fas fa-chevron-down q-section-arrow" id="q-arrow-unlinked" style="color: #94a3b8; font-size: 12px;"></i>
+            </div>
+            <div id="q-section-unlinked" style="display: none;">
+                {% for q in unlinked_questions %}
+                <div style="padding: 1rem 1.5rem; border-top: 1px solid #f1f5f9;">
+                    <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                        <span class="badge {{ 'badge-mc' if q.question_type == 'multiple_choice' else 'badge-fr' }}">
+                            {{ t.admin.multiple_choice if q.question_type == 'multiple_choice' else t.admin.free_response }}
+                        </span>
+                        <span class="badge badge-source-{{ q.source }}">
+                            {{ q.source|replace('_', ' ')|title }}
+                        </span>
+                    </div>
+                    <p style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 8px;">{{ q.question_text }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="section-card">
+        <div class="section-body" style="text-align: center; padding: 2rem;">
+            <div style="font-size: 36px; margin-bottom: 0.5rem;">&#x1F916;</div>
+            <p style="color: #94a3b8; font-size: 14px;">{{ t.admin.no_questions_yet }}</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+    .material-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+    .badge {
+        display: inline-block; padding: 2px 8px; border-radius: 4px;
+        font-size: 11px; font-weight: 600;
+    }
+    .badge-subject { background: #f1f5f9; color: #475569; }
+    .badge-lang { background: #ede9fe; color: #6d28d9; }
+    .badge-diff { background: #fef3c7; color: #92400e; }
+    .badge-draft { background: #f1f5f9; color: #64748b; }
+    .badge-ready { background: #fef3c7; color: #92400e; }
+    .badge-published { background: #d1fae5; color: #065f46; }
+    .badge-mc { background: #dbeafe; color: #1d4ed8; }
+    .badge-fr { background: #fce7f3; color: #be185d; }
+    .badge-source-oak { background: #d1fae5; color: #065f46; }
+    .badge-source-llm_generated { background: #ede9fe; color: #6d28d9; }
+    .badge-source-manual { background: #f1f5f9; color: #475569; }
+
+    .flash-msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 0.5rem; }
+    .flash-success { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+    .flash-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+    .action-btn {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 6px 14px; background: #f1f5f9; color: #475569;
+        border: 1px solid #e2e8f0; border-radius: 8px;
+        font-size: 13px; font-weight: 500; cursor: pointer;
+        text-decoration: none; transition: all 0.2s;
+    }
+    .action-btn:hover { background: #e2e8f0; color: #1e293b; }
+    .action-btn-danger { color: #ef4444; border-color: #fecaca; }
+    .action-btn-danger:hover { background: #fee2e2; color: #dc2626; }
+
+    .tabs { display: flex; gap: 4px; border-bottom: 2px solid #e2e8f0; }
+    .tab-btn {
+        padding: 10px 20px; border: none; background: none;
+        font-size: 14px; font-weight: 600; color: #64748b;
+        cursor: pointer; border-bottom: 2px solid transparent;
+        margin-bottom: -2px; transition: all 0.2s;
+        display: flex; align-items: center; gap: 6px;
+    }
+    .tab-btn:hover { color: #1e293b; }
+    .tab-btn.active { color: #6366f1; border-bottom-color: #6366f1; }
+
+    .form-label {
+        display: block; font-size: 13px; font-weight: 600;
+        color: #374151; margin-bottom: 4px;
+    }
+    .form-input {
+        width: 100%; padding: 10px 12px;
+        border: 1px solid #d1d5db; border-radius: 8px;
+        font-size: 14px; outline: none; transition: border-color 0.2s;
+        font-family: inherit;
+    }
+    .form-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+
+    .btn-save {
+        padding: 8px 20px; background: #6366f1; color: white;
+        border: none; border-radius: 8px; font-size: 14px;
+        font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-save:hover { background: #4f46e5; }
+
+    .chunks-list { display: flex; flex-direction: column; gap: 0.5rem; }
+
+    .chunk-header {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 0.75rem 1.25rem; cursor: pointer; transition: background 0.2s;
+    }
+    .chunk-header:hover { background: #f8fafc; }
+
+    .chunk-number {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 24px; height: 24px; border-radius: 6px;
+        background: #6366f1; color: white; font-size: 12px;
+        font-weight: 700; margin-right: 8px;
+    }
+
+    .chunk-content {
+        white-space: pre-wrap; word-wrap: break-word;
+        font-size: 13px; line-height: 1.7; color: #374151;
+        font-family: inherit; margin: 0;
+        background: #f8fafc; padding: 1rem; border-radius: 8px;
+    }
+
+    .btn-icon-delete {
+        width: 28px; height: 28px;
+        display: flex; align-items: center; justify-content: center;
+        background: none; color: #94a3b8; border: none;
+        border-radius: 6px; cursor: pointer; font-size: 12px;
+        transition: all 0.2s;
+    }
+    .btn-icon-delete:hover { background: #fee2e2; color: #ef4444; }
+
+    .generate-btn {
+        padding: 12px 32px;
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white; border: none; border-radius: 10px;
+        font-size: 15px; font-weight: 700; cursor: pointer;
+        transition: all 0.2s; box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+    }
+    .generate-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,0.4); }
+
+    .gen-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5); z-index: 2000;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .gen-dialog {
+        background: white; border-radius: 16px; padding: 1.5rem;
+        width: 90%; max-width: 520px; max-height: 80vh; overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .gen-row {
+        display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;
+    }
+    .chunk-checkboxes {
+        max-height: 200px; overflow-y: auto;
+        border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px;
+    }
+    .checkbox-label {
+        display: flex; align-items: center; gap: 8px;
+        font-size: 13px; color: #374151; padding: 4px 0; cursor: pointer;
+    }
+    .btn-cancel {
+        padding: 8px 20px; background: #f1f5f9; color: #475569;
+        border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px;
+        font-weight: 500; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-cancel:hover { background: #e2e8f0; }
+    .spinner {
+        width: 36px; height: 36px; border: 3px solid #e2e8f0;
+        border-top-color: #6366f1; border-radius: 50%;
+        animation: spin 0.8s linear infinite; margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 768px) {
+        .gen-row { grid-template-columns: 1fr; }
+    }
+
+    .options-list { display: flex; flex-direction: column; gap: 4px; }
+    .option {
+        padding: 6px 12px; border-radius: 6px; font-size: 13px; color: #374151;
+        background: #f8fafc;
+    }
+    .option-correct { background: #d1fae5; color: #065f46; font-weight: 600; }
+    .option-label {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 22px; height: 22px; border-radius: 50%; background: #e2e8f0;
+        font-size: 11px; font-weight: 700; margin-right: 8px;
+    }
+    .option-correct .option-label { background: #059669; color: white; }
+
+    .q-section-header {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 0.75rem 1.25rem; cursor: pointer; transition: background 0.2s;
+    }
+    .q-section-header:hover { background: #f8fafc; }
+
+    .ref-answer {
+        margin-top: 8px; padding: 10px 14px;
+        background: #eef2ff; border-radius: 8px; border-left: 3px solid #6366f1;
+    }
+
+    @media (max-width: 768px) {
+        .action-btn span { display: none; }
+    }
+{% endblock %}
+
+{% block scripts %}
+<script>
+function switchTab(tab) {
+    document.getElementById('tab-content').style.display = tab === 'content' ? '' : 'none';
+    document.getElementById('tab-questions').style.display = tab === 'questions' ? '' : 'none';
+    document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+        btn.classList.toggle('active', (i === 0 && tab === 'content') || (i === 1 && tab === 'questions'));
+    });
+}
+
+function toggleChunk(id) {
+    const body = document.getElementById('chunk-' + id);
+    const arrow = document.getElementById('arrow-' + id);
+    const isHidden = body.style.display === 'none';
+    body.style.display = isHidden ? '' : 'none';
+    arrow.style.transform = isHidden ? 'rotate(180deg)' : '';
+}
+
+function toggleAddChunk() {
+    const form = document.getElementById('addChunkForm');
+    const arrow = document.getElementById('addChunkArrow');
+    const isHidden = form.style.display === 'none';
+    form.style.display = isHidden ? '' : 'none';
+    arrow.style.transform = isHidden ? 'rotate(180deg)' : '';
+}
+
+function toggleQSection(id) {
+    const body = document.getElementById('q-section-' + id);
+    const arrow = document.getElementById('q-arrow-' + id);
+    const isHidden = body.style.display === 'none';
+    body.style.display = isHidden ? '' : 'none';
+    arrow.style.transform = isHidden ? 'rotate(180deg)' : '';
+}
+
+function showGenerateDialog() {
+    document.getElementById('generateOverlay').style.display = 'flex';
+}
+
+function hideGenerateDialog() {
+    document.getElementById('generateOverlay').style.display = 'none';
+}
+
+function toggleAllChunks(el) {
+    document.querySelectorAll('.chunk-cb').forEach(cb => cb.checked = el.checked);
+}
+
+document.getElementById('generateForm').addEventListener('submit', function() {
+    document.getElementById('genSubmitBtn').style.display = 'none';
+    document.getElementById('genLoading').style.display = 'block';
+});
+</script>
+{% endblock %}

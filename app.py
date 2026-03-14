@@ -91,8 +91,10 @@ def create_app():
     from routes.child_study import child_study_bp
     from routes.admin_dashboard import admin_dashboard_bp
     from routes.admin_children import admin_children_bp
+    from routes.admin_materials import admin_materials_bp
+    from routes.child_learn import child_learn_bp
 
-    for bp in [top_bp, auth_bp, child_dashboard_bp, child_study_bp, admin_dashboard_bp, admin_children_bp]:
+    for bp in [top_bp, auth_bp, child_dashboard_bp, child_study_bp, admin_dashboard_bp, admin_children_bp, admin_materials_bp, child_learn_bp]:
         app.register_blueprint(bp)
 
     return app

@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS parents (
     password_hash VARCHAR(255) NOT NULL,
     display_name VARCHAR(100) NOT NULL,
     family_code VARCHAR(10) NOT NULL UNIQUE COMMENT '家族コード（子供ログイン用）',
+    role ENUM('parent', 'admin') NOT NULL DEFAULT 'parent' COMMENT 'parent=通常親, admin=管理者',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -57,14 +58,34 @@ CREATE TABLE IF NOT EXISTS materials (
     material_id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     description TEXT,
-    source_type ENUM('text', 'url') NOT NULL,
+    source_type ENUM('text', 'url', 'pdf') NOT NULL,
     source_content LONGTEXT NOT NULL COMMENT 'テキスト本文 or URL',
+    file_path VARCHAR(500) NULL COMMENT 'PDFファイルのパス',
     subject VARCHAR(100) COMMENT '教科・カテゴリ',
+    year_group TINYINT NOT NULL DEFAULT 7 COMMENT 'Year 7-9',
     difficulty ENUM('easy', 'normal', 'hard') NOT NULL DEFAULT 'normal',
+    language ENUM('en', 'ja') NOT NULL DEFAULT 'en' COMMENT 'マテリアルの言語',
+    status ENUM('draft', 'ready', 'published') NOT NULL DEFAULT 'draft' COMMENT 'draft=未生成, ready=確認待ち, published=公開中',
     created_by INT NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (created_by) REFERENCES parents(parent_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- =============================================
+-- マテリアルチャンク（セクション単位の分割）
+-- =============================================
+CREATE TABLE IF NOT EXISTS material_chunks (
+    chunk_id INT AUTO_INCREMENT PRIMARY KEY,
+    material_id INT NOT NULL,
+    title VARCHAR(255) NOT NULL COMMENT 'セクション名',
+    content LONGTEXT NOT NULL COMMENT 'チャンク本文',
+    summary TEXT NULL COMMENT 'Transcriptの要約（LLM生成、キャッシュ）',
+    page_start INT NULL COMMENT '開始ページ（PDF用）',
+    page_end INT NULL COMMENT '終了ページ（PDF用）',
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (material_id) REFERENCES materials(material_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- =============================================
@@ -73,15 +94,22 @@ CREATE TABLE IF NOT EXISTS materials (
 CREATE TABLE IF NOT EXISTS questions (
     question_id INT AUTO_INCREMENT PRIMARY KEY,
     material_id INT NOT NULL,
-    question_type ENUM('multiple_choice', 'true_false', 'fill_blank') NOT NULL,
+    question_type ENUM('multiple_choice', 'true_false', 'fill_blank', 'free_response') NOT NULL,
     question_text TEXT NOT NULL,
     options JSON COMMENT '選択肢 [{"label":"A","text":"東京"},...]',
-    correct_answer VARCHAR(10) NOT NULL COMMENT '正解ラベル (A/B/C/D or true/false)',
+    correct_answer VARCHAR(255) NOT NULL COMMENT '正解ラベル or 短答テキスト',
     explanation TEXT COMMENT '解説',
+    reference_answer TEXT COMMENT '自由回答の模範解答',
+    max_score INT NOT NULL DEFAULT 10 COMMENT '最大スコア',
+    scoring_rubric TEXT COMMENT '採点ルーブリック',
+    hint TEXT COMMENT '固定ヒント（LLM生成）',
+    chunk_id INT NULL COMMENT '出題元チャンク',
+    source ENUM('oak', 'llm_generated', 'manual') NOT NULL DEFAULT 'manual' COMMENT 'oak=スクレイピング, llm_generated=LLM生成, manual=手動',
     difficulty ENUM('easy', 'normal', 'hard') NOT NULL DEFAULT 'normal',
     points_value INT NOT NULL DEFAULT 10 COMMENT '基本獲得ポイント',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (material_id) REFERENCES materials(material_id) ON DELETE CASCADE
+    FOREIGN KEY (material_id) REFERENCES materials(material_id) ON DELETE CASCADE,
+    FOREIGN KEY (chunk_id) REFERENCES material_chunks(chunk_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- =============================================
@@ -132,6 +160,23 @@ CREATE TABLE IF NOT EXISTS point_history (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (child_id) REFERENCES children(child_id),
     FOREIGN KEY (session_id) REFERENCES learning_sessions(session_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- =============================================
+-- 問題習得状態（マスタリー制）
+-- =============================================
+CREATE TABLE IF NOT EXISTS question_mastery (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    child_id INT NOT NULL,
+    question_id INT NOT NULL,
+    mastered TINYINT(1) NOT NULL DEFAULT 0 COMMENT '習得済みフラグ',
+    attempts INT NOT NULL DEFAULT 0 COMMENT '試行回数',
+    mastered_at DATETIME NULL COMMENT '習得日時',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_child_question (child_id, question_id),
+    FOREIGN KEY (child_id) REFERENCES children(child_id) ON DELETE CASCADE,
+    FOREIGN KEY (question_id) REFERENCES questions(question_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- =============================================

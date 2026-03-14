@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}{{ t.child.nav_subjects }} - {{ t.site_name }}{% endblock %}
+{% block lang_switch %}{% endblock %}
+{% block head %}
+<style>
+    body { background: #f0f0f5; }
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1.25rem 1.25rem 2rem;
+        border-radius: 0 0 28px 28px;
+    }
+    .page-header-top {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 0.75rem;
+    }
+    .back-btn {
+        width: 36px; height: 36px; border-radius: 10px;
+        background: rgba(255,255,255,0.15); border: none;
+        color: white; font-size: 16px; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        text-decoration: none;
+    }
+    .page-title { color: white; font-size: 22px; font-weight: 800; }
+    .page-subtitle { color: rgba(255,255,255,0.7); font-size: 13px; margin-top: 4px; }
+
+    .content-area { padding: 1.25rem; margin-top: -1rem; }
+
+    .subject-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 0.75rem;
+    }
+
+    .subject-card {
+        background: white; border-radius: 16px; padding: 1.25rem;
+        text-align: center; text-decoration: none; color: inherit;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        transition: all 0.2s; cursor: pointer;
+    }
+    .subject-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+
+    .subject-emoji {
+        width: 56px; height: 56px; border-radius: 16px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 28px; margin: 0 auto 0.75rem;
+    }
+    .subject-emoji.science { background: #dbeafe; }
+    .subject-emoji.maths { background: #fef3c7; }
+    .subject-emoji.english { background: #ede9fe; }
+    .subject-emoji.history { background: #fce7f3; }
+    .subject-emoji.geography { background: #d1fae5; }
+    .subject-emoji.computing { background: #e0e7ff; }
+    .subject-emoji.spanish { background: #fff7ed; }
+
+    .subject-name { font-size: 15px; font-weight: 700; color: #1e293b; }
+    .subject-count { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div class="page-header-top">
+        <a href="{{ lang_url('/child/dashboard') }}" class="back-btn"><i class="fas fa-arrow-left"></i></a>
+        <div></div>
+    </div>
+    <div class="page-title">{{ t.child.nav_subjects }}</div>
+    <div class="page-subtitle">Year {{ 7 }}</div>
+</div>
+
+<div class="content-area">
+    <div class="subject-grid">
+        {% for subject, unit_count in subjects %}
+        {% set s = subject|lower %}
+        <a href="{{ lang_url('/child/subjects/' ~ subject) }}" class="subject-card">
+            <div class="subject-emoji {{ s }}">
+                {% if s == 'science' %}🔬
+                {% elif s == 'maths' %}🔢
+                {% elif s == 'english' %}📖
+                {% elif s == 'history' %}🏛️
+                {% elif s == 'geography' %}🌍
+                {% elif s == 'computing' %}💻
+                {% elif s == 'spanish' %}🇪🇸
+                {% else %}📚{% endif %}
+            </div>
+            <div class="subject-name">{{ subject }}</div>
+            <div class="subject-count">{{ unit_count }} units</div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

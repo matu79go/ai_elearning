@@ -454,6 +454,7 @@
                 </a>
             </div>
 
+            {% if current_user.is_authenticated and current_user.role == 'admin' %}
             <div class="nav-category">
                 <div class="nav-category-label">
                     <i class="fas fa-book"></i>
@@ -462,7 +463,8 @@
             </div>
 
             <div class="nav-item">
-                <a href="#" class="nav-link">
+                <a href="{{ lang_url('/admin/materials') }}"
+                   class="nav-link {% if 'admin_materials' in request.endpoint %}active{% endif %}">
                     <i class="fas fa-file-alt"></i>
                     <span>{{ t.admin.menu_materials }}</span>
                 </a>
@@ -473,6 +475,7 @@
                     <span>{{ t.admin.menu_questions }}</span>
                 </a>
             </div>
+            {% endif %}
 
             <div class="nav-category">
                 <div class="nav-category-label">

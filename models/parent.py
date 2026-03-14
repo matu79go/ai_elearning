@@ -17,6 +17,7 @@ class Parent(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     display_name = db.Column(db.String(100), nullable=False)
     family_code = db.Column(db.String(10), unique=True, nullable=False)
+    role = db.Column(db.String(10), nullable=False, default='parent')
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
 

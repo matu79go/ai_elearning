@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ subject }} - {{ t.site_name }}{% endblock %}
+{% block lang_switch %}{% endblock %}
+{% block head %}
+<style>
+    body { background: #f0f0f5; }
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1.25rem 1.25rem 2rem;
+        border-radius: 0 0 28px 28px;
+    }
+    .page-header-top {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 0.75rem;
+    }
+    .back-btn {
+        width: 36px; height: 36px; border-radius: 10px;
+        background: rgba(255,255,255,0.15); border: none;
+        color: white; font-size: 16px; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        text-decoration: none;
+    }
+    .page-title { color: white; font-size: 22px; font-weight: 800; }
+    .page-subtitle { color: rgba(255,255,255,0.7); font-size: 13px; margin-top: 4px; }
+
+    .content-area { padding: 1.25rem; margin-top: -1rem; }
+
+    .unit-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+    .unit-card {
+        background: white; border-radius: 16px; padding: 1rem 1.25rem;
+        text-decoration: none; color: inherit;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        transition: all 0.2s; display: block;
+    }
+    .unit-card:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+
+    .unit-title { font-size: 15px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+    .unit-meta { font-size: 12px; color: #94a3b8; margin-bottom: 8px; }
+
+    .progress-bar {
+        height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden;
+    }
+    .progress-fill {
+        height: 100%; border-radius: 4px;
+        background: linear-gradient(90deg, #6366f1, #8b5cf6);
+        transition: width 0.3s;
+    }
+    .progress-text {
+        font-size: 11px; color: #6366f1; font-weight: 600; margin-top: 4px;
+        text-align: right;
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div class="page-header-top">
+        <a href="{{ lang_url('/child/subjects') }}" class="back-btn"><i class="fas fa-arrow-left"></i></a>
+        <div></div>
+    </div>
+    <div class="page-title">{{ subject }}</div>
+    <div class="page-subtitle">{{ units_data|length }} units</div>
+</div>
+
+<div class="content-area">
+    <div class="unit-list">
+        {% for ud in units_data %}
+        {% set m = ud.material %}
+        {% set pct = ((ud.mastered / ud.total * 100) if ud.total > 0 else 0)|int %}
+        <a href="{{ lang_url('/child/subjects/' ~ subject) }}" class="unit-card" onclick="event.preventDefault(); showSections({{ m.material_id }})">
+            <div class="unit-title">{{ m.title.replace('KS3 ' ~ subject ~ ' - ', '') }}</div>
+            <div class="unit-meta">{{ m.chunks.count() }} sections / {{ ud.total }} questions</div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ pct }}%"></div>
+            </div>
+            <div class="progress-text">{{ ud.mastered }}/{{ ud.total }} mastered</div>
+
+            <!-- セクション一覧 (hidden) -->
+            <div class="section-list" id="sections-{{ m.material_id }}" style="display: none; margin-top: 12px; border-top: 1px solid #f1f5f9; padding-top: 10px;">
+                {% for chunk in m.chunks.all() %}
+                <a href="{{ lang_url('/child/section/' ~ chunk.chunk_id) }}" class="section-link" onclick="event.stopPropagation();">
+                    <span class="section-num">{{ loop.index }}</span>
+                    <span>{{ chunk.title }}</span>
+                    <i class="fas fa-chevron-right" style="margin-left: auto; color: #cbd5e1; font-size: 11px;"></i>
+                </a>
+                {% endfor %}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function showSections(materialId) {
+    const el = document.getElementById('sections-' + materialId);
+    el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+</script>
+
+<style>
+    .section-link {
+        display: flex; align-items: center; gap: 8px;
+        padding: 8px 0; font-size: 13px; color: #475569;
+        text-decoration: none; border-bottom: 1px solid #f8fafc;
+    }
+    .section-link:last-child { border-bottom: none; }
+    .section-link:hover { color: #6366f1; }
+    .section-num {
+        width: 22px; height: 22px; border-radius: 6px;
+        background: #eef2ff; color: #6366f1; font-size: 11px;
+        font-weight: 700; display: flex; align-items: center;
+        justify-content: center; min-width: 22px;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ t.admin.materials_title }}{% endblock %}
+{% block content %}
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem;">
+    <h1 style="font-size: 22px; font-weight: 700; color: #1e293b;">
+        <i class="fas fa-file-alt" style="color: #6366f1; margin-right: 8px;"></i>{{ t.admin.materials_heading }}
+    </h1>
+</div>
+
+{% if years_data %}
+<div class="year-grid">
+    {% for year_group, subject_count, material_count in years_data %}
+    <a href="{{ lang_url('/admin/materials/year/' ~ year_group) }}" class="year-card">
+        <div class="year-badge">Y{{ year_group }}</div>
+        <div class="year-info">
+            <h3>Year {{ year_group }}</h3>
+            <p>{{ subject_count }} {{ t.admin.subjects_label }} / {{ material_count }} {{ t.admin.units_label }}</p>
+        </div>
+        <i class="fas fa-chevron-right" style="color: #cbd5e1;"></i>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="section-card">
+    <div class="section-body" style="text-align: center; padding: 3rem 1.5rem;">
+        <div style="font-size: 48px; margin-bottom: 1rem;">&#x1F4DA;</div>
+        <p style="font-size: 15px; color: #64748b; margin-bottom: 0.5rem;">{{ t.admin.no_materials_yet }}</p>
+        <p style="font-size: 13px; color: #94a3b8;">{{ t.admin.add_first_material }}</p>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_css %}
+    .year-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .year-card {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        padding: 1.25rem 1.5rem;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.2s;
+    }
+    .year-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transform: translateY(-1px);
+    }
+
+    .year-badge {
+        width: 56px; height: 56px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 20px;
+        font-weight: 800;
+        min-width: 56px;
+    }
+
+    .year-info { flex: 1; }
+    .year-info h3 { font-size: 18px; font-weight: 700; color: #1e293b; }
+    .year-info p { font-size: 13px; color: #64748b; margin-top: 2px; }
+{% endblock %}
