@@ -1,216 +1,256 @@
-{% extends "base.html" %}
+{% extends "child/child_base.html" %}
 {% block title %}Quiz - {{ chunk.title }}{% endblock %}
-{% block lang_switch %}{% endblock %}
-{% block head %}
+{% block back_url %}{{ lang_url('/child/section/' ~ chunk.chunk_id) }}{% endblock %}
+
+{% block page_head %}
 <style>
-    body { background: #f0f0f5; }
-    .quiz-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1rem 1.25rem;
-        display: flex; align-items: center; justify-content: space-between;
-    }
-    .back-btn {
-        width: 36px; height: 36px; border-radius: 10px;
-        background: rgba(255,255,255,0.15); border: none;
-        color: white; font-size: 16px; cursor: pointer;
-        display: flex; align-items: center; justify-content: center;
-        text-decoration: none;
-    }
-    .quiz-progress-text { color: white; font-size: 14px; font-weight: 700; }
-    .quiz-progress-bar {
-        height: 4px; background: rgba(255,255,255,0.2);
-        border-radius: 2px; margin-top: 2px;
-    }
-    .quiz-progress-fill {
-        height: 100%; background: white; border-radius: 2px; transition: width 0.3s;
-    }
-
-    .content-area { padding: 1.25rem; max-width: 640px; margin: 0 auto; }
-
+    /* Question Card */
     .question-card {
-        background: white; border-radius: 16px; padding: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        margin-bottom: 1rem; display: none;
+        background: white; border-radius: 24px;
+        padding: 2rem 1.5rem;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        flex: 1; display: flex; flex-direction: column;
     }
-    .question-card.active { display: block; }
+    @media (min-width: 768px) { .question-card { padding: 2.5rem 2rem; } }
 
-    .q-number { font-size: 12px; font-weight: 700; color: #6366f1; margin-bottom: 8px; }
+    .q-number {
+        font-size: 12px; font-weight: 700; color: #6366f1;
+        text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.75rem;
+        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
     .q-type-badge {
         display: inline-block; padding: 2px 8px; border-radius: 4px;
-        font-size: 10px; font-weight: 700; margin-left: 8px;
+        font-size: 10px; font-weight: 700; letter-spacing: 0;
     }
     .q-type-mc { background: #dbeafe; color: #1d4ed8; }
     .q-type-fr { background: #fce7f3; color: #be185d; }
 
-    .q-text { font-size: 16px; font-weight: 700; color: #1e293b; line-height: 1.5; margin-bottom: 1rem; }
-
-    .mc-options { display: flex; flex-direction: column; gap: 8px; }
-    .mc-option {
-        padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 12px;
-        font-size: 14px; color: #374151; cursor: pointer; transition: all 0.2s;
-        display: flex; align-items: center; gap: 10px;
+    .q-text {
+        font-size: 18px; font-weight: 600; color: #1e293b;
+        line-height: 1.6; margin-bottom: 1.5rem;
     }
-    .mc-option:hover { border-color: #6366f1; background: #eef2ff; }
-    .mc-option.selected { border-color: #6366f1; background: #eef2ff; }
-    .mc-option.correct { border-color: #059669; background: #d1fae5; }
-    .mc-option.wrong { border-color: #dc2626; background: #fee2e2; }
-    .mc-option.disabled { pointer-events: none; }
-    .mc-label {
-        width: 28px; height: 28px; border-radius: 8px;
-        background: #f1f5f9; display: flex; align-items: center;
-        justify-content: center; font-weight: 700; font-size: 13px;
-        min-width: 28px;
-    }
+    @media (min-width: 768px) { .q-text { font-size: 20px; } }
 
+    /* Choices */
+    .choices { display: flex; flex-direction: column; gap: 0.75rem; flex: 1; }
+
+    .choice-btn {
+        display: flex; align-items: center; gap: 12px;
+        padding: 14px 16px; background: #f8fafc;
+        border: 2px solid #e2e8f0; border-radius: 14px;
+        cursor: pointer; transition: all 0.2s;
+        font-size: 15px; color: #334155; text-align: left;
+    }
+    @media (min-width: 768px) { .choice-btn { padding: 16px 20px; font-size: 16px; } }
+
+    .choice-btn:hover { border-color: #6366f1; background: #eef2ff; }
+    .choice-btn:active { transform: scale(0.98); }
+
+    .choice-label {
+        width: 32px; height: 32px; border-radius: 8px;
+        background: #e2e8f0; display: flex; align-items: center;
+        justify-content: center; font-weight: 700; font-size: 14px;
+        color: #64748b; flex-shrink: 0;
+    }
+    .choice-btn:hover .choice-label { background: #6366f1; color: white; }
+
+    /* Selected (before confirm) */
+    .choice-btn.selected { border-color: #6366f1; background: #eef2ff; }
+    .choice-btn.selected .choice-label { background: #6366f1; color: white; }
+
+    /* Locked (confirmed) */
+    .choice-btn.locked { border-color: #6366f1; background: #eef2ff; pointer-events: none; }
+    .choice-btn.locked .choice-label { background: #6366f1; color: white; }
+    .choice-btn.disabled { pointer-events: none; opacity: 0.5; }
+
+    /* Checked (after grading) */
+    .choice-btn.correct { border-color: #10b981; background: #d1fae5; pointer-events: none; animation: pop 0.3s ease; }
+    .choice-btn.correct .choice-label { background: #10b981; color: white; }
+    .choice-btn.wrong { border-color: #ef4444; background: #fee2e2; pointer-events: none; animation: shake 0.4s ease; }
+    .choice-btn.wrong .choice-label { background: #ef4444; color: white; }
+
+    /* Free Response */
     .fr-input {
-        width: 100%; padding: 12px; border: 2px solid #e2e8f0;
-        border-radius: 12px; font-size: 14px; font-family: inherit;
-        resize: vertical; min-height: 80px; outline: none;
+        width: 100%; padding: 14px; border: 2px solid #e2e8f0;
+        border-radius: 14px; font-size: 15px; font-family: inherit;
+        resize: vertical; min-height: 100px; outline: none; transition: border-color 0.2s;
     }
     .fr-input:focus { border-color: #6366f1; }
+    .fr-locked {
+        background: #eef2ff; border-color: #6366f1; color: #1e293b;
+        padding: 14px; border-radius: 14px; border: 2px solid #6366f1;
+        font-size: 15px; min-height: auto;
+    }
 
+    /* Explanation (after check) */
+    .explanation {
+        margin-top: 1rem; padding: 1rem; border-radius: 12px;
+        font-size: 14px; line-height: 1.5; animation: slideUp 0.3s ease;
+    }
+    .explanation.correct-bg { background: #d1fae5; border-left: 4px solid #10b981; color: #065f46; }
+    .explanation.wrong-bg { background: #fee2e2; border-left: 4px solid #ef4444; color: #991b1b; }
+
+    /* Action Buttons */
     .q-actions {
-        display: flex; gap: 8px; margin-top: 1rem; justify-content: space-between;
-        align-items: center;
+        display: flex; gap: 8px; margin-top: 1.25rem;
+        justify-content: space-between; align-items: center;
+        flex-wrap: wrap;
     }
 
     .hint-btn {
-        padding: 8px 16px; background: #fef3c7; color: #92400e;
-        border: none; border-radius: 8px; font-size: 13px;
+        padding: 10px 18px; background: #fef3c7; color: #92400e;
+        border: none; border-radius: 10px; font-size: 13px;
         font-weight: 600; cursor: pointer; transition: all 0.2s;
     }
     .hint-btn:hover { background: #fde68a; }
 
-    .submit-btn {
-        padding: 10px 24px; background: #6366f1; color: white;
-        border: none; border-radius: 10px; font-size: 14px;
-        font-weight: 700; cursor: pointer; transition: all 0.2s;
+    .confirm-btn {
+        padding: 12px 28px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: white; border: none; border-radius: 12px;
+        font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s;
     }
-    .submit-btn:hover { background: #4f46e5; }
-    .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .confirm-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,0.4); }
+    .confirm-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
 
-    .next-btn {
-        padding: 10px 24px; background: #059669; color: white;
-        border: none; border-radius: 10px; font-size: 14px;
-        font-weight: 700; cursor: pointer; display: none;
+    .change-btn {
+        padding: 10px 20px; background: #f1f5f9; color: #64748b;
+        border: 2px solid #e2e8f0; border-radius: 10px;
+        font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;
     }
+    .change-btn:hover { border-color: #94a3b8; color: #475569; }
 
-    .feedback-box {
-        margin-top: 12px; padding: 12px 16px; border-radius: 10px;
-        font-size: 13px; line-height: 1.5; display: none;
+    .check-btn {
+        padding: 12px 28px;
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        color: white; border: none; border-radius: 12px;
+        font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+        animation: pop 0.3s ease;
     }
-    .feedback-correct { background: #d1fae5; color: #065f46; }
-    .feedback-wrong { background: #fee2e2; color: #991b1b; }
+    .check-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(245,158,11,0.4); }
+    .check-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
-    .mastered-badge {
-        display: inline-flex; align-items: center; gap: 4px;
-        padding: 4px 10px; background: #d1fae5; color: #059669;
-        border-radius: 6px; font-size: 11px; font-weight: 700;
+    .results-btn {
+        padding: 12px 28px;
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white; border: none; border-radius: 12px;
+        font-size: 15px; font-weight: 700; cursor: pointer;
+        text-decoration: none; transition: all 0.2s;
     }
+    .results-btn:hover { transform: translateY(-1px); }
 
-    /* Hint panel */
+    /* Sidebar locked state */
+    .sidebar-nav-item.locked .sidebar-nav-num { background: #6366f1; color: white; }
+    .mobile-q-pill.locked { background: #6366f1; color: white; }
+
+    /* Hint Panel */
     .hint-panel {
-        position: fixed; bottom: 0; right: 0; width: 100%; max-width: 380px;
-        max-height: 50vh; background: white; border-radius: 16px 16px 0 0;
-        box-shadow: 0 -4px 20px rgba(0,0,0,0.15); z-index: 1000;
-        display: none; flex-direction: column;
+        position: fixed; bottom: 0; right: 0;
+        width: 100%; max-width: 380px; max-height: 50vh;
+        background: white; border-radius: 16px 16px 0 0;
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+        z-index: 1000; display: none; flex-direction: column;
     }
     .hint-panel.open { display: flex; }
-    .hint-header {
-        padding: 12px 16px; border-bottom: 1px solid #e2e8f0;
-        display: flex; justify-content: space-between; align-items: center;
-    }
-    .hint-header h4 { font-size: 14px; font-weight: 700; color: #1e293b; }
+    @media (min-width: 640px) { .hint-panel { right: 1rem; bottom: 1rem; border-radius: 16px; max-height: 60vh; } }
+    .hint-header { padding: 12px 16px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+    .hint-header h4 { font-size: 14px; font-weight: 700; color: #1e293b; margin: 0; }
     .hint-close { background: none; border: none; font-size: 18px; color: #94a3b8; cursor: pointer; }
-    .hint-messages {
-        flex: 1; overflow-y: auto; padding: 12px 16px;
-        display: flex; flex-direction: column; gap: 8px;
-    }
-    .hint-msg {
-        padding: 8px 12px; border-radius: 10px; font-size: 13px;
-        line-height: 1.5; max-width: 85%;
-    }
+    .hint-messages { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+    .hint-msg { padding: 8px 12px; border-radius: 10px; font-size: 13px; line-height: 1.5; max-width: 85%; }
     .hint-msg.bot { background: #eef2ff; color: #374151; align-self: flex-start; }
     .hint-msg.user { background: #6366f1; color: white; align-self: flex-end; }
-    .hint-input-area {
-        padding: 8px 12px; border-top: 1px solid #e2e8f0;
-        display: flex; gap: 8px;
-    }
-    .hint-input {
-        flex: 1; padding: 8px 12px; border: 1px solid #e2e8f0;
-        border-radius: 8px; font-size: 13px; outline: none;
-    }
-    .hint-send {
-        padding: 8px 14px; background: #6366f1; color: white;
-        border: none; border-radius: 8px; font-size: 13px;
-        font-weight: 600; cursor: pointer;
-    }
+    .hint-input-area { padding: 8px 12px; border-top: 1px solid #e2e8f0; display: flex; gap: 8px; }
+    .hint-input { flex: 1; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; outline: none; }
+    .hint-send { padding: 8px 14px; background: #6366f1; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
 
-    @media (min-width: 640px) {
-        .hint-panel { right: 1rem; bottom: 1rem; border-radius: 16px; max-height: 60vh; }
+    /* Score banner after check */
+    .score-banner {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        border-radius: 16px; padding: 1.25rem; margin-bottom: 1rem;
+        text-align: center; color: white; animation: slideUp 0.3s ease;
     }
+    .score-banner-title { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+    .score-banner-detail { font-size: 14px; opacity: 0.8; }
+    .score-banner-points { display: inline-block; background: rgba(255,255,255,0.2); padding: 4px 16px; border-radius: 20px; font-weight: 700; font-size: 14px; margin-top: 8px; }
 </style>
 {% endblock %}
 
-{% block body %}
-<div class="quiz-header">
-    <a href="{{ lang_url('/child/section/' ~ chunk.chunk_id) }}" class="back-btn"><i class="fas fa-arrow-left"></i></a>
-    <div style="text-align: center; flex: 1;">
-        <div class="quiz-progress-text">
-            <span id="currentQ">1</span> / {{ questions|length }}
+{% block header_right %}
+<div class="points-badge">★ <span id="pointsBadge">{{ current_user.total_points }}</span> pts</div>
+{% endblock %}
+
+{% block sidebar %}
+<!-- Progress -->
+<div class="sidebar-card">
+    <div class="sidebar-title" id="sidebarStatsTitle">Progress</div>
+    <div class="sidebar-stats">
+        <div class="sidebar-stat">
+            <div class="sidebar-stat-val" id="sideConfirmed">0</div>
+            <div class="sidebar-stat-lbl" id="sideConfirmedLabel">Confirmed</div>
         </div>
-        <div class="quiz-progress-bar" style="width: 120px; margin: 0 auto;">
-            <div class="quiz-progress-fill" id="progressFill" style="width: {{ (1/questions|length*100)|int }}%"></div>
+        <div class="sidebar-stat">
+            <div class="sidebar-stat-val" id="sideRemaining">{{ questions|length }}</div>
+            <div class="sidebar-stat-lbl" id="sideRemainingLabel">Remaining</div>
         </div>
     </div>
-    <div style="width: 36px;"></div>
 </div>
 
-<div class="content-area">
-    {% for q in questions %}
-    <div class="question-card {% if loop.first %}active{% endif %}" data-q-index="{{ loop.index0 }}"
-         data-q-id="{{ q.question_id }}" data-q-type="{{ q.question_type }}">
-        <div class="q-number">
-            Question {{ loop.index }}
-            <span class="q-type-badge {{ 'q-type-mc' if q.question_type == 'multiple_choice' else 'q-type-fr' }}">
-                {{ 'Multiple Choice' if q.question_type == 'multiple_choice' else 'Free Response' }}
-            </span>
-            {% if mastery_map.get(q.question_id) and mastery_map[q.question_id].mastered %}
-            <span class="mastered-badge"><i class="fas fa-star"></i> Mastered</span>
-            {% endif %}
+<!-- Question Navigation -->
+<div class="sidebar-card" style="flex:1;">
+    <div class="sidebar-title">{{ t.child.question_list }}</div>
+    <div class="sidebar-nav" id="qNavList">
+        {% for q in questions %}
+        <div class="sidebar-nav-item {{ 'active' if loop.first }}"
+             id="qnav-{{ loop.index0 }}" onclick="jumpTo({{ loop.index0 }})">
+            <span class="sidebar-nav-num">{{ loop.index }}</span>
+            <span class="sidebar-nav-text">{{ q.question_text[:40] }}{% if q.question_text|length > 40 %}...{% endif %}</span>
+            <span class="sidebar-nav-status" id="qstatus-{{ loop.index0 }}"></span>
         </div>
-        <div class="q-text">{{ q.question_text }}</div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
 
-        {% if q.question_type == 'multiple_choice' and q.options %}
-        <div class="mc-options">
-            {% for opt in q.options %}
-            <div class="mc-option" data-label="{{ opt.label }}" onclick="selectOption(this)">
-                <span class="mc-label">{{ opt.label }}</span>
-                <span>{{ opt.text }}</span>
+{% block mobile_panel %}
+<div class="mobile-panel">
+    <button class="accordion-toggle" id="accToggle" onclick="toggleAccordion()">
+        <span class="accordion-toggle-left">
+            <i class="fas fa-list-ol"></i>
+            <span>{{ t.child.question_list }}</span>
+            <span class="acc-progress" id="accProgress">0/{{ questions|length }}</span>
+        </span>
+        <span class="acc-chevron"><i class="fas fa-chevron-down"></i></span>
+    </button>
+    <div class="accordion-body" id="accBody">
+        <div class="accordion-inner">
+            <div class="mobile-q-nav" id="mobileQNav">
+                {% for q in questions %}
+                <div class="mobile-q-pill {{ 'active' if loop.first }}"
+                     id="mqnav-{{ loop.index0 }}" onclick="jumpTo({{ loop.index0 }})">
+                    {{ loop.index }}
+                </div>
+                {% endfor %}
             </div>
-            {% endfor %}
-        </div>
-        {% elif q.question_type == 'free_response' %}
-        <textarea class="fr-input" placeholder="Type your answer here..."></textarea>
-        {% endif %}
-
-        <div class="feedback-box" id="feedback-{{ loop.index0 }}"></div>
-
-        <div class="q-actions">
-            <button class="hint-btn" onclick="showHint({{ q.question_id }})">
-                <i class="fas fa-lightbulb"></i> Hint
-            </button>
-            <div>
-                <button class="submit-btn" id="submit-{{ loop.index0 }}" onclick="submitAnswer({{ loop.index0 }})">
-                    Submit
-                </button>
-                <button class="next-btn" id="next-{{ loop.index0 }}" onclick="nextQuestion({{ loop.index0 }})">
-                    {% if loop.last %}See Results <i class="fas fa-arrow-right"></i>{% else %}Next <i class="fas fa-arrow-right"></i>{% endif %}
-                </button>
+            <div class="progress-bar-sm">
+                <div class="progress-bar-sm-fill" id="progressBar" style="width: 0%"></div>
             </div>
         </div>
     </div>
-    {% endfor %}
+</div>
+{% endblock %}
+
+{% block main_content %}
+<!-- Score Banner (shown after check) -->
+<div id="scoreBanner" style="display:none;"></div>
+
+<!-- Question Card -->
+<div class="question-card" id="questionCard">
+    <div class="q-number" id="qNumber"></div>
+    <div class="q-text" id="qText"></div>
+    <div class="choices" id="choices"></div>
+    <div id="explanationArea"></div>
+    <div class="q-actions" id="actions"></div>
 </div>
 
 <!-- Hint Panel -->
@@ -221,123 +261,343 @@
     </div>
     <div class="hint-messages" id="hintMessages"></div>
     <div class="hint-input-area">
-        <input class="hint-input" id="hintInput" placeholder="Ask for more help..." onkeypress="if(event.key==='Enter')sendHintChat()">
+        <input class="hint-input" id="hintInput" placeholder="Ask for more help..."
+               onkeypress="if(event.key==='Enter')sendHintChat()">
         <button class="hint-send" onclick="sendHintChat()">Send</button>
     </div>
 </div>
+{% endblock %}
 
+{% block bottom_nav %}{% endblock %}
+
+{% block scripts %}
 <script>
-const totalQ = {{ questions|length }};
+// ---- Data from server ----
+const questions = [
+    {% for q in questions %}
+    {
+        id: {{ q.question_id }},
+        type: "{{ q.question_type }}",
+        text: {{ q.question_text|tojson }},
+        options: {{ q.options|tojson if q.options else '[]' }},
+    },
+    {% endfor %}
+];
+
+const totalQ = questions.length;
 const chunkId = {{ chunk.chunk_id }};
 const langPrefix = '{{ "/ja" if lang == "ja" else "" }}';
-let currentQIndex = 0;
-let currentHintQId = null;
-let answeredCount = 0;
 
-function selectOption(el) {
-    const card = el.closest('.question-card');
-    if (card.classList.contains('answered')) return;
-    card.querySelectorAll('.mc-option').forEach(o => o.classList.remove('selected'));
-    el.classList.add('selected');
-}
+// ---- State ----
+let currentIdx = 0;
+const answers = {};       // idx -> { answer: string, locked: boolean }
+let checkResults = null;  // null until checked, then server response
 
-function submitAnswer(idx) {
-    const card = document.querySelector(`[data-q-index="${idx}"]`);
-    if (card.classList.contains('answered')) return;
+// ---- Render ----
+function render() {
+    const q = questions[currentIdx];
+    const ans = answers[currentIdx];
 
-    const qId = parseInt(card.dataset.qId);
-    const qType = card.dataset.qType;
-    let answer = '';
+    // Header
+    const typeBadge = q.type === 'multiple_choice'
+        ? '<span class="q-type-badge q-type-mc">Multiple Choice</span>'
+        : '<span class="q-type-badge q-type-fr">Free Response</span>';
+    document.getElementById('qNumber').innerHTML =
+        `{{ t.child.question_label }} ${currentIdx + 1} / ${totalQ} ${typeBadge}`;
+    document.getElementById('qText').textContent = q.text;
 
-    if (qType === 'multiple_choice') {
-        const selected = card.querySelector('.mc-option.selected');
-        if (!selected) return;
-        answer = selected.dataset.label;
+    const choicesEl = document.getElementById('choices');
+    const expArea = document.getElementById('explanationArea');
+    const actionsEl = document.getElementById('actions');
+
+    if (checkResults) {
+        renderChecked(q, ans, choicesEl, expArea, actionsEl);
+    } else if (ans && ans.locked) {
+        renderLocked(q, ans, choicesEl, expArea, actionsEl);
     } else {
-        answer = card.querySelector('.fr-input').value.trim();
-        if (!answer) return;
+        renderOpen(q, ans, choicesEl, expArea, actionsEl);
     }
 
-    document.getElementById('submit-' + idx).disabled = true;
+    updateNav();
+}
 
-    fetch(langPrefix + '/child/quiz/answer', {
+// State: answering (open)
+function renderOpen(q, ans, choicesEl, expArea, actionsEl) {
+    if (q.type === 'multiple_choice' && q.options) {
+        choicesEl.innerHTML = q.options.map(opt => {
+            const sel = ans && ans.answer === opt.label ? ' selected' : '';
+            return `<div class="choice-btn${sel}" onclick="selectOption('${opt.label}')">
+                <span class="choice-label">${opt.label}</span>
+                <span>${opt.text}</span>
+            </div>`;
+        }).join('');
+    } else {
+        const val = ans ? ans.answer : '';
+        choicesEl.innerHTML = `<textarea class="fr-input" id="frInput"
+            placeholder="Type your answer here..."
+            oninput="onFrInput()">${val}</textarea>`;
+    }
+    expArea.innerHTML = '';
+
+    const hasAnswer = ans && ans.answer;
+    actionsEl.innerHTML = `
+        <button class="hint-btn" onclick="showHint()"><i class="fas fa-lightbulb"></i> Hint</button>
+        <button class="confirm-btn" onclick="confirmAnswer()" ${hasAnswer ? '' : 'disabled'}>
+            <i class="fas fa-check"></i> Confirm
+        </button>
+    `;
+}
+
+// State: confirmed (locked)
+function renderLocked(q, ans, choicesEl, expArea, actionsEl) {
+    if (q.type === 'multiple_choice' && q.options) {
+        choicesEl.innerHTML = q.options.map(opt =>
+            `<div class="choice-btn${opt.label === ans.answer ? ' locked' : ' disabled'}">
+                <span class="choice-label">${opt.label}</span>
+                <span>${opt.text}</span>
+            </div>`
+        ).join('');
+    } else {
+        choicesEl.innerHTML = `<div class="fr-locked">${ans.answer}</div>`;
+    }
+    expArea.innerHTML = '';
+
+    let html = `<button class="change-btn" onclick="unlockAnswer()"><i class="fas fa-undo"></i> Change</button>`;
+    if (allLocked()) {
+        html += `<button class="check-btn" onclick="checkAnswers()"><i class="fas fa-clipboard-check"></i> Check Answers!</button>`;
+    }
+    actionsEl.innerHTML = html;
+}
+
+// State: after grading
+function renderChecked(q, ans, choicesEl, expArea, actionsEl) {
+    const r = checkResults.results.find(x => x.question_id === q.id);
+    if (!r) return;
+
+    if (q.type === 'multiple_choice' && q.options) {
+        choicesEl.innerHTML = q.options.map(opt => {
+            let cls = 'choice-btn';
+            if (opt.label === ans.answer && r.correct) cls += ' correct';
+            else if (opt.label === ans.answer && !r.correct) cls += ' wrong';
+            else if (opt.label === r.correct_answer) cls += ' correct';
+            else cls += ' disabled';
+            return `<div class="${cls}">
+                <span class="choice-label">${opt.label}</span>
+                <span>${opt.text}</span>
+            </div>`;
+        }).join('');
+    } else {
+        if (r.correct) {
+            choicesEl.innerHTML = `<div class="fr-locked" style="border-color:#10b981; background:#d1fae5;">${ans.answer}</div>`;
+        } else {
+            choicesEl.innerHTML = `<div class="fr-locked" style="border-color:#ef4444; background:#fee2e2;">${ans.answer}</div>
+                <div style="margin-top:8px; font-size:14px; color:#059669; font-weight:600;">
+                    <i class="fas fa-check"></i> ${r.correct_answer}
+                </div>`;
+        }
+    }
+
+    const icon = r.correct ? '✅' : '❌';
+    let msg = r.correct ? 'Correct!' : 'Not quite.';
+    if (!r.correct && r.correct_answer) {
+        msg += `<br><strong>Reference:</strong> ${r.correct_answer}`;
+    }
+    if (r.explanation) msg += `<br><em>${r.explanation}</em>`;
+    if (r.points_earned > 0) msg += ` <strong>+${r.points_earned} pt!</strong>`;
+    expArea.innerHTML = `<div class="explanation ${r.correct ? 'correct-bg' : 'wrong-bg'}">${icon} ${msg}</div>`;
+
+    actionsEl.innerHTML = `
+        <div></div>
+        <a href="${langPrefix}/child/quiz/${chunkId}/result" class="results-btn">
+            See Results <i class="fas fa-arrow-right"></i>
+        </a>
+    `;
+}
+
+// ---- Actions ----
+function selectOption(label) {
+    if (checkResults) return;
+    if (answers[currentIdx] && answers[currentIdx].locked) return;
+    answers[currentIdx] = { answer: label, locked: false };
+    render();
+}
+
+function onFrInput() {
+    const val = document.getElementById('frInput')?.value.trim();
+    if (val) {
+        answers[currentIdx] = { answer: val, locked: false };
+    } else {
+        delete answers[currentIdx];
+    }
+    // Update confirm button state
+    const btn = document.querySelector('.confirm-btn');
+    if (btn) btn.disabled = !val;
+}
+
+function confirmAnswer() {
+    const ans = answers[currentIdx];
+    if (!ans || !ans.answer) return;
+    ans.locked = true;
+    render();
+
+    // Auto-advance to next unlocked question
+    for (let i = 1; i <= totalQ; i++) {
+        const idx = (currentIdx + i) % totalQ;
+        if (!answers[idx] || !answers[idx].locked) {
+            currentIdx = idx;
+            render();
+            return;
+        }
+    }
+    // All locked — stay on current, render shows Check Answers button
+}
+
+function unlockAnswer() {
+    if (checkResults) return;
+    const ans = answers[currentIdx];
+    if (ans) ans.locked = false;
+    render();
+}
+
+function jumpTo(idx) {
+    currentIdx = idx;
+    render();
+    // Close mobile accordion
+    document.getElementById('accToggle')?.classList.remove('open');
+    document.getElementById('accBody')?.classList.remove('open');
+}
+
+function allLocked() {
+    for (let i = 0; i < totalQ; i++) {
+        if (!answers[i] || !answers[i].locked) return false;
+    }
+    return true;
+}
+
+// ---- Check Answers (server) ----
+function checkAnswers() {
+    if (!allLocked()) return;
+
+    const btn = document.querySelector('.check-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Checking...'; }
+
+    const payload = questions.map((q, i) => ({
+        question_id: q.id,
+        answer: answers[i].answer,
+    }));
+
+    fetch(langPrefix + '/child/quiz/' + chunkId + '/check', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({question_id: qId, answer: answer}),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: payload }),
     })
     .then(r => r.json())
     .then(data => {
-        card.classList.add('answered');
-        const fb = document.getElementById('feedback-' + idx);
-        fb.style.display = 'block';
+        checkResults = data;
 
-        if (data.correct) {
-            fb.className = 'feedback-box feedback-correct';
-            let msg = '<i class="fas fa-check-circle"></i> Correct!';
-            if (data.newly_mastered) msg += ' <strong>+1 point!</strong>';
-            else if (data.already_mastered) msg += ' (Already mastered)';
-            if (data.explanation) msg += '<br>' + data.explanation;
-            fb.innerHTML = msg;
+        // Show score banner
+        const pct = totalQ > 0 ? Math.round(data.total_correct / totalQ * 100) : 0;
+        const emoji = pct === 100 ? '🎉' : pct >= 70 ? '⭐' : pct >= 40 ? '💪' : '📚';
+        const banner = document.getElementById('scoreBanner');
+        banner.style.display = '';
+        banner.innerHTML = `<div class="score-banner">
+            <div class="score-banner-title">${emoji} ${data.total_correct} / ${totalQ} correct!</div>
+            <div class="score-banner-detail">${pct}%</div>
+            ${data.total_points > 0 ? `<div class="score-banner-points">+${data.total_points} pts</div>` : ''}
+        </div>`;
 
-            if (qType === 'multiple_choice') {
-                card.querySelector('.mc-option.selected').classList.add('correct');
-            }
-        } else {
-            fb.className = 'feedback-box feedback-wrong';
-            let msg = '<i class="fas fa-times-circle"></i> Not quite.';
-            msg += ' The answer is: <strong>' + data.correct_answer + '</strong>';
-            if (data.explanation) msg += '<br>' + data.explanation;
-            fb.innerHTML = msg;
-
-            if (qType === 'multiple_choice') {
-                const selected = card.querySelector('.mc-option.selected');
-                if (selected) selected.classList.add('wrong');
-                card.querySelectorAll('.mc-option').forEach(o => {
-                    if (o.dataset.label === data.correct_answer) o.classList.add('correct');
-                    o.classList.add('disabled');
-                });
-            }
+        // Update points badge
+        const badge = document.getElementById('pointsBadge');
+        if (badge && data.total_points > 0) {
+            badge.textContent = parseInt(badge.textContent) + data.total_points;
         }
 
-        document.getElementById('submit-' + idx).style.display = 'none';
-        document.getElementById('next-' + idx).style.display = '';
-        answeredCount++;
+        currentIdx = 0;
+        render();
     });
 }
 
-function nextQuestion(idx) {
-    if (idx >= totalQ - 1) {
-        window.location.href = langPrefix + '/child/quiz/' + chunkId + '/result';
-        return;
+// ---- Navigation UI ----
+function updateNav() {
+    const confirmedCount = Object.values(answers).filter(a => a && a.locked).length;
+    const remaining = totalQ - confirmedCount;
+
+    // Sidebar stats
+    const el = id => document.getElementById(id);
+
+    if (checkResults) {
+        el('sidebarStatsTitle').textContent = 'Score';
+        el('sideConfirmed').textContent = checkResults.total_correct;
+        el('sideConfirmedLabel').textContent = 'Correct';
+        el('sideRemaining').textContent = totalQ - checkResults.total_correct;
+        el('sideRemainingLabel').textContent = 'Wrong';
+    } else {
+        el('sideConfirmed').textContent = confirmedCount;
+        el('sideRemaining').textContent = remaining;
     }
-    document.querySelector(`[data-q-index="${idx}"]`).classList.remove('active');
-    document.querySelector(`[data-q-index="${idx + 1}"]`).classList.add('active');
-    currentQIndex = idx + 1;
-    document.getElementById('currentQ').textContent = currentQIndex + 1;
-    document.getElementById('progressFill').style.width = ((currentQIndex + 1) / totalQ * 100) + '%';
+
+    // Progress bar
+    const pct = checkResults
+        ? (checkResults.total_correct / totalQ * 100)
+        : (confirmedCount / totalQ * 100);
+    const pb = el('progressBar');
+    if (pb) pb.style.width = pct + '%';
+
+    // Accordion progress
+    const acc = el('accProgress');
+    if (acc) acc.textContent = checkResults
+        ? `${checkResults.total_correct}/${totalQ}`
+        : `${confirmedCount}/${totalQ}`;
+
+    // Per-question indicators
+    questions.forEach((q, i) => {
+        const ans = answers[i];
+        let cls, mcls, status = '';
+
+        if (checkResults) {
+            const r = checkResults.results.find(x => x.question_id === q.id);
+            if (r && r.correct) { cls = 'correct'; mcls = 'correct'; status = '✅'; }
+            else { cls = 'wrong'; mcls = 'wrong'; status = '❌'; }
+        } else if (ans && ans.locked) {
+            cls = 'locked'; mcls = 'locked'; status = '✓';
+        } else {
+            cls = ''; mcls = ''; status = '';
+        }
+
+        // Sidebar
+        const nav = el('qnav-' + i);
+        if (nav) {
+            nav.className = `sidebar-nav-item ${cls} ${i === currentIdx ? 'active' : ''}`;
+            const st = el('qstatus-' + i);
+            if (st) st.textContent = status;
+        }
+
+        // Mobile
+        const pill = el('mqnav-' + i);
+        if (pill) pill.className = `mobile-q-pill ${mcls} ${i === currentIdx ? 'active' : ''}`;
+    });
 }
 
-function showHint(qId) {
-    currentHintQId = qId;
+// ---- Hint ----
+let currentHintQId = null;
+
+function showHint() {
+    currentHintQId = questions[currentIdx].id;
     const panel = document.getElementById('hintPanel');
     const messages = document.getElementById('hintMessages');
     messages.innerHTML = '<div class="hint-msg bot"><i class="fas fa-spinner fa-spin"></i> Thinking...</div>';
     panel.classList.add('open');
 
-    fetch(langPrefix + '/child/hint/' + qId, {
+    fetch(langPrefix + '/child/hint/' + currentHintQId, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
     })
     .then(r => r.json())
-    .then(data => {
-        messages.innerHTML = '<div class="hint-msg bot">' + data.hint + '</div>';
-    });
+    .then(data => { messages.innerHTML = '<div class="hint-msg bot">' + data.hint + '</div>'; });
 }
 
-function closeHint() {
-    document.getElementById('hintPanel').classList.remove('open');
-}
+function closeHint() { document.getElementById('hintPanel').classList.remove('open'); }
 
 function sendHintChat() {
     const input = document.getElementById('hintInput');
@@ -352,15 +612,25 @@ function sendHintChat() {
 
     fetch(langPrefix + '/child/hint/' + currentHintQId, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({message: msg}),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg }),
     })
     .then(r => r.json())
     .then(data => {
-        document.getElementById('hintLoading').remove();
+        const loading = document.getElementById('hintLoading');
+        if (loading) loading.remove();
         messages.innerHTML += '<div class="hint-msg bot">' + data.hint + '</div>';
         messages.scrollTop = messages.scrollHeight;
     });
 }
+
+// ---- Accordion ----
+function toggleAccordion() {
+    document.getElementById('accToggle').classList.toggle('open');
+    document.getElementById('accBody').classList.toggle('open');
+}
+
+// ---- Init ----
+render();
 </script>
 {% endblock %}

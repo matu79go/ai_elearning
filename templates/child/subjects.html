@@ -1,86 +1,104 @@
-{% extends "base.html" %}
+{% extends "child/child_base.html" %}
 {% block title %}{{ t.child.nav_subjects }} - {{ t.site_name }}{% endblock %}
-{% block lang_switch %}{% endblock %}
-{% block head %}
+
+{% block page_head %}
 <style>
-    body { background: #f0f0f5; }
-    .page-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.25rem 1.25rem 2rem;
-        border-radius: 0 0 28px 28px;
-    }
-    .page-header-top {
-        display: flex; align-items: center; justify-content: space-between;
-        margin-bottom: 0.75rem;
-    }
-    .back-btn {
-        width: 36px; height: 36px; border-radius: 10px;
-        background: rgba(255,255,255,0.15); border: none;
-        color: white; font-size: 16px; cursor: pointer;
-        display: flex; align-items: center; justify-content: center;
-        text-decoration: none;
-    }
-    .page-title { color: white; font-size: 22px; font-weight: 800; }
-    .page-subtitle { color: rgba(255,255,255,0.7); font-size: 13px; margin-top: 4px; }
-
-    .content-area { padding: 1.25rem; margin-top: -1rem; }
-
     .subject-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-        gap: 0.75rem;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 1rem;
+    }
+
+    @media (min-width: 768px) {
+        .subject-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
     }
 
     .subject-card {
-        background: white; border-radius: 16px; padding: 1.25rem;
-        text-align: center; text-decoration: none; color: inherit;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        transition: all 0.2s; cursor: pointer;
+        background: #f8fafc;
+        border: 2px solid #f1f5f9;
+        border-radius: 16px;
+        padding: 1.25rem 1rem;
+        text-align: center;
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.2s;
+        cursor: pointer;
     }
-    .subject-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
 
-    .subject-emoji {
+    .subject-card:hover {
+        transform: translateY(-2px);
+        border-color: #e2e8f0;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    }
+
+    .subject-icon {
         width: 56px; height: 56px; border-radius: 16px;
         display: flex; align-items: center; justify-content: center;
         font-size: 28px; margin: 0 auto 0.75rem;
     }
-    .subject-emoji.science { background: #dbeafe; }
-    .subject-emoji.maths { background: #fef3c7; }
-    .subject-emoji.english { background: #ede9fe; }
-    .subject-emoji.history { background: #fce7f3; }
-    .subject-emoji.geography { background: #d1fae5; }
-    .subject-emoji.computing { background: #e0e7ff; }
-    .subject-emoji.spanish { background: #fff7ed; }
 
     .subject-name { font-size: 15px; font-weight: 700; color: #1e293b; }
     .subject-count { font-size: 12px; color: #94a3b8; margin-top: 4px; }
 </style>
 {% endblock %}
 
-{% block body %}
-<div class="page-header">
-    <div class="page-header-top">
-        <a href="{{ lang_url('/child/dashboard') }}" class="back-btn"><i class="fas fa-arrow-left"></i></a>
-        <div></div>
+{% block sidebar %}
+<!-- Profile -->
+<div class="sidebar-card">
+    <div class="sidebar-profile">
+        <div class="sidebar-avatar">{{ current_user.avatar or '🦊' }}</div>
+        <div>
+            <div class="sidebar-name">{{ current_user.display_name }}</div>
+            <div class="sidebar-grade">Year {{ 7 }}</div>
+        </div>
     </div>
-    <div class="page-title">{{ t.child.nav_subjects }}</div>
-    <div class="page-subtitle">Year {{ 7 }}</div>
+    <div class="sidebar-stats">
+        <div class="sidebar-stat">
+            <div class="sidebar-stat-val">{{ current_user.total_points }}</div>
+            <div class="sidebar-stat-lbl">{{ t.child.stat_points }}</div>
+        </div>
+        <div class="sidebar-stat">
+            <div class="sidebar-stat-val">{{ current_user.level }}</div>
+            <div class="sidebar-stat-lbl">{{ t.child.stat_level }}</div>
+        </div>
+        <div class="sidebar-stat">
+            <div class="sidebar-stat-val">{{ current_user.streak_count }}</div>
+            <div class="sidebar-stat-lbl">{{ t.child.stat_streak }}</div>
+        </div>
+    </div>
 </div>
 
-<div class="content-area">
+<!-- Subject List -->
+<div class="sidebar-card" style="flex:1;">
+    <div class="sidebar-title">{{ t.child.nav_subjects }}</div>
+    <div class="sidebar-nav">
+        {% for subject, unit_count in subjects %}
+        {% set s = subject|lower %}
+        {% set cfg = SUBJ.get(subject, {'emoji': '📚', 'bg': '#f1f5f9', 'color': '#64748b'}) %}
+        <a href="{{ lang_url('/child/subjects/' ~ subject) }}" class="sidebar-nav-item">
+            <span class="sidebar-nav-icon" style="background: {{ cfg.bg }}; color: {{ cfg.color }};">
+                {{ cfg.emoji }}
+            </span>
+            <span class="sidebar-nav-text">{{ subject }}</span>
+            <span class="sidebar-nav-status" style="font-size:11px; opacity:0.6;">{{ unit_count }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block main_content %}
+<div class="content-card">
+    <div class="content-card-title">{{ t.child.nav_subjects }}</div>
+    <div class="content-card-subtitle">Year {{ 7 }}</div>
+
     <div class="subject-grid">
         {% for subject, unit_count in subjects %}
         {% set s = subject|lower %}
+        {% set cfg = SUBJ.get(subject, {'emoji': '📚', 'bg': '#f1f5f9', 'color': '#64748b'}) %}
         <a href="{{ lang_url('/child/subjects/' ~ subject) }}" class="subject-card">
-            <div class="subject-emoji {{ s }}">
-                {% if s == 'science' %}🔬
-                {% elif s == 'maths' %}🔢
-                {% elif s == 'english' %}📖
-                {% elif s == 'history' %}🏛️
-                {% elif s == 'geography' %}🌍
-                {% elif s == 'computing' %}💻
-                {% elif s == 'spanish' %}🇪🇸
-                {% else %}📚{% endif %}
+            <div class="subject-icon" style="background: {{ cfg.bg }};">
+                {{ cfg.emoji }}
             </div>
             <div class="subject-name">{{ subject }}</div>
             <div class="subject-count">{{ unit_count }} units</div>

@@ -1,18 +1,158 @@
 {% extends "base.html" %}
 {% block title %}{{ t.top.title }}{% endblock %}
+{% block head %}
+<style>
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+    }
+
+    .top-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 2rem 1.25rem;
+    }
+
+    /* Logo */
+    .logo-wrapper {
+        margin-bottom: 1.5rem;
+        animation: bounce-in 0.6s ease-out;
+    }
+
+    .logo-img {
+        max-width: 340px;
+        width: 100%;
+        height: auto;
+        filter: drop-shadow(0 8px 24px rgba(0,0,0,0.2));
+    }
+
+    @media (min-width: 640px) {
+        .logo-img { max-width: 420px; }
+    }
+
+    @media (min-width: 1024px) {
+        .logo-img { max-width: 500px; }
+    }
+
+    /* Subtitle */
+    .top-subtitle {
+        color: rgba(255,255,255,0.85);
+        font-size: 16px;
+        font-weight: 500;
+        margin-bottom: 2.5rem;
+        text-align: center;
+        animation: slideUp 0.5s ease 0.3s both;
+    }
+
+    @media (min-width: 640px) {
+        .top-subtitle { font-size: 18px; }
+    }
+
+    /* Buttons */
+    .btn-group {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        width: 100%;
+        max-width: 400px;
+        animation: slideUp 0.5s ease 0.5s both;
+    }
+
+    @media (min-width: 640px) {
+        .btn-group {
+            flex-direction: row;
+            max-width: none;
+            width: auto;
+        }
+    }
+
+    .top-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 16px 36px;
+        border-radius: 16px;
+        font-size: 17px;
+        font-weight: 800;
+        text-decoration: none;
+        transition: all 0.2s;
+        border: none;
+        cursor: pointer;
+    }
+
+    .top-btn:hover {
+        transform: translateY(-3px);
+    }
+
+    .top-btn:active {
+        transform: scale(0.98);
+    }
+
+    .btn-child {
+        background: white;
+        color: #6366f1;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    }
+
+    .btn-child:hover {
+        box-shadow: 0 12px 32px rgba(0,0,0,0.2);
+    }
+
+    .btn-parent {
+        background: rgba(255,255,255,0.15);
+        backdrop-filter: blur(10px);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.25);
+    }
+
+    .btn-parent:hover {
+        background: rgba(255,255,255,0.25);
+    }
+
+    /* Decorative elements */
+    .top-decoration {
+        position: fixed;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.05);
+        pointer-events: none;
+    }
+
+    .deco-1 { width: 300px; height: 300px; top: -100px; right: -80px; }
+    .deco-2 { width: 200px; height: 200px; bottom: -60px; left: -60px; }
+    .deco-3 { width: 150px; height: 150px; top: 40%; left: -40px; }
+</style>
+{% endblock %}
+
 {% block body %}
-<div class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-amber-100 px-4">
-    <div class="text-center animate-bounce-in">
-        <h1 class="text-4xl sm:text-5xl font-bold text-indigo-600 mb-4">{{ t.top.heading }}</h1>
-        <p class="text-lg sm:text-xl text-gray-600 mb-8">{{ t.top.subtitle }}</p>
+<!-- Decorative circles -->
+<div class="top-decoration deco-1"></div>
+<div class="top-decoration deco-2"></div>
+<div class="top-decoration deco-3"></div>
+
+<div class="top-container">
+    <!-- Logo -->
+    <div class="logo-wrapper">
+        <picture>
+            <source srcset="/static/images/logo.webp" type="image/webp">
+            <img src="/static/images/logo.png" alt="AI e-Learning" class="logo-img">
+        </picture>
     </div>
-    <div class="flex flex-col sm:flex-row gap-4 sm:gap-6 w-full sm:w-auto">
-        <a href="{{ lang_url('/child/login') }}"
-           class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-4 px-8 rounded-2xl text-lg sm:text-xl shadow-lg transform hover:scale-105 transition-all duration-200 text-center">
+
+    <!-- Subtitle -->
+    <div class="top-subtitle">{{ t.top.subtitle }}</div>
+
+    <!-- Login Buttons -->
+    <div class="btn-group">
+        <a href="{{ lang_url('/child/login') }}" class="top-btn btn-child">
+            <i class="fas fa-graduation-cap"></i>
             {{ t.top.child_login }}
         </a>
-        <a href="{{ lang_url('/parent/login') }}"
-           class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-4 px-8 rounded-2xl text-lg sm:text-xl shadow-lg transform hover:scale-105 transition-all duration-200 text-center">
+        <a href="{{ lang_url('/parent/login') }}" class="top-btn btn-parent">
+            <i class="fas fa-user-shield"></i>
             {{ t.top.parent_login }}
         </a>
     </div>

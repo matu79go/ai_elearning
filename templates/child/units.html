@@ -1,116 +1,165 @@
-{% extends "base.html" %}
+{% extends "child/child_base.html" %}
 {% block title %}{{ subject }} - {{ t.site_name }}{% endblock %}
-{% block lang_switch %}{% endblock %}
-{% block head %}
+{% block back_url %}{{ lang_url('/child/subjects') }}{% endblock %}
+
+{% block page_head %}
 <style>
-    body { background: #f0f0f5; }
-    .page-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.25rem 1.25rem 2rem;
-        border-radius: 0 0 28px 28px;
-    }
-    .page-header-top {
-        display: flex; align-items: center; justify-content: space-between;
-        margin-bottom: 0.75rem;
-    }
-    .back-btn {
-        width: 36px; height: 36px; border-radius: 10px;
-        background: rgba(255,255,255,0.15); border: none;
-        color: white; font-size: 16px; cursor: pointer;
-        display: flex; align-items: center; justify-content: center;
-        text-decoration: none;
-    }
-    .page-title { color: white; font-size: 22px; font-weight: 800; }
-    .page-subtitle { color: rgba(255,255,255,0.7); font-size: 13px; margin-top: 4px; }
-
-    .content-area { padding: 1.25rem; margin-top: -1rem; }
-
     .unit-list { display: flex; flex-direction: column; gap: 0.75rem; }
 
     .unit-card {
-        background: white; border-radius: 16px; padding: 1rem 1.25rem;
-        text-decoration: none; color: inherit;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        transition: all 0.2s; display: block;
+        background: #f8fafc;
+        border: 2px solid #f1f5f9;
+        border-radius: 16px;
+        padding: 1.25rem;
+        transition: all 0.2s;
+        cursor: pointer;
     }
-    .unit-card:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
 
-    .unit-title { font-size: 15px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
-    .unit-meta { font-size: 12px; color: #94a3b8; margin-bottom: 8px; }
+    .unit-card:hover {
+        border-color: #e2e8f0;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    .unit-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .unit-title { font-size: 15px; font-weight: 700; color: #1e293b; flex: 1; }
+    .unit-toggle {
+        width: 28px; height: 28px; border-radius: 8px;
+        background: #e2e8f0; border: none;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 11px; color: #64748b; cursor: pointer;
+        transition: all 0.3s; flex-shrink: 0;
+    }
+
+    .unit-card.open .unit-toggle { transform: rotate(180deg); background: #6366f1; color: white; }
+
+    .unit-meta { font-size: 12px; color: #94a3b8; margin-top: 6px; }
 
     .progress-bar {
-        height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden;
+        height: 6px; background: #e2e8f0; border-radius: 3px;
+        overflow: hidden; margin-top: 10px;
     }
+
     .progress-fill {
-        height: 100%; border-radius: 4px;
+        height: 100%; border-radius: 3px;
         background: linear-gradient(90deg, #6366f1, #8b5cf6);
         transition: width 0.3s;
     }
+
     .progress-text {
-        font-size: 11px; color: #6366f1; font-weight: 600; margin-top: 4px;
-        text-align: right;
+        font-size: 11px; color: #6366f1; font-weight: 600;
+        margin-top: 4px; text-align: right;
     }
+
+    /* Sections inside unit */
+    .section-list {
+        display: none;
+        margin-top: 14px; padding-top: 14px;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .unit-card.open .section-list { display: block; }
+
+    .section-link {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 8px; font-size: 14px; color: #475569;
+        text-decoration: none; border-radius: 10px;
+        transition: all 0.2s;
+    }
+
+    .section-link:hover { background: #eef2ff; color: #6366f1; }
+
+    .section-num {
+        width: 26px; height: 26px; border-radius: 8px;
+        background: #eef2ff; color: #6366f1;
+        font-size: 12px; font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+        min-width: 26px;
+    }
+
+    .section-link-text { flex: 1; }
+    .section-link-arrow { color: #cbd5e1; font-size: 11px; }
 </style>
 {% endblock %}
 
-{% block body %}
-<div class="page-header">
-    <div class="page-header-top">
-        <a href="{{ lang_url('/child/subjects') }}" class="back-btn"><i class="fas fa-arrow-left"></i></a>
-        <div></div>
+{% block sidebar %}
+<!-- Subject Navigation -->
+<div class="sidebar-card" style="flex:1;">
+    <div class="sidebar-title">{{ t.child.nav_subjects }}</div>
+    <div class="sidebar-nav">
+        {% for s_name, s_count in all_subjects %}
+        {% set cfg = SUBJ.get(s_name, {'emoji': '📚', 'bg': '#f1f5f9', 'color': '#64748b'}) %}
+        <a href="{{ lang_url('/child/subjects/' ~ s_name) }}"
+           class="sidebar-nav-item {{ 'active' if s_name == subject }}">
+            <span class="sidebar-nav-icon" style="background: {{ cfg.bg }}; color: {{ cfg.color }};">
+                {{ cfg.emoji }}
+            </span>
+            <span class="sidebar-nav-text">{{ s_name }}</span>
+            <span class="sidebar-nav-status" style="font-size:11px; opacity:0.6;">{{ s_count }}</span>
+        </a>
+        {% endfor %}
     </div>
-    <div class="page-title">{{ subject }}</div>
-    <div class="page-subtitle">{{ units_data|length }} units</div>
 </div>
+{% endblock %}
 
-<div class="content-area">
+{% block mobile_panel %}
+<div class="mobile-panel">
+    <button class="accordion-toggle" onclick="this.classList.toggle('open'); document.getElementById('mobileSubjNav').classList.toggle('open');">
+        <span class="accordion-toggle-left">
+            <i class="fas fa-layer-group"></i>
+            <span>{{ t.child.nav_subjects }}</span>
+        </span>
+        <span class="acc-chevron"><i class="fas fa-chevron-down"></i></span>
+    </button>
+    <div class="accordion-body" id="mobileSubjNav">
+        <div class="accordion-inner">
+            {% for s_name, s_count in all_subjects %}
+            {% set cfg = SUBJ.get(s_name, {'emoji': '📚', 'bg': '#f1f5f9', 'color': '#64748b'}) %}
+            <a href="{{ lang_url('/child/subjects/' ~ s_name) }}"
+               class="mobile-nav-link {{ 'active' if s_name == subject }}">
+                <span>{{ cfg.emoji }}</span>
+                <span>{{ s_name }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block main_content %}
+{% set cfg = SUBJ.get(subject, {'emoji': '📚', 'bg': '#f1f5f9', 'color': '#64748b'}) %}
+<div class="content-card">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:0.25rem;">
+        <span style="font-size:28px;">{{ cfg.emoji }}</span>
+        <div class="content-card-title">{{ subject }}</div>
+    </div>
+    <div class="content-card-subtitle">{{ units_data|length }} units</div>
+
     <div class="unit-list">
         {% for ud in units_data %}
         {% set m = ud.material %}
         {% set pct = ((ud.mastered / ud.total * 100) if ud.total > 0 else 0)|int %}
-        <a href="{{ lang_url('/child/subjects/' ~ subject) }}" class="unit-card" onclick="event.preventDefault(); showSections({{ m.material_id }})">
-            <div class="unit-title">{{ m.title.replace('KS3 ' ~ subject ~ ' - ', '') }}</div>
-            <div class="unit-meta">{{ m.chunks.count() }} sections / {{ ud.total }} questions</div>
+        <div class="unit-card" onclick="this.classList.toggle('open')">
+            <div class="unit-header">
+                <div class="unit-title">{{ m.title.replace('KS3 ' ~ subject ~ ' - ', '') }}</div>
+                <button class="unit-toggle"><i class="fas fa-chevron-down"></i></button>
+            </div>
+            <div class="unit-meta">{{ m.chunks.count() }} sections &middot; {{ ud.total }} questions</div>
             <div class="progress-bar">
                 <div class="progress-fill" style="width: {{ pct }}%"></div>
             </div>
             <div class="progress-text">{{ ud.mastered }}/{{ ud.total }} mastered</div>
 
-            <!-- セクション一覧 (hidden) -->
-            <div class="section-list" id="sections-{{ m.material_id }}" style="display: none; margin-top: 12px; border-top: 1px solid #f1f5f9; padding-top: 10px;">
+            <div class="section-list" onclick="event.stopPropagation();">
                 {% for chunk in m.chunks.all() %}
-                <a href="{{ lang_url('/child/section/' ~ chunk.chunk_id) }}" class="section-link" onclick="event.stopPropagation();">
+                <a href="{{ lang_url('/child/section/' ~ chunk.chunk_id) }}" class="section-link">
                     <span class="section-num">{{ loop.index }}</span>
-                    <span>{{ chunk.title }}</span>
-                    <i class="fas fa-chevron-right" style="margin-left: auto; color: #cbd5e1; font-size: 11px;"></i>
+                    <span class="section-link-text">{{ chunk.title }}</span>
+                    <i class="fas fa-chevron-right section-link-arrow"></i>
                 </a>
                 {% endfor %}
             </div>
-        </a>
+        </div>
         {% endfor %}
     </div>
 </div>
-
-<script>
-function showSections(materialId) {
-    const el = document.getElementById('sections-' + materialId);
-    el.style.display = el.style.display === 'none' ? '' : 'none';
-}
-</script>
-
-<style>
-    .section-link {
-        display: flex; align-items: center; gap: 8px;
-        padding: 8px 0; font-size: 13px; color: #475569;
-        text-decoration: none; border-bottom: 1px solid #f8fafc;
-    }
-    .section-link:last-child { border-bottom: none; }
-    .section-link:hover { color: #6366f1; }
-    .section-num {
-        width: 22px; height: 22px; border-radius: 6px;
-        background: #eef2ff; color: #6366f1; font-size: 11px;
-        font-weight: 700; display: flex; align-items: center;
-        justify-content: center; min-width: 22px;
-    }
-</style>
 {% endblock %}

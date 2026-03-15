@@ -28,8 +28,9 @@ def child_subjects():
         Material.subject,
         func.count(Material.material_id).label('unit_count'),
     ).filter_by(
-        year_group=YEAR_GROUP, status='published'
+        year_group=YEAR_GROUP,
     ).group_by(Material.subject).order_by(Material.subject).all()
+
     return render_template('child/subjects.html', subjects=subjects)
 
 
@@ -40,7 +41,7 @@ def child_units(subject):
     if not _is_child():
         abort(403)
     materials = Material.query.filter_by(
-        subject=subject, year_group=YEAR_GROUP, status='published'
+        subject=subject, year_group=YEAR_GROUP,
     ).order_by(Material.title).all()
 
     # 各単元のマスタリー進捗を計算
@@ -58,8 +59,18 @@ def child_units(subject):
             'mastered': mastered_q,
         })
 
+    # サイドバー用: 全教科一覧
+    from sqlalchemy import func
+    all_subjects = db.session.query(
+        Material.subject,
+        func.count(Material.material_id).label('unit_count'),
+    ).filter_by(
+        year_group=YEAR_GROUP,
+    ).group_by(Material.subject).order_by(Material.subject).all()
+
     return render_template('child/units.html',
-                           subject=subject, units_data=units_data)
+                           subject=subject, units_data=units_data,
+                           all_subjects=all_subjects)
 
 
 # ---- セクション要約 ----
@@ -87,9 +98,15 @@ def child_section(chunk_id):
     # content からkey points等を抽出（パース）
     parsed = _parse_chunk_content(chunk.content)
 
+    # サイドバー用: 同じマテリアルの全セクション
+    all_chunks = MaterialChunk.query.filter_by(
+        material_id=chunk.material_id
+    ).order_by(MaterialChunk.sort_order).all()
+
     return render_template('child/section.html',
                            chunk=chunk, material=material, parsed=parsed,
-                           total_questions=len(questions), mastered_count=mastered_count)
+                           total_questions=len(questions), mastered_count=mastered_count,
+                           all_chunks=all_chunks)
 
 
 # ---- クイズ画面 ----
@@ -116,64 +133,80 @@ def child_quiz(chunk_id):
                            questions=questions, mastery_map=mastery_map)
 
 
-# ---- 回答送信 (Ajax) ----
-@dual_route(child_learn_bp, '/child/quiz/answer', methods=['POST'])
+# ---- 一括採点 (Check Answers) ----
+@dual_route(child_learn_bp, '/child/quiz/<int:chunk_id>/check', methods=['POST'])
 @login_required
-def child_quiz_answer():
+def child_quiz_check(chunk_id):
     if not _is_child():
         return jsonify({'error': 'forbidden'}), 403
 
+    chunk = MaterialChunk.query.get_or_404(chunk_id)
     data = request.get_json()
-    question_id = data.get('question_id')
-    user_answer = data.get('answer', '').strip()
+    answer_list = data.get('answers', [])
 
-    question = Question.query.get_or_404(question_id)
+    results = []
+    total_correct = 0
+    total_points = 0
 
-    # マスタリーレコードを取得 or 作成
-    mastery = QuestionMastery.query.filter_by(
-        child_id=current_user.child_id,
-        question_id=question_id,
-    ).first()
-    if not mastery:
-        mastery = QuestionMastery(
+    for ans in answer_list:
+        question = Question.query.get(ans.get('question_id'))
+        if not question or question.chunk_id != chunk_id:
+            continue
+
+        user_answer = str(ans.get('answer', '')).strip()
+
+        # 採点
+        is_correct = False
+        if question.question_type == 'multiple_choice':
+            is_correct = (user_answer.upper() == question.correct_answer.upper())
+        elif question.question_type == 'free_response':
+            is_correct = _grade_free_response(
+                user_answer, question.correct_answer, question.reference_answer)
+
+        # マスタリー更新
+        mastery = QuestionMastery.query.filter_by(
             child_id=current_user.child_id,
-            question_id=question_id,
-        )
-        db.session.add(mastery)
+            question_id=question.question_id,
+        ).first()
+        if not mastery:
+            mastery = QuestionMastery(
+                child_id=current_user.child_id,
+                question_id=question.question_id,
+            )
+            db.session.add(mastery)
 
-    mastery.attempts += 1
+        mastery.attempts = (mastery.attempts or 0) + 1
+        points_earned = 0
 
-    # 採点
-    is_correct = False
-    points_earned = 0
+        if is_correct:
+            total_correct += 1
+            if not mastery.mastered:
+                mastery.mastered = True
+                mastery.mastered_at = datetime.utcnow()
+                points_earned = 1
+                total_points += 1
+                current_user.total_points += 1
 
-    if question.question_type == 'multiple_choice':
-        is_correct = (user_answer.upper() == question.correct_answer.upper())
-    elif question.question_type == 'free_response':
-        # 簡易マッチ（完全一致 or 部分一致）— 将来LLM採点に置き換え
-        correct = question.correct_answer.lower().strip()
-        is_correct = (user_answer.lower().strip() == correct)
+        # 表示用の正解: correct_answer が空なら reference_answer を使う
+        display_answer = (question.correct_answer or '').strip()
+        if not display_answer:
+            display_answer = (question.reference_answer or '').strip()
 
-    # マスタリー更新
-    newly_mastered = False
-    if is_correct and not mastery.mastered:
-        mastery.mastered = True
-        mastery.mastered_at = datetime.utcnow()
-        points_earned = 1
-        newly_mastered = True
-
-        # ポイント加算
-        current_user.total_points += points_earned
+        results.append({
+            'question_id': question.question_id,
+            'correct': is_correct,
+            'correct_answer': display_answer,
+            'explanation': question.explanation or '',
+            'points_earned': points_earned,
+        })
 
     db.session.commit()
 
     return jsonify({
-        'correct': is_correct,
-        'correct_answer': question.correct_answer,
-        'explanation': question.explanation or '',
-        'points_earned': points_earned,
-        'newly_mastered': newly_mastered,
-        'already_mastered': mastery.mastered and not newly_mastered,
+        'results': results,
+        'total_correct': total_correct,
+        'total_questions': len(results),
+        'total_points': total_points,
     })
 
 
@@ -247,6 +280,160 @@ def child_quiz_result(chunk_id):
 
 
 # ---- ヘルパー関数 ----
+
+def _grade_free_response(user_answer, correct_answer, reference_answer):
+    """自由回答の採点。LLM → spaCyフォールバック。"""
+    user = user_answer.lower().strip()
+    if not user:
+        return False
+
+    correct = (correct_answer or '').strip()
+    ref = (reference_answer or '').strip()
+
+    # 1) correct_answer との完全一致
+    if correct and user == correct.lower():
+        return True
+
+    # 2) reference_answer にカンマ区切りの代替回答がある場合、各候補と一致チェック
+    if ref and ',' in ref and len(ref) < 200:
+        alternatives = [alt.strip().lower() for alt in ref.split(',')]
+        if user in alternatives:
+            return True
+
+    # 3) LLM で模範解答との一致率を判定
+    match_target = ref if ref else correct
+    if match_target and len(user) >= 10:
+        score = _llm_grade(user_answer, match_target)
+        if score is not None:
+            return score >= 30  # 30%以上で mastered（主要概念に触れていればOK）
+        # LLM失敗時 → spaCy フォールバック
+        return _fuzzy_match(user, match_target.lower())
+
+    return False
+
+
+def _llm_grade(user_answer, reference_answer):
+    """GPT-5 Nano で模範解答との一致率を 0-100 で返す。失敗時は None。"""
+    try:
+        import os
+        from openai import OpenAI
+
+        api_key = os.environ.get('OPENAI_API_KEY')
+        if not api_key:
+            return None
+
+        client = OpenAI(api_key=api_key)
+
+        prompt = f"""You are grading a Year 7 student's answer. Compare it with the reference answer.
+Return ONLY a number 0-100.
+
+Scoring guide:
+- 100: Covers all key concepts with explanation
+- 70: Covers the main idea AND gives specific reasons/details
+- 40: States the main idea AND at least one supporting reason
+- 20: Only states the conclusion without any reasoning or detail
+- 0: Completely wrong or irrelevant
+
+IMPORTANT: Just stating a fact (e.g. "A car is not living") without explaining WHY scores only 20. The student must show reasoning.
+
+Reference: {reference_answer}
+Student: {user_answer}
+
+Score:"""
+
+        response = client.responses.create(
+            model='gpt-5-nano',
+            input=prompt,
+        )
+
+        # レスポンスから数値を抽出
+        text = response.output_text.strip()
+        # 数字だけ取り出す
+        import re
+        match = re.search(r'\d+', text)
+        if match:
+            return min(int(match.group()), 100)
+        return None
+
+    except Exception:
+        return None
+
+
+def _fuzzy_match(user_text, ref_text):
+    """spaCy NLP で自由回答を採点。レンマ化+ストップワード除去+キーワードマッチ"""
+    try:
+        nlp = _get_nlp()
+
+        ref_doc = nlp(ref_text)
+        user_doc = nlp(user_text)
+
+        # spaCy はmove, do, canなどを stopword扱いするが、
+        # 科学の文脈では重要語なので、短すぎる語（2文字以下）だけ除外
+        ALWAYS_STOP = {'a', 'an', 'the', 'is', 'am', 'are', 'was', 'were',
+                       'be', 'been', 'being', 'it', 'its', 'do', 'does',
+                       'did', 'has', 'have', 'had', 'to', 'of', 'in', 'on',
+                       'at', 'by', 'for', 'and', 'or', 'but', 'so', 'if',
+                       'as', 'that', 'this', 'with', 'from', 'not', 'no',
+                       'they', 'them', 'their', 'he', 'she', 'we', 'you',
+                       'my', 'his', 'her', 'our', 'your'}
+
+        def extract_tokens(doc):
+            """各トークンの全形態（レンマ+原形）をセットのリストで返す"""
+            tokens = []
+            for token in doc:
+                if token.is_punct or len(token.text) <= 1:
+                    continue
+                if token.text.lower() in ALWAYS_STOP:
+                    continue
+                forms = {token.lemma_.lower(), token.text.lower()}
+                tokens.append(forms)
+            return tokens
+
+        ref_tokens = extract_tokens(ref_doc)
+        user_tokens = extract_tokens(user_doc)
+
+        if not ref_tokens or not user_tokens:
+            return False
+
+        # ユーザーの各トークンが模範解答のいずれかのトークンと一致するか
+        matched = 0
+        for u_forms in user_tokens:
+            for r_forms in ref_tokens:
+                if u_forms & r_forms:
+                    matched += 1
+                    break
+
+        precision = matched / len(user_tokens)
+
+        # 判定: 的外れでない (precision >= 0.5) かつ
+        #   3つ以上一致、または 2つ以上 & 5語以上
+        if precision < 0.5:
+            return False
+        if matched >= 3:
+            return True
+        if matched >= 2 and len(user_text.split()) >= 5:
+            return True
+        return False
+
+    except Exception:
+        # spaCy が使えない場合はフォールバック
+        ref_words = set(w.lower() for w in ref_text.split() if len(w) > 3)
+        if not ref_words:
+            return False
+        matched = sum(1 for w in ref_words if w in user_text.lower())
+        return matched >= len(ref_words) * 0.3
+
+
+# spaCy モデルのキャッシュ（毎回ロードしない）
+_nlp_model = None
+
+def _get_nlp():
+    global _nlp_model
+    if _nlp_model is None:
+        import spacy
+        _nlp_model = spacy.load('en_core_web_sm')
+    return _nlp_model
+
 
 def _generate_summary(content):
     """Transcriptを要約"""

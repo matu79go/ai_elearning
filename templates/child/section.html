@@ -1,40 +1,23 @@
-{% extends "base.html" %}
+{% extends "child/child_base.html" %}
 {% block title %}{{ chunk.title }} - {{ t.site_name }}{% endblock %}
-{% block lang_switch %}{% endblock %}
-{% block head %}
+{% block back_url %}{{ lang_url('/child/subjects/' ~ material.subject) }}{% endblock %}
+
+{% block page_head %}
 <style>
-    body { background: #f0f0f5; }
-    .page-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.25rem 1.25rem 2rem;
-        border-radius: 0 0 28px 28px;
-    }
-    .page-header-top {
-        display: flex; align-items: center; justify-content: space-between;
-        margin-bottom: 0.75rem;
-    }
-    .back-btn {
-        width: 36px; height: 36px; border-radius: 10px;
-        background: rgba(255,255,255,0.15); border: none;
-        color: white; font-size: 16px; cursor: pointer;
-        display: flex; align-items: center; justify-content: center;
-        text-decoration: none;
-    }
-    .page-title { color: white; font-size: 20px; font-weight: 800; }
-    .page-subtitle { color: rgba(255,255,255,0.7); font-size: 13px; margin-top: 4px; }
-
-    .content-area { padding: 1.25rem; margin-top: -1rem; }
-
     .learn-card {
-        background: white; border-radius: 16px; padding: 1.25rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        background: #f8fafc;
+        border: 2px solid #f1f5f9;
+        border-radius: 16px;
+        padding: 1.25rem;
         margin-bottom: 0.75rem;
     }
+
     .card-label {
         font-size: 12px; font-weight: 700; text-transform: uppercase;
         letter-spacing: 0.5px; margin-bottom: 10px;
         display: flex; align-items: center; gap: 6px;
     }
+
     .card-label.green { color: #059669; }
     .card-label.blue { color: #2563eb; }
     .card-label.red { color: #dc2626; }
@@ -42,32 +25,27 @@
 
     .kp-list { list-style: none; padding: 0; }
     .kp-item {
-        padding: 6px 0; font-size: 14px; color: #374151; line-height: 1.5;
-        display: flex; gap: 8px;
+        padding: 6px 0; font-size: 14px; color: #374151;
+        line-height: 1.5; display: flex; gap: 8px;
     }
     .kp-check { color: #059669; margin-top: 2px; }
 
     .kw-grid { display: flex; flex-direction: column; gap: 8px; }
     .kw-card {
-        background: #f8fafc; border-radius: 10px; padding: 10px 14px;
-        border-left: 3px solid #6366f1;
+        background: white; border-radius: 10px;
+        padding: 10px 14px; border-left: 3px solid #6366f1;
     }
     .kw-word { font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 2px; }
     .kw-def { font-size: 13px; color: #64748b; line-height: 1.4; }
 
-    .mc-item {
-        padding: 8px 0; font-size: 14px; line-height: 1.5;
-    }
+    .mc-item { padding: 8px 0; font-size: 14px; line-height: 1.5; }
     .mc-wrong { color: #dc2626; font-weight: 600; }
     .mc-right { color: #059669; font-size: 13px; margin-top: 2px; }
 
-    .summary-text {
-        font-size: 14px; color: #374151; line-height: 1.7;
-    }
+    .summary-text { font-size: 14px; color: #374151; line-height: 1.7; }
 
-    .quiz-cta {
-        text-align: center; padding: 1rem 0 0.5rem;
-    }
+    .quiz-cta { text-align: center; padding: 1.5rem 0 0.5rem; }
+
     .quiz-btn {
         display: inline-flex; align-items: center; gap: 8px;
         padding: 14px 36px;
@@ -78,6 +56,7 @@
         box-shadow: 0 4px 12px rgba(99,102,241,0.3);
         transition: all 0.2s;
     }
+
     .quiz-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(99,102,241,0.4); }
 
     .mastery-info {
@@ -87,17 +66,50 @@
 </style>
 {% endblock %}
 
-{% block body %}
-<div class="page-header">
-    <div class="page-header-top">
-        <a href="{{ lang_url('/child/subjects/' ~ material.subject) }}" class="back-btn"><i class="fas fa-arrow-left"></i></a>
-        <div></div>
+{% block sidebar %}
+<!-- Section Navigation -->
+<div class="sidebar-card" style="flex:1;">
+    <div class="sidebar-title">{{ material.title.replace('KS3 ' ~ material.subject ~ ' - ', '') }}</div>
+    <div class="sidebar-nav">
+        {% for c in all_chunks %}
+        <a href="{{ lang_url('/child/section/' ~ c.chunk_id) }}"
+           class="sidebar-nav-item {{ 'active' if c.chunk_id == chunk.chunk_id }}">
+            <span class="sidebar-nav-num">{{ loop.index }}</span>
+            <span class="sidebar-nav-text">{{ c.title }}</span>
+        </a>
+        {% endfor %}
     </div>
-    <div class="page-title">{{ chunk.title }}</div>
-    <div class="page-subtitle">{{ material.title.replace('KS3 ' ~ material.subject ~ ' - ', '') }}</div>
 </div>
+{% endblock %}
 
-<div class="content-area">
+{% block mobile_panel %}
+<div class="mobile-panel">
+    <button class="accordion-toggle" onclick="this.classList.toggle('open'); document.getElementById('mobileSectionNav').classList.toggle('open');">
+        <span class="accordion-toggle-left">
+            <i class="fas fa-list"></i>
+            <span>Sections</span>
+        </span>
+        <span class="acc-chevron"><i class="fas fa-chevron-down"></i></span>
+    </button>
+    <div class="accordion-body" id="mobileSectionNav">
+        <div class="accordion-inner">
+            {% for c in all_chunks %}
+            <a href="{{ lang_url('/child/section/' ~ c.chunk_id) }}"
+               class="mobile-nav-link {{ 'active' if c.chunk_id == chunk.chunk_id }}">
+                <span style="font-weight:700; color:rgba(255,255,255,0.5); min-width:20px;">{{ loop.index }}</span>
+                <span>{{ c.title }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block main_content %}
+<div class="content-card">
+    <div class="content-card-title">{{ chunk.title }}</div>
+    <div class="content-card-subtitle">{{ material.title.replace('KS3 ' ~ material.subject ~ ' - ', '') }}</div>
+
     <!-- Key Learning Points -->
     {% if parsed.key_points %}
     <div class="learn-card">

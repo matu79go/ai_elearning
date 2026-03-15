@@ -1,59 +1,74 @@
-{% extends "base.html" %}
+{% extends "child/child_base.html" %}
 {% block title %}Results - {{ chunk.title }}{% endblock %}
-{% block lang_switch %}{% endblock %}
-{% block head %}
+{% block back_url %}{{ lang_url('/child/subjects/' ~ material.subject) }}{% endblock %}
+
+{% block page_head %}
 <style>
-    body { background: #f0f0f5; }
-    .result-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem 1.25rem;
+    /* Score Hero */
+    .score-hero {
         text-align: center;
+        padding: 1.5rem 0 1rem;
     }
-    .result-emoji { font-size: 64px; margin-bottom: 0.75rem; }
-    .result-title { color: white; font-size: 24px; font-weight: 800; margin-bottom: 4px; }
-    .result-sub { color: rgba(255,255,255,0.8); font-size: 14px; }
 
-    .content-area { padding: 1.25rem; max-width: 640px; margin: 0 auto; }
+    .score-emoji { font-size: 56px; margin-bottom: 0.75rem; }
 
+    .score-title {
+        font-size: 24px; font-weight: 800; color: #1e293b;
+        margin-bottom: 0.25rem;
+    }
+
+    .score-sub { font-size: 14px; color: #94a3b8; }
+
+    /* Stats */
     .stats-row {
-        display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;
-        margin-bottom: 1rem; margin-top: -1.5rem;
+        display: grid; grid-template-columns: 1fr 1fr;
+        gap: 0.75rem; margin: 1.5rem 0;
     }
+
     .stat-card {
-        background: white; border-radius: 14px; padding: 1rem;
-        text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        background: #f8fafc; border: 2px solid #f1f5f9;
+        border-radius: 14px; padding: 1rem; text-align: center;
     }
-    .stat-value { font-size: 28px; font-weight: 800; color: #1e293b; }
-    .stat-label { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+
+    .stat-value { font-size: 28px; font-weight: 800; }
     .stat-value.green { color: #059669; }
     .stat-value.purple { color: #6366f1; }
+    .stat-label { font-size: 12px; color: #94a3b8; margin-top: 2px; }
 
+    /* Result List */
     .result-list {
         display: flex; flex-direction: column; gap: 0.5rem;
         margin-bottom: 1.5rem;
     }
+
     .result-item {
-        background: white; border-radius: 12px; padding: 12px 16px;
         display: flex; align-items: center; gap: 10px;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        padding: 10px 12px; border-radius: 12px;
+        background: #f8fafc;
     }
+
     .result-icon {
         width: 28px; height: 28px; border-radius: 8px;
         display: flex; align-items: center; justify-content: center;
         font-size: 13px; min-width: 28px;
     }
+
     .result-icon.correct { background: #d1fae5; color: #059669; }
     .result-icon.wrong { background: #fee2e2; color: #ef4444; }
+
     .result-q-text {
         font-size: 13px; color: #374151; flex: 1;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
+
     .result-star { color: #f59e0b; font-size: 14px; }
 
+    /* Action Buttons */
     .action-btns {
         display: flex; flex-direction: column; gap: 0.75rem;
-        align-items: center;
+        align-items: center; padding-top: 0.5rem;
     }
+
     .btn-primary {
         display: inline-flex; align-items: center; gap: 8px;
         padding: 14px 36px;
@@ -62,33 +77,72 @@
         font-size: 16px; font-weight: 800; cursor: pointer;
         text-decoration: none;
         box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+        transition: all 0.2s;
     }
+
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(99,102,241,0.4); }
+
     .btn-secondary {
         padding: 10px 24px; background: white; color: #6366f1;
-        border: 2px solid #6366f1; border-radius: 10px;
+        border: 2px solid #e2e8f0; border-radius: 10px;
         font-size: 14px; font-weight: 700; text-decoration: none;
+        transition: all 0.2s;
     }
+
+    .btn-secondary:hover { border-color: #6366f1; }
 </style>
 {% endblock %}
 
-{% block body %}
-<div class="result-header">
-    <div class="result-emoji">
-        {% if mastered == total %}🎉
-        {% elif mastered >= total * 0.7 %}⭐
-        {% elif mastered >= total * 0.4 %}💪
-        {% else %}📚{% endif %}
+{% block sidebar %}
+<!-- Score Summary -->
+<div class="sidebar-card">
+    <div class="sidebar-title">Score</div>
+    <div style="text-align:center; padding:0.5rem 0;">
+        <div style="font-size:48px; margin-bottom:0.5rem;">
+            {% if mastered == total %}🎉
+            {% elif mastered >= total * 0.7 %}⭐
+            {% elif mastered >= total * 0.4 %}💪
+            {% else %}📚{% endif %}
+        </div>
+        <div style="font-size:28px; font-weight:800; color:white;">{{ mastered }}/{{ total }}</div>
+        <div style="font-size:12px; color:rgba(255,255,255,0.5); margin-top:4px;">MASTERED</div>
     </div>
-    <div class="result-title">
-        {% if mastered == total %}Perfect!
-        {% elif mastered >= total * 0.7 %}Great job!
-        {% elif mastered >= total * 0.4 %}Good effort!
-        {% else %}Keep trying!{% endif %}
-    </div>
-    <div class="result-sub">{{ chunk.title }}</div>
 </div>
 
-<div class="content-area">
+<!-- Question Results -->
+<div class="sidebar-card" style="flex:1;">
+    <div class="sidebar-title">{{ t.child.question_list }}</div>
+    <div class="sidebar-nav">
+        {% for q in questions %}
+        {% set m = mastery_map.get(q.question_id) %}
+        <div class="sidebar-nav-item {{ 'correct' if m and m.mastered else 'wrong' }}">
+            <span class="sidebar-nav-num">{{ loop.index }}</span>
+            <span class="sidebar-nav-text">{{ q.question_text[:40] }}{% if q.question_text|length > 40 %}...{% endif %}</span>
+            <span class="sidebar-nav-status">{{ '⭐' if m and m.mastered else '❌' }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block main_content %}
+<div class="content-card">
+    <div class="score-hero">
+        <div class="score-emoji">
+            {% if mastered == total %}🎉
+            {% elif mastered >= total * 0.7 %}⭐
+            {% elif mastered >= total * 0.4 %}💪
+            {% else %}📚{% endif %}
+        </div>
+        <div class="score-title">
+            {% if mastered == total %}{{ t.child.result_great }}
+            {% elif mastered >= total * 0.7 %}{{ t.child.result_great }}
+            {% elif mastered >= total * 0.4 %}{{ t.child.result_good }}
+            {% else %}{{ t.child.result_tryagain }}{% endif %}
+        </div>
+        <div class="score-sub">{{ chunk.title }}</div>
+    </div>
+
     <div class="stats-row">
         <div class="stat-card">
             <div class="stat-value green">{{ mastered }}/{{ total }}</div>
@@ -96,7 +150,7 @@
         </div>
         <div class="stat-card">
             <div class="stat-value purple">{{ current_user.total_points }}</div>
-            <div class="stat-label">Total Points</div>
+            <div class="stat-label">{{ t.child.stat_points }}</div>
         </div>
     </div>
 
@@ -122,8 +176,10 @@
         </a>
         {% endif %}
         <a href="{{ lang_url('/child/subjects/' ~ material.subject) }}" class="btn-secondary">
-            Back to {{ material.subject }}
+            {{ t.child.back }} {{ material.subject }}
         </a>
     </div>
 </div>
 {% endblock %}
+
+{% block bottom_nav %}{% endblock %}

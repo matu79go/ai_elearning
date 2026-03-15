@@ -1,501 +1,346 @@
-{% extends "base.html" %}
+{% extends "child/child_base.html" %}
 {% block title %}{{ t.child.dashboard_title }}{% endblock %}
-{% block lang_switch %}{% endblock %}
-{% block head %}
+{% block back_url %}{{ lang_url('/') }}{% endblock %}
+
+{% block page_head %}
 <style>
-    body { background: #f0f0f5; }
-
-    /* ---- Hero Header ---- */
-    .hero-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.25rem 1.25rem 3rem;
-        border-radius: 0 0 28px 28px;
-    }
-
-    @media (min-width: 640px) {
-        .hero-header { padding: 1.5rem 2rem 3.5rem; }
-    }
-
-    .hero-top {
+    /* Subject Cards */
+    .subject-grid {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 1.25rem;
+        flex-direction: column;
+        gap: 0.75rem;
     }
 
-    .hero-user {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .hero-avatar {
-        width: 44px; height: 44px;
-        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-        border-radius: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 22px;
-    }
-
-    @media (min-width: 640px) {
-        .hero-avatar { width: 52px; height: 52px; font-size: 26px; }
-    }
-
-    .hero-greeting { color: white; font-weight: 700; }
-    .hero-sub { color: rgba(255,255,255,0.7); font-size: 12px; margin-top: 2px; }
-
-    .hero-icons { display: flex; gap: 8px; }
-
-    .hero-icon-btn {
-        width: 38px; height: 38px;
-        background: rgba(255,255,255,0.15);
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        text-decoration: none;
-        font-size: 16px;
-        transition: background 0.2s;
-    }
-
-    .hero-icon-btn:hover { background: rgba(255,255,255,0.25); }
-
-    /* ---- Stats Bar ---- */
-    .stats-bar {
-        display: flex;
-        background: rgba(255,255,255,0.15);
-        backdrop-filter: blur(10px);
-        border-radius: 14px;
-        padding: 12px 0;
-        border: 1px solid rgba(255,255,255,0.2);
-    }
-
-    .stat-item {
-        flex: 1;
-        text-align: center;
-        border-right: 1px solid rgba(255,255,255,0.15);
-    }
-
-    .stat-item:last-child { border-right: none; }
-    .stat-item .stat-val { font-size: 22px; font-weight: 800; color: white; }
-    .stat-item .stat-lbl { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
-
-    @media (min-width: 640px) {
-        .stat-item .stat-val { font-size: 26px; }
-        .stat-item .stat-lbl { font-size: 11px; }
-    }
-
-    /* ---- Level Progress ---- */
-    .level-bar { margin-top: 1rem; display: flex; align-items: center; gap: 10px; }
-    .level-badge { background: rgba(255,255,255,0.2); color: white; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 8px; white-space: nowrap; }
-    .level-track { flex: 1; height: 8px; background: rgba(255,255,255,0.15); border-radius: 10px; overflow: hidden; }
-    .level-fill { height: 100%; background: linear-gradient(90deg, #fbbf24, #f59e0b); border-radius: 10px; transition: width 0.8s ease; }
-    .level-text { color: rgba(255,255,255,0.6); font-size: 10px; font-weight: 600; white-space: nowrap; }
-
-    /* ---- Content Area ---- */
-    .content-area {
-        padding: 0 1.25rem 6rem;
-        margin-top: -1rem;
-        position: relative;
-        z-index: 10;
-    }
-
-    @media (min-width: 640px) {
-        .content-area { padding: 0 2rem 6rem; }
-    }
-
-    @media (min-width: 1024px) {
-        .content-area { padding: 0 3rem 6rem; }
-    }
-
-    /* ---- Section ---- */
-    .section-label {
-        font-size: 16px;
-        font-weight: 700;
-        color: #1e293b;
-        margin: 1.25rem 0 0.75rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-
-    .section-label .view-all { font-size: 12px; font-weight: 600; color: #6366f1; text-decoration: none; }
-
-    @media (min-width: 640px) {
-        .section-label { font-size: 18px; }
-    }
-
-    /* ---- Recent Plays ---- */
-    .recent-scroll { gap: 12px; }
-
-    .recent-card {
-        min-width: 140px;
-        background: white;
-        border-radius: 14px;
-        padding: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        flex-shrink: 0;
-        cursor: pointer;
-        transition: transform 0.2s;
-    }
-
-    .recent-card:hover { transform: translateY(-2px); }
-
-    @media (min-width: 640px) {
-        .recent-card { min-width: 180px; padding: 16px; }
-        .recent-scroll { gap: 16px; }
-    }
-
-    .recent-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 8px; }
-    .recent-name { font-size: 12px; font-weight: 600; color: #1e293b; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .recent-progress-track { height: 5px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin-bottom: 4px; }
-    .recent-progress-fill { height: 100%; border-radius: 10px; }
-    .recent-pct { font-size: 10px; font-weight: 600; color: #64748b; }
-
-    /* ---- Subject Cards ---- */
     .subject-card {
-        background: white;
+        background: #f8fafc;
+        border: 2px solid #f1f5f9;
         border-radius: 16px;
-        padding: 1.25rem 1rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        padding: 1rem 1.25rem;
         text-decoration: none;
         color: inherit;
         transition: all 0.2s;
         display: flex;
-        flex-direction: column;
         align-items: center;
-        text-align: center;
+        gap: 14px;
         cursor: pointer;
     }
 
-    .subject-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
-    .subject-card:active { transform: scale(0.97); }
+    .subject-card:hover { transform: translateY(-2px); border-color: #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+    .subject-card:active { transform: scale(0.98); }
 
-    .subject-icon { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px; margin-bottom: 10px; }
-    .subject-name { font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 2px; }
-    .subject-count { font-size: 11px; color: #94a3b8; }
-
-    @media (min-width: 640px) {
-        .subject-icon { width: 64px; height: 64px; font-size: 32px; }
-        .subject-name { font-size: 15px; }
+    .subject-icon {
+        width: 48px; height: 48px; border-radius: 14px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 24px; flex-shrink: 0;
     }
 
-    /* ---- Badges ---- */
-    .badges-scroll { gap: 12px; }
+    .subject-info { flex: 1; min-width: 0; }
+    .subject-name { font-size: 15px; font-weight: 700; color: #1e293b; }
+    .subject-next { font-size: 11px; color: #6366f1; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .subject-next.done { color: #10b981; }
 
-    @media (min-width: 640px) {
-        .badges-scroll { gap: 16px; }
+    .subject-progress { width: 54px; flex-shrink: 0; text-align: right; }
+    .subject-pct { font-size: 16px; font-weight: 800; color: #1e293b; }
+    .subject-pct.complete { color: #10b981; }
+    .subject-detail { font-size: 10px; color: #94a3b8; }
+
+    .progress-bar-mini {
+        height: 4px; background: #e2e8f0; border-radius: 2px;
+        overflow: hidden; margin-top: 6px;
+    }
+    .progress-bar-mini-fill {
+        height: 100%; border-radius: 2px;
+        background: linear-gradient(90deg, #6366f1, #8b5cf6);
+        transition: width 0.3s;
+    }
+    .progress-bar-mini-fill.complete { background: linear-gradient(90deg, #10b981, #059669); }
+
+    /* Section Labels */
+    .section-label {
+        font-size: 16px; font-weight: 700; color: #1e293b;
+        margin: 1.5rem 0 0.75rem;
+        display: flex; align-items: center; justify-content: space-between;
     }
 
-    .badge-item { display: flex; flex-direction: column; align-items: center; min-width: 72px; flex-shrink: 0; }
-    .badge-circle { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.2s; }
-    .badge-circle:hover { transform: scale(1.1); }
-    .badge-circle.locked { background: #e2e8f0; opacity: 0.5; }
-    .badge-name { font-size: 10px; font-weight: 600; color: #64748b; text-align: center; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .section-label:first-child { margin-top: 0; }
+    .section-label .view-all { font-size: 12px; font-weight: 600; color: #6366f1; text-decoration: none; }
 
-    @media (min-width: 640px) {
-        .badge-circle { width: 64px; height: 64px; font-size: 30px; }
-        .badge-item { min-width: 80px; }
-        .badge-name { max-width: 80px; font-size: 11px; }
-    }
-
-    /* ---- Bottom Nav ---- */
-    .nav-tab {
-        flex: 1;
+    /* Badges */
+    .badges-grid {
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 2px;
-        padding: 6px 0;
-        text-decoration: none;
-        color: #94a3b8;
-        font-size: 10px;
-        font-weight: 600;
-        transition: color 0.2s;
+        gap: 12px;
+        flex-wrap: wrap;
     }
 
-    .nav-tab.active { color: #6366f1; }
-    .nav-tab:hover { color: #6366f1; }
-    .nav-tab i { font-size: 20px; }
+    .badge-item { display: flex; flex-direction: column; align-items: center; min-width: 72px; }
 
-    .nav-tab-play {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 2px;
-        text-decoration: none;
-        color: white;
-        font-size: 10px;
-        font-weight: 700;
-        margin-top: -20px;
-    }
-
-    .nav-play-circle {
-        width: 52px; height: 52px;
-        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 22px;
-        box-shadow: 0 4px 12px rgba(99,102,241,0.4);
+    .badge-circle {
+        width: 56px; height: 56px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 26px; margin-bottom: 6px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         transition: transform 0.2s;
     }
 
-    .nav-tab-play:hover .nav-play-circle { transform: scale(1.1); }
-    .nav-tab-play span { color: #6366f1; }
+    .badge-circle:hover { transform: scale(1.1); }
+    .badge-circle.locked { background: #e2e8f0; opacity: 0.5; }
 
-    /* ---- Profile Menu ---- */
-    .profile-menu {
-        position: absolute;
-        bottom: 100%;
-        right: 0;
-        margin-bottom: 8px;
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        min-width: 180px;
-        overflow: hidden;
-        animation: slideUp 0.2s ease;
-        z-index: 100;
+    .badge-name {
+        font-size: 10px; font-weight: 600; color: #64748b;
+        text-align: center; max-width: 72px;
     }
 
-    .profile-menu-name {
-        padding: 12px 16px;
-        font-size: 14px;
-        font-weight: 700;
-        color: #1e293b;
-        border-bottom: 1px solid #f1f5f9;
+    /* Level Progress */
+    .level-bar {
+        display: flex; align-items: center; gap: 10px;
+        margin-top: 0.75rem;
     }
 
-    .profile-menu-item {
-        display: block;
-        padding: 10px 16px;
-        font-size: 13px;
-        color: #475569;
-        text-decoration: none;
-        transition: background 0.2s;
+    .level-badge {
+        background: rgba(255,255,255,0.2); color: white;
+        font-size: 11px; font-weight: 700;
+        padding: 4px 10px; border-radius: 8px; white-space: nowrap;
     }
 
-    .profile-menu-item:hover { background: #f8fafc; }
+    .level-track {
+        flex: 1; height: 8px;
+        background: rgba(255,255,255,0.15);
+        border-radius: 10px; overflow: hidden;
+    }
 
-    .profile-menu-logout { color: #ef4444; }
-    .profile-menu-logout:hover { background: #fef2f2; }
+    .level-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #fbbf24, #f59e0b);
+        border-radius: 10px;
+        transition: width 0.8s ease;
+    }
+
+    .level-text {
+        color: rgba(255,255,255,0.6);
+        font-size: 10px; font-weight: 600; white-space: nowrap;
+    }
+
+    /* Sidebar Nav Links */
+    .sidebar-link {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 12px; border-radius: 12px;
+        color: rgba(255,255,255,0.6); font-size: 13px; font-weight: 500;
+        text-decoration: none; transition: all 0.2s;
+    }
+
+    .sidebar-link:hover { background: rgba(255,255,255,0.1); color: white; }
+    .sidebar-link.active { background: rgba(255,255,255,0.2); color: white; font-weight: 700; }
+    .sidebar-link i { width: 20px; text-align: center; }
+    .sidebar-link.logout { color: rgba(255,255,255,0.4); margin-top: auto; }
+    .sidebar-link.logout:hover { color: #fca5a5; background: rgba(239,68,68,0.15); }
+
 </style>
 {% endblock %}
 
-{% block body %}
-<div class="page-container">
-
-    <!-- Hero Header -->
-    <div class="hero-header">
-        <div class="hero-top">
-            <div class="hero-user">
-                <div class="hero-avatar">
-                    {% if current_user.is_authenticated %}{{ current_user.display_name[0] }}{% else %}🦊{% endif %}
-                </div>
-                <div>
-                    <div class="hero-greeting text-responsive-xl">
-                        {% if current_user.is_authenticated %}
-                            {{ t.child.greeting }} {{ current_user.display_name }}! 👋
-                        {% else %}
-                            {{ t.child.greeting }} 👋
-                        {% endif %}
-                    </div>
-                    <div class="hero-sub">{{ t.child.lets_play }}</div>
-                </div>
-            </div>
-            <div class="hero-icons">
-                <a href="{{ switch_lang_url }}" class="hero-icon-btn" title="{{ t.lang_switch }}">
-                    <i class="fas fa-globe"></i>
-                </a>
-            </div>
+{% block sidebar %}
+<!-- Profile -->
+<div class="sidebar-card">
+    <div class="sidebar-profile">
+        <div class="sidebar-avatar">
+            {% if current_user.is_authenticated %}{{ current_user.avatar or '🦊' }}{% else %}🦊{% endif %}
         </div>
-
-        <!-- Stats Bar -->
-        <div class="stats-bar">
-            <div class="stat-item">
-                <div class="stat-val">{{ current_user.total_points if current_user.is_authenticated else 0 }}</div>
-                <div class="stat-lbl">{{ t.child.stat_points }}</div>
+        <div>
+            <div class="sidebar-name">
+                {% if current_user.is_authenticated %}{{ current_user.display_name }}{% endif %}
             </div>
-            <div class="stat-item">
-                <div class="stat-val">{{ current_user.level if current_user.is_authenticated else 1 }}</div>
-                <div class="stat-lbl">{{ t.child.stat_level }}</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-val">{{ current_user.streak_count if current_user.is_authenticated else 0 }}</div>
-                <div class="stat-lbl">{{ t.child.stat_streak }}</div>
-            </div>
-        </div>
-
-        <!-- Level Progress -->
-        {% set lvl = current_user.level if current_user.is_authenticated else 1 %}
-        {% set xp = current_user.total_points if current_user.is_authenticated else 0 %}
-        {% set xp_for_level = lvl * 100 %}
-        {% set xp_in_level = xp % xp_for_level if xp_for_level > 0 else 0 %}
-        {% set xp_pct = (xp_in_level / xp_for_level * 100) | int if xp_for_level > 0 else 0 %}
-        <div class="level-bar">
-            <div class="level-badge">Lv.{{ lvl }}</div>
-            <div class="level-track">
-                <div class="level-fill" style="width: {{ xp_pct }}%"></div>
-            </div>
-            <div class="level-text">{{ xp_in_level }} / {{ xp_for_level }} XP</div>
+            <div class="sidebar-grade">Year {{ 7 }}</div>
         </div>
     </div>
 
-    <!-- Content Area -->
-    <div class="content-area">
-
-        <!-- Recent Plays -->
-        <div class="section-label">
-            {{ t.child.recent_plays }}
-            <a href="#" class="view-all">{{ t.child.view_all }}</a>
+    <!-- Stats -->
+    <div class="sidebar-stats">
+        <div class="sidebar-stat">
+            <div class="sidebar-stat-val">{{ current_user.total_points if current_user.is_authenticated else 0 }}</div>
+            <div class="sidebar-stat-lbl">{{ t.child.stat_points }}</div>
         </div>
-        <div class="h-scroll recent-scroll">
-            <div class="recent-card">
-                <div class="recent-icon" style="background: #dbeafe;">🌍</div>
-                <div class="recent-name">{{ t.child.subj_social }}</div>
-                <div class="recent-progress-track">
-                    <div class="recent-progress-fill" style="width: 30%; background: #3b82f6;"></div>
-                </div>
-                <div class="recent-pct">30%</div>
-            </div>
-            <div class="recent-card">
-                <div class="recent-icon" style="background: #d1fae5;">🔢</div>
-                <div class="recent-name">{{ t.child.subj_math }}</div>
-                <div class="recent-progress-track">
-                    <div class="recent-progress-fill" style="width: 62%; background: #10b981;"></div>
-                </div>
-                <div class="recent-pct">62%</div>
-            </div>
-            <div class="recent-card">
-                <div class="recent-icon" style="background: #fef3c7;">🔬</div>
-                <div class="recent-name">{{ t.child.subj_science }}</div>
-                <div class="recent-progress-track">
-                    <div class="recent-progress-fill" style="width: 20%; background: #f59e0b;"></div>
-                </div>
-                <div class="recent-pct">20%</div>
-            </div>
-            <div class="recent-card">
-                <div class="recent-icon" style="background: #fce7f3;">📖</div>
-                <div class="recent-name">{{ t.child.subj_english }}</div>
-                <div class="recent-progress-track">
-                    <div class="recent-progress-fill" style="width: 0%; background: #ec4899;"></div>
-                </div>
-                <div class="recent-pct">0%</div>
-            </div>
+        <div class="sidebar-stat">
+            <div class="sidebar-stat-val">{{ current_user.level if current_user.is_authenticated else 1 }}</div>
+            <div class="sidebar-stat-lbl">{{ t.child.stat_level }}</div>
         </div>
-
-        <!-- Start Playing -->
-        <div class="section-label">{{ t.child.start_playing }}</div>
-        <div class="responsive-grid-2">
-            <a href="{{ lang_url('/child/subjects/Science') }}" class="subject-card">
-                <div class="subject-icon" style="background: #dbeafe;">🔬</div>
-                <div class="subject-name">Science</div>
-                <div class="subject-count">{{ t.child.menu_study }}</div>
-            </a>
-            <a href="{{ lang_url('/child/subjects/Maths') }}" class="subject-card">
-                <div class="subject-icon" style="background: #fef3c7;">🔢</div>
-                <div class="subject-name">Maths</div>
-                <div class="subject-count">{{ t.child.menu_study }}</div>
-            </a>
-            <a href="{{ lang_url('/child/subjects/English') }}" class="subject-card">
-                <div class="subject-icon" style="background: #ede9fe;">📖</div>
-                <div class="subject-name">English</div>
-                <div class="subject-count">{{ t.child.menu_study }}</div>
-            </a>
-            <a href="{{ lang_url('/child/subjects') }}" class="subject-card">
-                <div class="subject-icon" style="background: #d1fae5;">📚</div>
-                <div class="subject-name">{{ t.child.nav_subjects }}</div>
-                <div class="subject-count">{{ t.child.view_all }}</div>
-            </a>
+        <div class="sidebar-stat">
+            <div class="sidebar-stat-val">{{ current_user.streak_count if current_user.is_authenticated else 0 }}</div>
+            <div class="sidebar-stat-lbl">{{ t.child.stat_streak }}</div>
         </div>
-
-        <!-- Badges -->
-        <div class="section-label">
-            {{ t.child.menu_badges }}
-            <a href="#" class="view-all">{{ t.child.view_all }}</a>
-        </div>
-        <div class="h-scroll badges-scroll">
-            <div class="badge-item">
-                <div class="badge-circle" style="background: linear-gradient(135deg, #fbbf24, #f59e0b);">🏆</div>
-                <div class="badge-name">{{ t.child.badge_first }}</div>
-            </div>
-            <div class="badge-item">
-                <div class="badge-circle locked">🔥</div>
-                <div class="badge-name">{{ t.child.badge_streak }}</div>
-            </div>
-            <div class="badge-item">
-                <div class="badge-circle locked">💪</div>
-                <div class="badge-name">{{ t.child.badge_effort }}</div>
-            </div>
-            <div class="badge-item">
-                <div class="badge-circle locked">⭐</div>
-                <div class="badge-name">{{ t.child.badge_points }}</div>
-            </div>
-            <div class="badge-item">
-                <div class="badge-circle locked">⚡</div>
-                <div class="badge-name">{{ t.child.badge_speed }}</div>
-            </div>
-            <div class="badge-item">
-                <div class="badge-circle locked">🧠</div>
-                <div class="badge-name">{{ t.child.badge_weakness }}</div>
-            </div>
-        </div>
-
     </div>
 
-    <!-- Bottom Navigation -->
-    <div class="bottom-nav-shared">
-        <a href="{{ '/ja/child/dashboard' if lang == 'ja' else '/child/dashboard' }}" class="nav-tab active">
-            <i class="fas fa-home"></i>
-            <span>{{ t.child.nav_home }}</span>
-        </a>
-        <a href="{{ lang_url('/child/subjects') }}" class="nav-tab">
-            <i class="fas fa-th-large"></i>
-            <span>{{ t.child.nav_subjects }}</span>
-        </a>
-        <a href="{{ lang_url('/child/subjects') }}" class="nav-tab-play">
-            <div class="nav-play-circle"><i class="fas fa-play"></i></div>
-            <span>{{ t.child.nav_play }}</span>
-        </a>
-        <a href="#" class="nav-tab">
-            <i class="fas fa-award"></i>
-            <span>{{ t.child.nav_badges }}</span>
-        </a>
-        <div class="nav-tab" style="position: relative; cursor: pointer;" onclick="toggleProfileMenu()">
-            <i class="fas fa-user"></i>
-            <span>{{ t.child.nav_profile }}</span>
-            <!-- Profile popup menu -->
-            <div id="profileMenu" class="profile-menu" style="display: none;">
-                {% if current_user.is_authenticated %}
-                <div class="profile-menu-name">
-                    <i class="fas fa-child" style="margin-right: 6px; color: #6366f1;"></i>{{ current_user.display_name }}
-                </div>
-                <a href="{{ lang_url('/child/logout') }}" class="profile-menu-item profile-menu-logout">
-                    <i class="fas fa-sign-out-alt" style="margin-right: 6px;"></i>{{ t.child.logout }}
-                </a>
+    <!-- Level Progress -->
+    {% set lvl = current_user.level if current_user.is_authenticated else 1 %}
+    {% set xp = current_user.total_points if current_user.is_authenticated else 0 %}
+    {% set xp_for_level = lvl * 100 %}
+    {% set xp_in_level = xp % xp_for_level if xp_for_level > 0 else 0 %}
+    {% set xp_pct = (xp_in_level / xp_for_level * 100) | int if xp_for_level > 0 else 0 %}
+    <div class="level-bar">
+        <div class="level-badge">Lv.{{ lvl }}</div>
+        <div class="level-track">
+            <div class="level-fill" style="width: {{ xp_pct }}%"></div>
+        </div>
+        <div class="level-text">{{ xp_in_level }}/{{ xp_for_level }}</div>
+    </div>
+</div>
+
+<!-- Navigation -->
+<div class="sidebar-card" style="flex:1; display:flex; flex-direction:column;">
+    <div class="sidebar-title">Menu</div>
+    <a href="{{ lang_url('/child/dashboard') }}" class="sidebar-link active">
+        <i class="fas fa-home"></i> {{ t.child.nav_home }}
+    </a>
+    <a href="{{ lang_url('/child/subjects') }}" class="sidebar-link">
+        <i class="fas fa-th-large"></i> {{ t.child.nav_subjects }}
+    </a>
+    {% for sd in subjects_data %}
+    {% set cfg = SUBJ.get(sd.name, {'emoji': '📚'}) %}
+    <a href="{{ lang_url('/child/subjects/' ~ sd.name) }}" class="sidebar-link" style="padding-left:2.5rem; font-size:12px;">
+        {{ cfg.emoji }} {{ sd.name }}
+        <span style="margin-left:auto; font-size:10px; opacity:0.5;">{{ sd.pct }}%</span>
+    </a>
+    {% endfor %}
+    <a href="#" class="sidebar-link">
+        <i class="fas fa-award"></i> {{ t.child.nav_badges }}
+    </a>
+    {% if current_user.is_authenticated %}
+    <a href="{{ lang_url('/child/logout') }}" class="sidebar-link logout">
+        <i class="fas fa-sign-out-alt"></i> {{ t.child.logout }}
+    </a>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block header_center %}
+<div style="color:white; font-size:16px; font-weight:700;">
+    {{ t.child.greeting }} {{ current_user.display_name if current_user.is_authenticated else '' }}! 👋
+</div>
+{% endblock %}
+
+{% block header_right %}
+<div class="points-badge">★ {{ current_user.total_points if current_user.is_authenticated else 0 }} pts</div>
+{% endblock %}
+
+{% block mobile_panel %}
+<!-- Mobile Stats (sidebar is hidden on mobile) -->
+<div class="mobile-panel">
+    <div style="display:flex; gap:6px; margin-bottom:0;">
+        <div class="mobile-stat" style="flex:1; text-align:center; padding:10px 4px; background:rgba(255,255,255,0.1); border-radius:10px;">
+            <div class="mobile-stat-val">{{ current_user.total_points if current_user.is_authenticated else 0 }}</div>
+            <div class="mobile-stat-lbl">{{ t.child.stat_points }}</div>
+        </div>
+        <div class="mobile-stat" style="flex:1; text-align:center; padding:10px 4px; background:rgba(255,255,255,0.1); border-radius:10px;">
+            <div class="mobile-stat-val">{{ current_user.level if current_user.is_authenticated else 1 }}</div>
+            <div class="mobile-stat-lbl">{{ t.child.stat_level }}</div>
+        </div>
+        <div class="mobile-stat" style="flex:1; text-align:center; padding:10px 4px; background:rgba(255,255,255,0.1); border-radius:10px;">
+            <div class="mobile-stat-val">{{ current_user.streak_count if current_user.is_authenticated else 0 }}</div>
+            <div class="mobile-stat-lbl">{{ t.child.stat_streak }}</div>
+        </div>
+    </div>
+    {% set lvl = current_user.level if current_user.is_authenticated else 1 %}
+    {% set xp = current_user.total_points if current_user.is_authenticated else 0 %}
+    {% set xp_for_level = lvl * 100 %}
+    {% set xp_in_level = xp % xp_for_level if xp_for_level > 0 else 0 %}
+    {% set xp_pct = (xp_in_level / xp_for_level * 100) | int if xp_for_level > 0 else 0 %}
+    <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+        <div style="background:rgba(255,255,255,0.2); color:white; font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px;">Lv.{{ lvl }}</div>
+        <div style="flex:1; height:6px; background:rgba(255,255,255,0.15); border-radius:10px; overflow:hidden;">
+            <div style="height:100%; width:{{ xp_pct }}%; background:linear-gradient(90deg,#fbbf24,#f59e0b); border-radius:10px;"></div>
+        </div>
+        <div style="color:rgba(255,255,255,0.5); font-size:10px; font-weight:600;">{{ xp_in_level }}/{{ xp_for_level }}</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block main_content %}
+<div class="content-card">
+
+    <!-- Continue / Start Playing (subjects with progress or published questions) -->
+    {% set active_subjects = subjects_data | selectattr('total', 'gt', 0) | list %}
+    {% set other_subjects = subjects_data | rejectattr('total', 'gt', 0) | list %}
+
+    {% if active_subjects %}
+    <div class="section-label">{{ t.child.start_playing }}</div>
+    <div class="subject-grid">
+        {% for sd in active_subjects %}
+        {% set cfg = SUBJ.get(sd.name, {'emoji': '📚', 'bg': '#f1f5f9', 'color': '#64748b'}) %}
+        {% if sd.next_section %}
+        <a href="{{ lang_url('/child/section/' ~ sd.next_section.chunk_id) }}" class="subject-card">
+        {% else %}
+        <a href="{{ lang_url('/child/subjects/' ~ sd.name) }}" class="subject-card">
+        {% endif %}
+            <div class="subject-icon" style="background: {{ cfg.bg }};">{{ cfg.emoji }}</div>
+            <div class="subject-info">
+                <div class="subject-name">{{ sd.name }}</div>
+                {% if sd.next_section %}
+                <div class="subject-next">{{ sd.next_section.unit_title }} &rsaquo; {{ sd.next_section.title }}</div>
+                {% else %}
+                <div class="subject-next done"><i class="fas fa-check-circle"></i> All complete!</div>
                 {% endif %}
+                <div class="progress-bar-mini">
+                    <div class="progress-bar-mini-fill {{ 'complete' if sd.pct == 100 }}" style="width: {{ sd.pct }}%"></div>
+                </div>
             </div>
+            <div class="subject-progress">
+                <div class="subject-pct {{ 'complete' if sd.pct == 100 }}">{{ sd.pct }}%</div>
+                <div class="subject-detail">{{ sd.mastered }}/{{ sd.total }}</div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Other Subjects (not yet published / no questions) -->
+    {% if other_subjects %}
+    <div class="section-label">{{ t.child.nav_subjects }}</div>
+    <div class="subject-grid">
+        {% for sd in other_subjects %}
+        {% set cfg = SUBJ.get(sd.name, {'emoji': '📚', 'bg': '#f1f5f9', 'color': '#64748b'}) %}
+        <a href="{{ lang_url('/child/subjects/' ~ sd.name) }}" class="subject-card">
+            <div class="subject-icon" style="background: {{ cfg.bg }};">{{ cfg.emoji }}</div>
+            <div class="subject-info">
+                <div class="subject-name">{{ sd.name }}</div>
+                <div class="subject-next" style="color:#94a3b8;">{{ sd.unit_count }} units</div>
+            </div>
+            <div class="subject-progress">
+                <div class="subject-pct" style="color:#cbd5e1;">--</div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Badges -->
+    <div class="section-label">
+        {{ t.child.menu_badges }}
+    </div>
+    <div class="badges-grid">
+        <div class="badge-item">
+            <div class="badge-circle" style="background: linear-gradient(135deg, #fbbf24, #f59e0b);">🏆</div>
+            <div class="badge-name">{{ t.child.badge_first }}</div>
+        </div>
+        <div class="badge-item">
+            <div class="badge-circle locked">🔥</div>
+            <div class="badge-name">{{ t.child.badge_streak }}</div>
+        </div>
+        <div class="badge-item">
+            <div class="badge-circle locked">💪</div>
+            <div class="badge-name">{{ t.child.badge_effort }}</div>
+        </div>
+        <div class="badge-item">
+            <div class="badge-circle locked">⭐</div>
+            <div class="badge-name">{{ t.child.badge_points }}</div>
+        </div>
+        <div class="badge-item">
+            <div class="badge-circle locked">⚡</div>
+            <div class="badge-name">{{ t.child.badge_speed }}</div>
+        </div>
+        <div class="badge-item">
+            <div class="badge-circle locked">🧠</div>
+            <div class="badge-name">{{ t.child.badge_weakness }}</div>
         </div>
     </div>
 
 </div>
 
-<script>
-function toggleProfileMenu() {
-    const menu = document.getElementById('profileMenu');
-    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
-}
-document.addEventListener('click', function(e) {
-    const menu = document.getElementById('profileMenu');
-    if (menu && !e.target.closest('.nav-tab[onclick]')) {
-        menu.style.display = 'none';
-    }
-});
-</script>
 {% endblock %}

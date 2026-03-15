@@ -10,23 +10,25 @@
 - [x] Oak National Academy からのデータ取り込み（Science, Maths, English, History, Geography, Computing, Spanish）
 - [x] 管理者ロール（parents.role = admin）
 - [x] DB設計: materials, material_chunks, questions拡張, question_mastery
+- [x] 子供用学習画面 2カラムUI刷新（child_base.html共通テンプレート）
+- [x] 教科選択 → 単元一覧 → セクション要約 → クイズ → 結果 の全画面
+- [x] クイズ: 確定→答え合わせ方式に再設計（JS状態管理 + 一括採点API）
+- [x] 自由回答のLLM採点（GPT-5 Nano + spaCyフォールバック）
 
-## Next: 子供用学習画面リデザイン
+## Next: クイズ調整 & Publish
 
-- [ ] study.htmlの2カラムレイアウトを参考にUI刷新
-  - PC/タブレット: 左カラム（メニュー/ナビ）+ 右カラム（コンテンツ）
-  - スマホ: 1カラム
-- [ ] 教科選択 → 単元一覧 → セクション要約 → クイズ → 結果 の全画面
-- [ ] セクション要約画面: TranscriptのLLM要約を初回アクセス時に生成・キャッシュ
-- [ ] クイズ画面: 4択 + 自由回答のUI改善
-- [ ] 自由回答のLLM採点実装（現状は完全一致判定）
-- [ ] ヒント機能: 問題生成時にhintも同時生成
+- [ ] ポイント配分テスト
+  - 正解済み問題に再回答 → 0pt になるか
+  - 不正解だった問題に次回正解 → 1pt つくか
+- [ ] 4択選択肢のランダム並び替え（現在A-B-C-D固定）
 - [ ] 管理画面からのpublish/unpublish機能
 - [ ] 全教科のマテリアルをpublishして子供画面に反映
 
 ## Backlog
 
 ### 学習機能
+- [ ] セクション要約: TranscriptのLLM要約を初回アクセス時に生成・キャッシュ
+- [ ] ヒント機能: 問題生成時にhintも同時生成
 - [ ] 学習セッションのDB記録（開始・完了・スコア）
 - [ ] 回答履歴のDB記録
 - [ ] ポイント計算エンジン（マスタリー制ベース）
