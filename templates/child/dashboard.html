@@ -23,6 +23,8 @@
         align-items: center;
         gap: 14px;
         cursor: pointer;
+        overflow: hidden;
+        min-width: 0;
     }
 
     .subject-card:hover { transform: translateY(-2px); border-color: #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
@@ -34,15 +36,24 @@
         font-size: 24px; flex-shrink: 0;
     }
 
-    .subject-info { flex: 1; min-width: 0; }
+    .subject-info { flex: 1; min-width: 0; overflow: hidden; }
     .subject-name { font-size: 15px; font-weight: 700; color: #1e293b; }
-    .subject-next { font-size: 11px; color: #6366f1; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .subject-next { font-size: 11px; color: #6366f1; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .subject-next.done { color: #10b981; }
 
     .subject-progress { width: 54px; flex-shrink: 0; text-align: right; }
     .subject-pct { font-size: 16px; font-weight: 800; color: #1e293b; }
     .subject-pct.complete { color: #10b981; }
     .subject-detail { font-size: 10px; color: #94a3b8; }
+
+    @media (max-width: 480px) {
+        .subject-card { padding: 0.75rem 1rem; gap: 10px; }
+        .subject-icon { width: 40px; height: 40px; font-size: 20px; border-radius: 12px; }
+        .subject-name { font-size: 14px; }
+        .subject-next { font-size: 10px; }
+        .subject-pct { font-size: 14px; }
+        .subject-progress { width: 44px; }
+    }
 
     .progress-bar-mini {
         height: 4px; background: #e2e8f0; border-radius: 2px;
@@ -60,6 +71,7 @@
         font-size: 16px; font-weight: 700; color: #1e293b;
         margin: 1.5rem 0 0.75rem;
         display: flex; align-items: center; justify-content: space-between;
+        overflow: hidden;
     }
 
     .section-label:first-child { margin-top: 0; }
@@ -70,6 +82,7 @@
         display: flex;
         gap: 12px;
         flex-wrap: wrap;
+        overflow: hidden;
     }
 
     .badge-item { display: flex; flex-direction: column; align-items: center; min-width: 72px; }
@@ -90,167 +103,17 @@
         text-align: center; max-width: 72px;
     }
 
-    /* Level Progress */
-    .level-bar {
-        display: flex; align-items: center; gap: 10px;
-        margin-top: 0.75rem;
-    }
-
-    .level-badge {
-        background: rgba(255,255,255,0.2); color: white;
-        font-size: 11px; font-weight: 700;
-        padding: 4px 10px; border-radius: 8px; white-space: nowrap;
-    }
-
-    .level-track {
-        flex: 1; height: 8px;
-        background: rgba(255,255,255,0.15);
-        border-radius: 10px; overflow: hidden;
-    }
-
-    .level-fill {
-        height: 100%;
-        background: linear-gradient(90deg, #fbbf24, #f59e0b);
-        border-radius: 10px;
-        transition: width 0.8s ease;
-    }
-
-    .level-text {
-        color: rgba(255,255,255,0.6);
-        font-size: 10px; font-weight: 600; white-space: nowrap;
-    }
-
-    /* Sidebar Nav Links */
-    .sidebar-link {
-        display: flex; align-items: center; gap: 10px;
-        padding: 10px 12px; border-radius: 12px;
-        color: rgba(255,255,255,0.6); font-size: 13px; font-weight: 500;
-        text-decoration: none; transition: all 0.2s;
-    }
-
-    .sidebar-link:hover { background: rgba(255,255,255,0.1); color: white; }
-    .sidebar-link.active { background: rgba(255,255,255,0.2); color: white; font-weight: 700; }
-    .sidebar-link i { width: 20px; text-align: center; }
-    .sidebar-link.logout { color: rgba(255,255,255,0.4); margin-top: auto; }
-    .sidebar-link.logout:hover { color: #fca5a5; background: rgba(239,68,68,0.15); }
 
 </style>
 {% endblock %}
 
 {% block sidebar %}
-<!-- Profile -->
-<div class="sidebar-card">
-    <div class="sidebar-profile">
-        <div class="sidebar-avatar">
-            {% if current_user.is_authenticated %}{{ current_user.avatar or '🦊' }}{% else %}🦊{% endif %}
-        </div>
-        <div>
-            <div class="sidebar-name">
-                {% if current_user.is_authenticated %}{{ current_user.display_name }}{% endif %}
-            </div>
-            <div class="sidebar-grade">Year {{ 7 }}</div>
-        </div>
-    </div>
-
-    <!-- Stats -->
-    <div class="sidebar-stats">
-        <div class="sidebar-stat">
-            <div class="sidebar-stat-val">{{ current_user.total_points if current_user.is_authenticated else 0 }}</div>
-            <div class="sidebar-stat-lbl">{{ t.child.stat_points }}</div>
-        </div>
-        <div class="sidebar-stat">
-            <div class="sidebar-stat-val">{{ current_user.level if current_user.is_authenticated else 1 }}</div>
-            <div class="sidebar-stat-lbl">{{ t.child.stat_level }}</div>
-        </div>
-        <div class="sidebar-stat">
-            <div class="sidebar-stat-val">{{ current_user.streak_count if current_user.is_authenticated else 0 }}</div>
-            <div class="sidebar-stat-lbl">{{ t.child.stat_streak }}</div>
-        </div>
-    </div>
-
-    <!-- Level Progress -->
-    {% set lvl = current_user.level if current_user.is_authenticated else 1 %}
-    {% set xp = current_user.total_points if current_user.is_authenticated else 0 %}
-    {% set xp_for_level = lvl * 100 %}
-    {% set xp_in_level = xp % xp_for_level if xp_for_level > 0 else 0 %}
-    {% set xp_pct = (xp_in_level / xp_for_level * 100) | int if xp_for_level > 0 else 0 %}
-    <div class="level-bar">
-        <div class="level-badge">Lv.{{ lvl }}</div>
-        <div class="level-track">
-            <div class="level-fill" style="width: {{ xp_pct }}%"></div>
-        </div>
-        <div class="level-text">{{ xp_in_level }}/{{ xp_for_level }}</div>
-    </div>
-</div>
-
-<!-- Navigation -->
-<div class="sidebar-card" style="flex:1; display:flex; flex-direction:column;">
-    <div class="sidebar-title">Menu</div>
-    <a href="{{ lang_url('/child/dashboard') }}" class="sidebar-link active">
-        <i class="fas fa-home"></i> {{ t.child.nav_home }}
-    </a>
-    <a href="{{ lang_url('/child/subjects') }}" class="sidebar-link">
-        <i class="fas fa-th-large"></i> {{ t.child.nav_subjects }}
-    </a>
-    {% for sd in subjects_data %}
-    {% set cfg = SUBJ.get(sd.name, {'emoji': '📚'}) %}
-    <a href="{{ lang_url('/child/subjects/' ~ sd.name) }}" class="sidebar-link" style="padding-left:2.5rem; font-size:12px;">
-        {{ cfg.emoji }} {{ sd.name }}
-        <span style="margin-left:auto; font-size:10px; opacity:0.5;">{{ sd.pct }}%</span>
-    </a>
-    {% endfor %}
-    <a href="#" class="sidebar-link">
-        <i class="fas fa-award"></i> {{ t.child.nav_badges }}
-    </a>
-    {% if current_user.is_authenticated %}
-    <a href="{{ lang_url('/child/logout') }}" class="sidebar-link logout">
-        <i class="fas fa-sign-out-alt"></i> {{ t.child.logout }}
-    </a>
-    {% endif %}
-</div>
+{% include "child/components/sidebar_profile.html" %}
+{% set active_nav = 'home' %}
+{% include "child/components/sidebar_nav.html" %}
 {% endblock %}
 
-{% block header_center %}
-<div style="color:white; font-size:16px; font-weight:700;">
-    {{ t.child.greeting }} {{ current_user.display_name if current_user.is_authenticated else '' }}! 👋
-</div>
-{% endblock %}
-
-{% block header_right %}
-<div class="points-badge">★ {{ current_user.total_points if current_user.is_authenticated else 0 }} pts</div>
-{% endblock %}
-
-{% block mobile_panel %}
-<!-- Mobile Stats (sidebar is hidden on mobile) -->
-<div class="mobile-panel">
-    <div style="display:flex; gap:6px; margin-bottom:0;">
-        <div class="mobile-stat" style="flex:1; text-align:center; padding:10px 4px; background:rgba(255,255,255,0.1); border-radius:10px;">
-            <div class="mobile-stat-val">{{ current_user.total_points if current_user.is_authenticated else 0 }}</div>
-            <div class="mobile-stat-lbl">{{ t.child.stat_points }}</div>
-        </div>
-        <div class="mobile-stat" style="flex:1; text-align:center; padding:10px 4px; background:rgba(255,255,255,0.1); border-radius:10px;">
-            <div class="mobile-stat-val">{{ current_user.level if current_user.is_authenticated else 1 }}</div>
-            <div class="mobile-stat-lbl">{{ t.child.stat_level }}</div>
-        </div>
-        <div class="mobile-stat" style="flex:1; text-align:center; padding:10px 4px; background:rgba(255,255,255,0.1); border-radius:10px;">
-            <div class="mobile-stat-val">{{ current_user.streak_count if current_user.is_authenticated else 0 }}</div>
-            <div class="mobile-stat-lbl">{{ t.child.stat_streak }}</div>
-        </div>
-    </div>
-    {% set lvl = current_user.level if current_user.is_authenticated else 1 %}
-    {% set xp = current_user.total_points if current_user.is_authenticated else 0 %}
-    {% set xp_for_level = lvl * 100 %}
-    {% set xp_in_level = xp % xp_for_level if xp_for_level > 0 else 0 %}
-    {% set xp_pct = (xp_in_level / xp_for_level * 100) | int if xp_for_level > 0 else 0 %}
-    <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
-        <div style="background:rgba(255,255,255,0.2); color:white; font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px;">Lv.{{ lvl }}</div>
-        <div style="flex:1; height:6px; background:rgba(255,255,255,0.15); border-radius:10px; overflow:hidden;">
-            <div style="height:100%; width:{{ xp_pct }}%; background:linear-gradient(90deg,#fbbf24,#f59e0b); border-radius:10px;"></div>
-        </div>
-        <div style="color:rgba(255,255,255,0.5); font-size:10px; font-weight:600;">{{ xp_in_level }}/{{ xp_for_level }}</div>
-    </div>
-</div>
-{% endblock %}
+{# header_center / header_right は child_base.html のデフォルトを使用 #}
 
 {% block main_content %}
 <div class="content-card">

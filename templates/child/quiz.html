@@ -24,6 +24,7 @@
     }
     .q-type-mc { background: #dbeafe; color: #1d4ed8; }
     .q-type-fr { background: #fce7f3; color: #be185d; }
+    .q-type-mastered { background: #d1fae5; color: #065f46; }
 
     .q-text {
         font-size: 18px; font-weight: 600; color: #1e293b;
@@ -68,6 +69,22 @@
     .choice-btn.correct .choice-label { background: #10b981; color: white; }
     .choice-btn.wrong { border-color: #ef4444; background: #fee2e2; pointer-events: none; animation: shake 0.4s ease; }
     .choice-btn.wrong .choice-label { background: #ef4444; color: white; }
+
+    /* Skip */
+    .skip-btn {
+        padding: 10px 20px; background: #f1f5f9; color: #64748b;
+        border: 2px solid #e2e8f0; border-radius: 10px;
+        font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .skip-btn:hover { border-color: #94a3b8; color: #475569; }
+
+    .skipped-msg {
+        padding: 20px; text-align: center; font-size: 15px; font-weight: 600;
+        color: #64748b; background: #f8fafc; border-radius: 14px; border: 2px dashed #e2e8f0;
+    }
+
+    .sidebar-nav-item.skipped .sidebar-nav-num { background: #d1fae5; color: #065f46; }
+    .mobile-q-pill.skipped { background: #d1fae5; color: #065f46; }
 
     /* Free Response */
     .fr-input {
@@ -176,11 +193,11 @@
 </style>
 {% endblock %}
 
-{% block header_right %}
-<div class="points-badge">★ <span id="pointsBadge">{{ current_user.total_points }}</span> pts</div>
-{% endblock %}
+{# header_right は child_base.html のデフォルト（pointsBadge id付き）を使用 #}
 
 {% block sidebar %}
+{% include "child/components/sidebar_profile.html" %}
+
 <!-- Progress -->
 <div class="sidebar-card">
     <div class="sidebar-title" id="sidebarStatsTitle">Progress</div>
@@ -210,6 +227,9 @@
         {% endfor %}
     </div>
 </div>
+
+{% set active_nav = 'subjects' %}
+{% include "child/components/sidebar_nav.html" %}
 {% endblock %}
 
 {% block mobile_panel %}
@@ -280,9 +300,29 @@ const questions = [
         type: "{{ q.question_type }}",
         text: {{ q.question_text|tojson }},
         options: {{ q.options|tojson if q.options else '[]' }},
+        mastered: {{ 'true' if mastery_map.get(q.question_id) and mastery_map[q.question_id].mastered else 'false' }},
     },
     {% endfor %}
 ];
+
+// Shuffle multiple-choice options (Fisher-Yates) while preserving original labels for grading
+const LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+questions.forEach(q => {
+    if (q.type === 'multiple_choice' && q.options && q.options.length > 1) {
+        // Fisher-Yates shuffle
+        const opts = [...q.options];
+        for (let i = opts.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [opts[i], opts[j]] = [opts[j], opts[i]];
+        }
+        // Keep original label for grading, assign display label
+        q.options = opts.map((opt, idx) => ({
+            ...opt,
+            originalLabel: opt.label,
+            label: LABELS[idx] || opt.label,
+        }));
+    }
+});
 
 const totalQ = questions.length;
 const chunkId = {{ chunk.chunk_id }};
@@ -302,8 +342,11 @@ function render() {
     const typeBadge = q.type === 'multiple_choice'
         ? '<span class="q-type-badge q-type-mc">Multiple Choice</span>'
         : '<span class="q-type-badge q-type-fr">Free Response</span>';
+    const masteredBadge = q.mastered
+        ? '<span class="q-type-badge q-type-mastered"><i class="fas fa-check"></i> Mastered</span>'
+        : '';
     document.getElementById('qNumber').innerHTML =
-        `{{ t.child.question_label }} ${currentIdx + 1} / ${totalQ} ${typeBadge}`;
+        `{{ t.child.question_label }} ${currentIdx + 1} / ${totalQ} ${typeBadge} ${masteredBadge}`;
     document.getElementById('qText').textContent = q.text;
 
     const choicesEl = document.getElementById('choices');
@@ -326,7 +369,7 @@ function renderOpen(q, ans, choicesEl, expArea, actionsEl) {
     if (q.type === 'multiple_choice' && q.options) {
         choicesEl.innerHTML = q.options.map(opt => {
             const sel = ans && ans.answer === opt.label ? ' selected' : '';
-            return `<div class="choice-btn${sel}" onclick="selectOption('${opt.label}')">
+            return `<div class="choice-btn${sel}" onclick="selectOption('${opt.label}', '${opt.originalLabel || opt.label}')">
                 <span class="choice-label">${opt.label}</span>
                 <span>${opt.text}</span>
             </div>`;
@@ -340,16 +383,32 @@ function renderOpen(q, ans, choicesEl, expArea, actionsEl) {
     expArea.innerHTML = '';
 
     const hasAnswer = ans && ans.answer;
+    const skipBtn = q.mastered
+        ? `<button class="skip-btn" onclick="skipAnswer()"><i class="fas fa-forward"></i> Skip</button>`
+        : '';
     actionsEl.innerHTML = `
         <button class="hint-btn" onclick="showHint()"><i class="fas fa-lightbulb"></i> Hint</button>
-        <button class="confirm-btn" onclick="confirmAnswer()" ${hasAnswer ? '' : 'disabled'}>
-            <i class="fas fa-check"></i> Confirm
-        </button>
+        <div style="display:flex; gap:8px;">
+            ${skipBtn}
+            <button class="confirm-btn" onclick="confirmAnswer()" ${hasAnswer ? '' : 'disabled'}>
+                <i class="fas fa-check"></i> Confirm
+            </button>
+        </div>
     `;
 }
 
 // State: confirmed (locked)
 function renderLocked(q, ans, choicesEl, expArea, actionsEl) {
+    if (ans.skipped) {
+        choicesEl.innerHTML = `<div class="skipped-msg"><i class="fas fa-forward"></i> Skipped (already mastered)</div>`;
+        expArea.innerHTML = '';
+        let html = `<button class="change-btn" onclick="unlockAnswer()"><i class="fas fa-undo"></i> Answer anyway</button>`;
+        if (allLocked()) {
+            html += `<button class="check-btn" onclick="checkAnswers()"><i class="fas fa-clipboard-check"></i> Check Answers!</button>`;
+        }
+        actionsEl.innerHTML = html;
+        return;
+    }
     if (q.type === 'multiple_choice' && q.options) {
         choicesEl.innerHTML = q.options.map(opt =>
             `<div class="choice-btn${opt.label === ans.answer ? ' locked' : ' disabled'}">
@@ -374,12 +433,25 @@ function renderChecked(q, ans, choicesEl, expArea, actionsEl) {
     const r = checkResults.results.find(x => x.question_id === q.id);
     if (!r) return;
 
+    if (r.skipped) {
+        choicesEl.innerHTML = `<div class="skipped-msg"><i class="fas fa-check-circle" style="color:#10b981;"></i> Already mastered - skipped</div>`;
+        expArea.innerHTML = '';
+        actionsEl.innerHTML = `
+            <div></div>
+            <a href="${langPrefix}/child/quiz/${chunkId}/result" class="results-btn">
+                See Results <i class="fas fa-arrow-right"></i>
+            </a>
+        `;
+        return;
+    }
+
     if (q.type === 'multiple_choice' && q.options) {
         choicesEl.innerHTML = q.options.map(opt => {
             let cls = 'choice-btn';
+            const origLabel = opt.originalLabel || opt.label;
             if (opt.label === ans.answer && r.correct) cls += ' correct';
             else if (opt.label === ans.answer && !r.correct) cls += ' wrong';
-            else if (opt.label === r.correct_answer) cls += ' correct';
+            else if (origLabel === r.correct_answer) cls += ' correct';
             else cls += ' disabled';
             return `<div class="${cls}">
                 <span class="choice-label">${opt.label}</span>
@@ -415,10 +487,10 @@ function renderChecked(q, ans, choicesEl, expArea, actionsEl) {
 }
 
 // ---- Actions ----
-function selectOption(label) {
+function selectOption(label, originalLabel) {
     if (checkResults) return;
     if (answers[currentIdx] && answers[currentIdx].locked) return;
-    answers[currentIdx] = { answer: label, locked: false };
+    answers[currentIdx] = { answer: label, originalLabel: originalLabel, locked: false };
     render();
 }
 
@@ -432,6 +504,21 @@ function onFrInput() {
     // Update confirm button state
     const btn = document.querySelector('.confirm-btn');
     if (btn) btn.disabled = !val;
+}
+
+function skipAnswer() {
+    if (checkResults) return;
+    answers[currentIdx] = { answer: '__skipped__', locked: true, skipped: true };
+    // Auto-advance
+    for (let i = 1; i <= totalQ; i++) {
+        const idx = (currentIdx + i) % totalQ;
+        if (!answers[idx] || !answers[idx].locked) {
+            currentIdx = idx;
+            render();
+            return;
+        }
+    }
+    render();
 }
 
 function confirmAnswer() {
@@ -481,30 +568,60 @@ function checkAnswers() {
     const btn = document.querySelector('.check-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'Checking...'; }
 
-    const payload = questions.map((q, i) => ({
-        question_id: q.id,
-        answer: answers[i].answer,
-    }));
+    // Separate skipped vs answered
+    const answeredPayload = [];
+    const skippedIds = [];
+    questions.forEach((q, i) => {
+        if (answers[i].skipped) {
+            skippedIds.push(q.id);
+        } else {
+            answeredPayload.push({
+                question_id: q.id,
+                answer: answers[i].originalLabel || answers[i].answer,
+            });
+        }
+    });
 
     fetch(langPrefix + '/child/quiz/' + chunkId + '/check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers: payload }),
+        body: JSON.stringify({ answers: answeredPayload }),
     })
     .then(r => r.json())
     .then(data => {
+        // Add skipped questions as "correct" (already mastered) with 0 points
+        skippedIds.forEach(id => {
+            data.results.push({
+                question_id: id,
+                correct: true,
+                correct_answer: '',
+                explanation: '',
+                points_earned: 0,
+                skipped: true,
+            });
+            data.total_correct++;
+        });
+
         checkResults = data;
 
-        // Show score banner
-        const pct = totalQ > 0 ? Math.round(data.total_correct / totalQ * 100) : 0;
+        // Show score banner (count only non-skipped)
+        const answered = totalQ - skippedIds.length;
+        const answeredCorrect = data.total_correct - skippedIds.length;
+        const pct = answered > 0 ? Math.round(answeredCorrect / answered * 100) : 100;
         const emoji = pct === 100 ? '🎉' : pct >= 70 ? '⭐' : pct >= 40 ? '💪' : '📚';
         const banner = document.getElementById('scoreBanner');
         banner.style.display = '';
-        banner.innerHTML = `<div class="score-banner">
-            <div class="score-banner-title">${emoji} ${data.total_correct} / ${totalQ} correct!</div>
-            <div class="score-banner-detail">${pct}%</div>
-            ${data.total_points > 0 ? `<div class="score-banner-points">+${data.total_points} pts</div>` : ''}
-        </div>`;
+        let bannerHtml = `<div class="score-banner">
+            <div class="score-banner-title">${emoji} ${answeredCorrect} / ${answered} correct!</div>
+            <div class="score-banner-detail">${pct}%</div>`;
+        if (skippedIds.length > 0) {
+            bannerHtml += `<div class="score-banner-detail" style="opacity:0.7; font-size:12px;">(${skippedIds.length} skipped - already mastered)</div>`;
+        }
+        if (data.total_points > 0) {
+            bannerHtml += `<div class="score-banner-points">+${data.total_points} pts</div>`;
+        }
+        bannerHtml += `</div>`;
+        banner.innerHTML = bannerHtml;
 
         // Update points badge
         const badge = document.getElementById('pointsBadge');
@@ -556,8 +673,11 @@ function updateNav() {
 
         if (checkResults) {
             const r = checkResults.results.find(x => x.question_id === q.id);
-            if (r && r.correct) { cls = 'correct'; mcls = 'correct'; status = '✅'; }
+            if (r && r.skipped) { cls = 'skipped'; mcls = 'skipped'; status = '⏭'; }
+            else if (r && r.correct) { cls = 'correct'; mcls = 'correct'; status = '✅'; }
             else { cls = 'wrong'; mcls = 'wrong'; status = '❌'; }
+        } else if (ans && ans.skipped) {
+            cls = 'skipped'; mcls = 'skipped'; status = '⏭';
         } else if (ans && ans.locked) {
             cls = 'locked'; mcls = 'locked'; status = '✓';
         } else {
@@ -629,6 +749,27 @@ function toggleAccordion() {
     document.getElementById('accToggle').classList.toggle('open');
     document.getElementById('accBody').classList.toggle('open');
 }
+
+// ---- Leave warning ----
+function hasProgress() {
+    return !checkResults && Object.keys(answers).length > 0;
+}
+
+window.addEventListener('beforeunload', function(e) {
+    if (hasProgress()) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
+
+// Back button confirm
+document.querySelector('.study-back')?.addEventListener('click', function(e) {
+    if (hasProgress()) {
+        if (!confirm('{{ t.child.leave_quiz_confirm | default("You have unsaved progress. Are you sure you want to leave?") }}')) {
+            e.preventDefault();
+        }
+    }
+});
 
 // ---- Init ----
 render();

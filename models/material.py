@@ -13,7 +13,7 @@ class Material(db.Model):
     year_group = db.Column(db.Integer, nullable=False, default=7)
     difficulty = db.Column(db.String(10), nullable=False, default='normal')
     language = db.Column(db.String(2), nullable=False, default='en')
-    status = db.Column(db.String(10), nullable=False, default='draft')
+    status = db.Column(db.String(10), nullable=False, default='published')
     created_by = db.Column(db.Integer, db.ForeignKey('parents.parent_id'), nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
@@ -66,3 +66,40 @@ class QuestionMastery(db.Model):
     mastered_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
+
+
+class LearningSession(db.Model):
+    __tablename__ = 'learning_sessions'
+    session_id = db.Column(db.Integer, primary_key=True)
+    child_id = db.Column(db.Integer, db.ForeignKey('children.child_id'), nullable=False)
+    material_id = db.Column(db.Integer, db.ForeignKey('materials.material_id'), nullable=False)
+    started_at = db.Column(db.DateTime, server_default=db.func.now())
+    completed_at = db.Column(db.DateTime)
+    total_questions = db.Column(db.Integer, nullable=False, default=0)
+    correct_answers = db.Column(db.Integer, nullable=False, default=0)
+    total_points_earned = db.Column(db.Integer, nullable=False, default=0)
+    time_spent_seconds = db.Column(db.Integer, nullable=False, default=0)
+
+
+class AnswerHistory(db.Model):
+    __tablename__ = 'answer_history'
+    answer_id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('learning_sessions.session_id'), nullable=False)
+    question_id = db.Column(db.Integer, db.ForeignKey('questions.question_id'), nullable=False)
+    child_id = db.Column(db.Integer, db.ForeignKey('children.child_id'), nullable=False)
+    user_answer = db.Column(db.String(10), nullable=False)
+    is_correct = db.Column(db.Boolean, nullable=False, default=False)
+    points_earned = db.Column(db.Integer, nullable=False, default=0)
+    time_spent_seconds = db.Column(db.Integer, nullable=False, default=0)
+    answered_at = db.Column(db.DateTime, server_default=db.func.now())
+
+
+class PointHistory(db.Model):
+    __tablename__ = 'point_history'
+    point_id = db.Column(db.Integer, primary_key=True)
+    child_id = db.Column(db.Integer, db.ForeignKey('children.child_id'), nullable=False)
+    points = db.Column(db.Integer, nullable=False)
+    reason = db.Column(db.String(255), nullable=False)
+    reason_type = db.Column(db.String(50), nullable=False)
+    session_id = db.Column(db.Integer, db.ForeignKey('learning_sessions.session_id'))
+    created_at = db.Column(db.DateTime, server_default=db.func.now())

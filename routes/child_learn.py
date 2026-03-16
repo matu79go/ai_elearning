@@ -29,6 +29,7 @@ def child_subjects():
         func.count(Material.material_id).label('unit_count'),
     ).filter_by(
         year_group=YEAR_GROUP,
+        status='published',
     ).group_by(Material.subject).order_by(Material.subject).all()
 
     return render_template('child/subjects.html', subjects=subjects)
@@ -41,10 +42,11 @@ def child_units(subject):
     if not _is_child():
         abort(403)
     materials = Material.query.filter_by(
-        subject=subject, year_group=YEAR_GROUP,
+        subject=subject, year_group=YEAR_GROUP, status='published',
     ).order_by(Material.title).all()
 
-    # 各単元のマスタリー進捗を計算
+    # 各単元のマスタリー進捗を計算（チャンク別も含む）
+    from sqlalchemy import func as sqlfunc
     units_data = []
     for m in materials:
         total_q = m.questions.count()
@@ -53,10 +55,34 @@ def child_units(subject):
             QuestionMastery.child_id == current_user.child_id,
             QuestionMastery.mastered == True,
         ).count() if total_q > 0 else 0
+
+        # チャンク別進捗
+        chunk_progress = {}
+        chunk_stats = db.session.query(
+            Question.chunk_id,
+            sqlfunc.count(Question.question_id).label('total'),
+            sqlfunc.sum(db.case(
+                (db.and_(QuestionMastery.mastered == True,
+                         QuestionMastery.child_id == current_user.child_id), 1),
+                else_=0,
+            )).label('mastered'),
+        ).outerjoin(QuestionMastery, db.and_(
+            QuestionMastery.question_id == Question.question_id,
+            QuestionMastery.child_id == current_user.child_id,
+        )).filter(
+            Question.material_id == m.material_id,
+        ).group_by(Question.chunk_id).all()
+
+        for cs in chunk_stats:
+            chunk_progress[cs.chunk_id] = {
+                'total': cs.total, 'mastered': int(cs.mastered or 0),
+            }
+
         units_data.append({
             'material': m,
             'total': total_q,
             'mastered': mastered_q,
+            'chunk_progress': chunk_progress,
         })
 
     # サイドバー用: 全教科一覧
@@ -66,6 +92,7 @@ def child_units(subject):
         func.count(Material.material_id).label('unit_count'),
     ).filter_by(
         year_group=YEAR_GROUP,
+        status='published',
     ).group_by(Material.subject).order_by(Material.subject).all()
 
     return render_template('child/units.html',
@@ -98,15 +125,37 @@ def child_section(chunk_id):
     # content からkey points等を抽出（パース）
     parsed = _parse_chunk_content(chunk.content)
 
-    # サイドバー用: 同じマテリアルの全セクション
+    # サイドバー用: 同じマテリアルの全セクション + 進捗
     all_chunks = MaterialChunk.query.filter_by(
         material_id=chunk.material_id
     ).order_by(MaterialChunk.sort_order).all()
 
+    from sqlalchemy import func as sqlfunc
+    chunk_progress = {}
+    chunk_stats = db.session.query(
+        Question.chunk_id,
+        sqlfunc.count(Question.question_id).label('total'),
+        sqlfunc.sum(db.case(
+            (db.and_(QuestionMastery.mastered == True,
+                     QuestionMastery.child_id == current_user.child_id), 1),
+            else_=0,
+        )).label('mastered'),
+    ).outerjoin(QuestionMastery, db.and_(
+        QuestionMastery.question_id == Question.question_id,
+        QuestionMastery.child_id == current_user.child_id,
+    )).filter(
+        Question.material_id == chunk.material_id,
+    ).group_by(Question.chunk_id).all()
+
+    for cs in chunk_stats:
+        chunk_progress[cs.chunk_id] = {
+            'total': cs.total, 'mastered': int(cs.mastered or 0),
+        }
+
     return render_template('child/section.html',
                            chunk=chunk, material=material, parsed=parsed,
                            total_questions=len(questions), mastered_count=mastered_count,
-                           all_chunks=all_chunks)
+                           all_chunks=all_chunks, chunk_progress=chunk_progress)
 
 
 # ---- クイズ画面 ----

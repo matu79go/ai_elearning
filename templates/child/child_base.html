@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 {% block lang_switch %}{% endblock %}
 
+{% set AVATARS = {
+    'boy1':  {'emoji': '👦', 'label': 'Boy 1'},
+    'boy2':  {'emoji': '🧑', 'label': 'Boy 2'},
+    'girl1': {'emoji': '👧', 'label': 'Girl 1'},
+    'girl2': {'emoji': '👩', 'label': 'Girl 2'},
+    'cat':   {'emoji': '🐱', 'label': 'Cat'},
+    'dog':   {'emoji': '🐶', 'label': 'Dog'},
+    'fox':   {'emoji': '🦊', 'label': 'Fox'},
+    'panda': {'emoji': '🐼', 'label': 'Panda'},
+} %}
+{% set my_avatar = AVATARS.get(current_user.avatar, AVATARS.fox).emoji if current_user.is_authenticated else '🦊' %}
+
 {% set SUBJ = {
     'Science':    {'emoji': '🔬', 'bg': '#dbeafe', 'color': '#1d4ed8'},
     'Maths':      {'emoji': '🔢', 'bg': '#fef3c7', 'color': '#92400e'},
@@ -26,6 +38,8 @@
         min-height: 100vh;
         max-width: 1100px;
         margin: 0 auto;
+        overflow-x: hidden;
+        width: 100%;
     }
 
     .study-sidebar { display: none; }
@@ -121,7 +135,9 @@
     /* Sidebar Profile */
     .sidebar-profile {
         display: flex; align-items: center; gap: 12px;
-        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        margin-bottom: 0.75rem;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
     }
 
     .sidebar-avatar {
@@ -134,11 +150,42 @@
     .sidebar-name { color: white; font-size: 16px; font-weight: 700; }
     .sidebar-grade { color: rgba(255,255,255,0.5); font-size: 12px; }
 
+    .sidebar-profile-link { text-decoration: none; color: inherit; border-radius: 12px; padding: 4px; margin: -4px; transition: background 0.2s; }
+    .sidebar-profile-link:hover { background: rgba(255,255,255,0.08); }
+
+    .sidebar-streak {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.6);
+        margin-bottom: 0.5rem;
+    }
+
+    /* Level Progress Bar (used in sidebar_profile component) */
+    .level-bar { display: flex; align-items: center; gap: 10px; margin-top: 0.75rem; }
+    .level-badge { background: rgba(255,255,255,0.2); color: white; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 8px; white-space: nowrap; }
+    .level-track { flex: 1; height: 8px; background: rgba(255,255,255,0.15); border-radius: 10px; overflow: hidden; }
+    .level-fill { height: 100%; background: linear-gradient(90deg, #fbbf24, #f59e0b); border-radius: 10px; transition: width 0.8s ease; }
+    .level-text { color: rgba(255,255,255,0.6); font-size: 10px; font-weight: 600; white-space: nowrap; }
+
+    /* Sidebar Nav Links */
+    .sidebar-link {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 12px; border-radius: 12px;
+        color: rgba(255,255,255,0.6); font-size: 13px; font-weight: 500;
+        text-decoration: none; transition: all 0.2s;
+    }
+    .sidebar-link:hover { background: rgba(255,255,255,0.1); color: white; }
+    .sidebar-link.active { background: rgba(255,255,255,0.2); color: white; font-weight: 700; }
+    .sidebar-link i { width: 20px; text-align: center; }
+    .sidebar-link.logout { color: rgba(255,255,255,0.4); margin-top: auto; }
+    .sidebar-link.logout:hover { color: #fca5a5; background: rgba(239,68,68,0.15); }
+
     /* ---- Main Content ---- */
     .study-main {
         flex: 1; padding: 1rem;
         display: flex; flex-direction: column;
         min-height: 100vh;
+        min-width: 0;
+        overflow-x: hidden;
     }
 
     @media (min-width: 768px) {
@@ -176,6 +223,20 @@
         font-weight: 700; font-size: 14px;
     }
 
+    /* Mobile header profile */
+    .mobile-header-profile {
+        display: flex; align-items: center; gap: 8px;
+        text-decoration: none; color: white;
+    }
+    .mobile-header-avatar {
+        width: 32px; height: 32px; border-radius: 50%;
+        background: rgba(255,255,255,0.2);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 18px;
+    }
+    .mobile-header-name { font-size: 15px; font-weight: 700; }
+    @media (min-width: 768px) { .mobile-header-profile { display: none; } }
+
     /* White Content Card */
     .content-card {
         background: white;
@@ -183,6 +244,8 @@
         padding: 1.5rem;
         box-shadow: 0 20px 60px rgba(0,0,0,0.15);
         flex: 1;
+        overflow: hidden;
+        min-width: 0;
     }
 
     @media (min-width: 768px) {
@@ -334,10 +397,17 @@
             <a href="{% block back_url %}{{ lang_url('/child/dashboard') }}{% endblock %}" class="study-back">
                 <i class="fas fa-arrow-left"></i> {{ t.child.back }}
             </a>
-            {% block header_center %}{% endblock %}
+            {% block header_center %}
+            <a href="{{ lang_url('/child/profile') }}" class="mobile-header-profile">
+                <span class="mobile-header-avatar">{{ my_avatar }}</span>
+                <span class="mobile-header-name">{{ current_user.display_name if current_user.is_authenticated else '' }}</span>
+            </a>
+            {% endblock %}
             <div class="study-header-right">
                 <a href="{{ switch_lang_url }}" class="lang-btn"><i class="fas fa-globe"></i></a>
-                {% block header_right %}{% endblock %}
+                {% block header_right %}
+                <div class="points-badge">★ <span id="pointsBadge">{{ current_user.total_points if current_user.is_authenticated else 0 }}</span> pts</div>
+                {% endblock %}
             </div>
         </div>
 
@@ -370,8 +440,8 @@
         <i class="fas fa-award"></i>
         <span>{{ t.child.nav_badges }}</span>
     </a>
-    <a href="{{ lang_url('/child/logout') }}" class="bnav-tab">
-        <i class="fas fa-sign-out-alt"></i>
+    <a href="{{ lang_url('/child/profile') }}" class="bnav-tab {{ 'active' if '/profile' in request.path }}">
+        <i class="fas fa-user-circle"></i>
         <span>{{ t.child.nav_profile }}</span>
     </a>
 </div>

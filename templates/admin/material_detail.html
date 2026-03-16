@@ -16,6 +16,21 @@
         </div>
     </div>
     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        {% if material.status == 'published' %}
+        <form method="POST" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/publish') }}" style="display:inline;">
+            <input type="hidden" name="action" value="unpublish">
+            <button type="submit" class="action-btn action-btn-unpublish">
+                <i class="fas fa-eye-slash"></i> {{ t.admin.unpublish }}
+            </button>
+        </form>
+        {% else %}
+        <form method="POST" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/publish') }}" style="display:inline;">
+            <input type="hidden" name="action" value="publish">
+            <button type="submit" class="action-btn action-btn-publish">
+                <i class="fas fa-globe"></i> {{ t.admin.publish }}
+            </button>
+        </form>
+        {% endif %}
         <a href="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/edit') }}" class="action-btn">
             <i class="fas fa-edit"></i> {{ t.admin.edit }}
         </a>
@@ -351,6 +366,10 @@
     .action-btn:hover { background: #e2e8f0; color: #1e293b; }
     .action-btn-danger { color: #ef4444; border-color: #fecaca; }
     .action-btn-danger:hover { background: #fee2e2; color: #dc2626; }
+    .action-btn-publish { color: #059669; border-color: #a7f3d0; background: #d1fae5; }
+    .action-btn-publish:hover { background: #a7f3d0; color: #047857; }
+    .action-btn-unpublish { color: #d97706; border-color: #fde68a; background: #fef3c7; }
+    .action-btn-unpublish:hover { background: #fde68a; color: #b45309; }
 
     .tabs { display: flex; gap: 4px; border-bottom: 2px solid #e2e8f0; }
     .tab-btn {

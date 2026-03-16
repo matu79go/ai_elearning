@@ -205,6 +205,25 @@ def admin_materials_delete_chunk(material_id, chunk_id):
     return redirect(_lang_url(f'/admin/materials/{material_id}'))
 
 
+@dual_route(admin_materials_bp, '/admin/materials/<int:material_id>/publish', methods=['POST'])
+@login_required
+@admin_required
+def admin_materials_publish(material_id):
+    """マテリアルの公開/非公開を切り替え"""
+    material = Material.query.get_or_404(material_id)
+    action = request.form.get('action', 'publish')
+
+    if action == 'publish' and material.status in ('ready', 'draft'):
+        material.status = 'published'
+        flash('material_published', 'success')
+    elif action == 'unpublish' and material.status == 'published':
+        material.status = 'ready'
+        flash('material_unpublished', 'success')
+
+    db.session.commit()
+    return redirect(_lang_url(f'/admin/materials/{material_id}'))
+
+
 @dual_route(admin_materials_bp, '/admin/materials/<int:material_id>/generate', methods=['POST'])
 @login_required
 @admin_required

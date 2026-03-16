@@ -1,0 +1,201 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ chunk.title }} - {{ child.display_name }}{% endblock %}
+{% block content %}
+
+{% set back_url = lang_url('/admin/children/' ~ child.child_id) %}
+{% include "admin/components/child_header.html" %}
+
+<!-- Section breadcrumb -->
+<div class="breadcrumb">
+    <span>{{ material.subject }}</span>
+    <i class="fas fa-chevron-right"></i>
+    <span>{{ material.title.replace('KS3 ' ~ material.subject ~ ' - ', '') }}</span>
+    <i class="fas fa-chevron-right"></i>
+    <span class="breadcrumb-current">{{ chunk.title }}</span>
+</div>
+
+<!-- Flash messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div style="margin-bottom: 1rem;">
+    {% for category, msg in messages %}
+    <div class="flash-msg {{ 'flash-success' if category == 'success' else 'flash-error' }}">
+        <i class="fas {{ 'fa-check-circle' if category == 'success' else 'fa-exclamation-circle' }}" style="margin-right: 6px;"></i>
+        {% if msg.startswith('questions_reset:') %}
+            {{ msg.split(':')[1] }} {{ t.admin.questions_reset }}
+        {% else %}
+            {{ t.admin[msg] if t.admin[msg] is defined else msg }}
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<!-- Progress summary -->
+{% set pct = (mastered_count / questions|length * 100)|int if questions else 0 %}
+<div class="progress-summary">
+    <div class="progress-summary-text">{{ mastered_count }} / {{ questions|length }} {{ t.admin.mastered_label }}</div>
+    <div class="progress-summary-bar">
+        <div class="progress-summary-fill" style="width: {{ pct }}%"></div>
+    </div>
+    <div class="progress-summary-pct">{{ pct }}%</div>
+</div>
+
+<!-- Questions with checkboxes -->
+<form method="POST" action="{{ lang_url('/admin/children/' ~ child.child_id ~ '/reset') }}" id="resetForm"
+      onsubmit="return confirm('{{ t.admin.reset_selected_confirm }}')">
+    <input type="hidden" name="chunk_id" value="{{ chunk.chunk_id }}">
+
+    <div class="section-card">
+        <div class="section-header" style="flex-wrap: wrap; gap: 8px;">
+            <div class="section-title" style="font-size: 14px;">
+                <i class="fas fa-list"></i> {{ questions|length }} {{ t.admin.questions_count }}
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <button type="button" class="ctrl-btn" onclick="toggleAll(true)">
+                    <i class="fas fa-check-square"></i> {{ t.admin.select_all }}
+                </button>
+                <button type="button" class="ctrl-btn" onclick="toggleAll(false)">
+                    <i class="far fa-square"></i> {{ t.admin.deselect_all }}
+                </button>
+                <label class="deduct-label">
+                    <input type="checkbox" name="deduct_points" value="1">
+                    {{ t.admin.deduct_points }}
+                </label>
+                <button type="submit" class="btn-reset" id="resetBtn" disabled>
+                    <i class="fas fa-undo"></i> <span id="resetLabel">{{ t.admin.reset_selected }}</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="q-list">
+            {% for q in questions %}
+            <div class="q-row {{ 'q-row-mastered' if q.mastered else 'q-row-unanswered' }}">
+                <label class="q-label">
+                    <input type="checkbox" name="question_ids" value="{{ q.id }}"
+                           class="q-cb" onchange="updateResetBtn()">
+                    <span class="q-num">{{ loop.index }}</span>
+                    <span class="q-status {{ 'qs-mastered' if q.mastered else 'qs-unanswered' }}">
+                        {% if q.mastered %}
+                        <i class="fas fa-check"></i> {{ t.admin.status_mastered }}
+                        {% else %}
+                        <i class="far fa-circle"></i> {{ t.admin.status_unanswered }}
+                        {% endif %}
+                    </span>
+                    <span class="q-type {{ 'qt-mc' if q.type == 'multiple_choice' else 'qt-fr' }}">
+                        {{ t.admin.multiple_choice if q.type == 'multiple_choice' else t.admin.free_response }}
+                    </span>
+                </label>
+                <div class="q-text">{{ q.text }}</div>
+                {% if q.attempts > 0 %}
+                <div class="q-meta">{{ q.attempts }} {{ t.admin.attempts_label }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</form>
+
+{% endblock %}
+
+{% block extra_css %}
+    {% include "admin/components/child_header_css.html" %}
+
+    .breadcrumb {
+        display: flex; align-items: center; gap: 8px;
+        font-size: 13px; color: #64748b; margin-bottom: 1rem;
+        padding: 10px 16px; background: #f8fafc; border-radius: 10px;
+    }
+    .breadcrumb i { font-size: 8px; color: #cbd5e1; }
+    .breadcrumb-current { color: #1e293b; font-weight: 600; }
+
+    .progress-summary {
+        display: flex; align-items: center; gap: 12px;
+        padding: 14px 20px; margin-bottom: 1rem;
+        background: #eef2ff; border-radius: 12px; border: 1px solid #c7d2fe;
+    }
+    .progress-summary-text { font-size: 14px; font-weight: 700; color: #4338ca; white-space: nowrap; }
+    .progress-summary-bar { flex: 1; height: 8px; background: #c7d2fe; border-radius: 4px; overflow: hidden; }
+    .progress-summary-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+    .progress-summary-pct { font-size: 14px; font-weight: 800; color: #4338ca; }
+
+    .ctrl-btn {
+        padding: 6px 12px; background: #f1f5f9; color: #475569;
+        border: 1px solid #e2e8f0; border-radius: 6px;
+        font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+    }
+    .ctrl-btn:hover { background: #e2e8f0; color: #1e293b; }
+
+    .btn-reset {
+        padding: 6px 14px; background: #fee2e2; color: #dc2626;
+        border: 1px solid #fecaca; border-radius: 6px;
+        font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-reset:hover:not(:disabled) { background: #fecaca; color: #b91c1c; }
+    .btn-reset:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .deduct-label {
+        display: flex; align-items: center; gap: 4px;
+        font-size: 12px; color: #64748b; cursor: pointer; white-space: nowrap;
+    }
+    .deduct-label input { accent-color: #ef4444; }
+
+    .q-list { }
+    .q-row { padding: 12px 20px; border-bottom: 1px solid #f1f5f9; }
+    .q-row:last-child { border-bottom: none; }
+    .q-row:hover { opacity: 0.85; }
+    .q-row-mastered { background: #f0fdf4; border-left: 3px solid #10b981; }
+    .q-row-unanswered { background: #fff; border-left: 3px solid #e2e8f0; }
+
+    .q-label {
+        display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 6px;
+    }
+    .q-cb { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; accent-color: #6366f1; }
+    .q-num {
+        width: 24px; height: 24px; border-radius: 6px;
+        background: #f1f5f9; color: #64748b;
+        font-size: 11px; font-weight: 700;
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .q-status {
+        font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px;
+        white-space: nowrap; flex-shrink: 0;
+    }
+    .qs-mastered { background: #d1fae5; color: #065f46; }
+    .qs-unanswered { background: #f1f5f9; color: #94a3b8; }
+
+    .q-type {
+        font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px;
+        white-space: nowrap; flex-shrink: 0;
+    }
+    .qt-mc { background: #dbeafe; color: #1d4ed8; }
+    .qt-fr { background: #fce7f3; color: #be185d; }
+
+    .q-text { font-size: 14px; color: #1e293b; line-height: 1.5; padding-left: 32px; }
+    .q-meta { font-size: 11px; color: #94a3b8; padding-left: 32px; margin-top: 4px; }
+
+    @media (max-width: 768px) {
+        .q-text { padding-left: 0; margin-top: 6px; }
+        .q-meta { padding-left: 0; }
+    }
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleAll(checked) {
+    document.querySelectorAll('.q-cb').forEach(cb => cb.checked = checked);
+    updateResetBtn();
+}
+
+function updateResetBtn() {
+    const checked = document.querySelectorAll('.q-cb:checked').length;
+    const btn = document.getElementById('resetBtn');
+    const label = document.getElementById('resetLabel');
+    btn.disabled = checked === 0;
+    label.textContent = checked > 0
+        ? '{{ t.admin.reset_selected }} (' + checked + ')'
+        : '{{ t.admin.reset_selected }}';
+}
+</script>
+{% endblock %}

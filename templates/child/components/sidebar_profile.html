@@ -1,0 +1,31 @@
+{# 共通サイドバープロフィール（PC用） #}
+<div class="sidebar-card">
+    <!-- Avatar + Name → Profile -->
+    <a href="{{ lang_url('/child/profile') }}" class="sidebar-profile sidebar-profile-link">
+        <div class="sidebar-avatar">{{ my_avatar }}</div>
+        <div>
+            <div class="sidebar-name">{{ current_user.display_name }}</div>
+            <div class="sidebar-grade">Year {{ 7 }}</div>
+        </div>
+    </a>
+
+    <!-- Streak -->
+    <div class="sidebar-streak">
+        <i class="fas fa-fire" style="color: #f59e0b;"></i>
+        <span>{{ current_user.streak_count }} day streak</span>
+    </div>
+
+    <!-- Level Bar -->
+    {% set lvl = current_user.level %}
+    {% set xp = current_user.total_points %}
+    {% set xp_for_level = lvl * 100 %}
+    {% set xp_in_level = xp % xp_for_level if xp_for_level > 0 else 0 %}
+    {% set xp_pct = (xp_in_level / xp_for_level * 100)|int if xp_for_level > 0 else 0 %}
+    <div class="level-bar">
+        <div class="level-badge">Lv.{{ lvl }}</div>
+        <div class="level-track">
+            <div class="level-fill" style="width: {{ xp_pct }}%"></div>
+        </div>
+        <div class="level-text">{{ xp_in_level }}/{{ xp_for_level }}</div>
+    </div>
+</div>

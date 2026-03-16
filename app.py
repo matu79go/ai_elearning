@@ -1,7 +1,7 @@
 """AI e-Learning System - Flask Application"""
 import json
 import os
-from flask import Flask, g, request
+from flask import Flask, g, request, session, redirect
 from flask_login import LoginManager
 from config import DATABASE_URL, SECRET_KEY
 from models import db
@@ -37,8 +37,40 @@ def create_app():
     # Initialize extensions
     db.init_app(app)
 
+    # ---- Dual session: parent + child can coexist in same browser ----
+    @app.before_request
+    def _dual_session_swap():
+        """URL pathに応じて _user_id を親/子供のセッションから切り替え"""
+        path = request.path
+        # /ja プレフィックスを除去
+        clean = path[3:] if path.startswith('/ja/') or path == '/ja' else path
+        clean = clean.lstrip('/')
+
+        if clean.startswith('admin') or clean.startswith('parent'):
+            uid = session.get('_parent_uid')
+            if uid:
+                session['_user_id'] = uid
+            else:
+                session.pop('_user_id', None)
+        elif clean.startswith('child'):
+            uid = session.get('_child_uid')
+            if uid:
+                session['_user_id'] = uid
+            else:
+                session.pop('_user_id', None)
+        # else: top page, static等はそのまま
+
     login_manager = LoginManager(app)
     login_manager.login_view = 'auth.parent_login'
+
+    @login_manager.unauthorized_handler
+    def unauthorized():
+        """未認証時: child系URLなら子供ログインへ、それ以外は親ログインへ"""
+        path = request.path
+        clean = path[3:] if path.startswith('/ja/') or path == '/ja' else path
+        if clean.lstrip('/').startswith('child'):
+            return redirect(lang_url('/child/login'))
+        return redirect(lang_url('/parent/login'))
 
     # Load translations
     load_translations()

@@ -63,23 +63,73 @@
         text-align: center; margin-top: 8px;
         font-size: 13px; color: #6366f1; font-weight: 600;
     }
+
+    /* Progress Hero (top of section) */
+    .progress-hero {
+        display: flex; align-items: center; gap: 12px;
+        padding: 12px 16px; margin: 12px 0 16px;
+        background: #eef2ff; border-radius: 12px; border: 1px solid #c7d2fe;
+    }
+    .progress-hero-left {
+        display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+    }
+    .progress-hero-text { font-size: 13px; font-weight: 700; color: #4338ca; }
+    .progress-hero-bar {
+        flex: 1; height: 6px; background: #c7d2fe; border-radius: 3px; overflow: hidden;
+    }
+    .progress-hero-bar .progress-fill { background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+    .progress-quiz-link {
+        padding: 6px 14px; background: #6366f1; color: white;
+        border-radius: 8px; font-size: 12px; font-weight: 700;
+        text-decoration: none; white-space: nowrap; transition: all 0.2s;
+    }
+    .progress-quiz-link:hover { background: #4f46e5; }
+
+    .mastery-bar-wrap {
+        max-width: 200px; margin: 10px auto 0; display: flex; align-items: center; gap: 8px;
+    }
+    .mastery-bar { flex: 1; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; }
+    .mastery-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+    .mastery-bar-fill.complete { background: linear-gradient(90deg, #10b981, #059669); }
+
+    /* Sidebar section progress */
+    .sidebar-section-progress {
+        display: flex; align-items: center; gap: 4px; margin-top: 2px;
+    }
+    .sidebar-minibar { width: 32px; height: 3px; background: rgba(255,255,255,0.15); border-radius: 2px; overflow: hidden; }
+    .sidebar-minibar-fill { height: 100%; border-radius: 2px; background: #6366f1; }
+    .sidebar-minibar-fill.done { background: #10b981; }
+    .sidebar-section-pct { font-size: 9px; color: rgba(255,255,255,0.4); }
 </style>
 {% endblock %}
 
 {% block sidebar %}
+{% include "child/components/sidebar_profile.html" %}
+
 <!-- Section Navigation -->
 <div class="sidebar-card" style="flex:1;">
     <div class="sidebar-title">{{ material.title.replace('KS3 ' ~ material.subject ~ ' - ', '') }}</div>
     <div class="sidebar-nav">
         {% for c in all_chunks %}
+        {% set cp = chunk_progress.get(c.chunk_id, {'total': 0, 'mastered': 0}) %}
+        {% set cpct = (cp.mastered / cp.total * 100)|int if cp.total > 0 else 0 %}
         <a href="{{ lang_url('/child/section/' ~ c.chunk_id) }}"
            class="sidebar-nav-item {{ 'active' if c.chunk_id == chunk.chunk_id }}">
             <span class="sidebar-nav-num">{{ loop.index }}</span>
-            <span class="sidebar-nav-text">{{ c.title }}</span>
+            <span class="sidebar-nav-text">
+                {{ c.title }}
+                <div class="sidebar-section-progress">
+                    <div class="sidebar-minibar"><div class="sidebar-minibar-fill {{ 'done' if cpct == 100 }}" style="width:{{ cpct }}%"></div></div>
+                    <span class="sidebar-section-pct">{{ cp.mastered }}/{{ cp.total }}</span>
+                </div>
+            </span>
         </a>
         {% endfor %}
     </div>
 </div>
+
+{% set active_nav = 'subjects' %}
+{% include "child/components/sidebar_nav.html" %}
 {% endblock %}
 
 {% block mobile_panel %}
@@ -109,6 +159,25 @@
 <div class="content-card">
     <div class="content-card-title">{{ chunk.title }}</div>
     <div class="content-card-subtitle">{{ material.title.replace('KS3 ' ~ material.subject ~ ' - ', '') }}</div>
+
+    <!-- Progress -->
+    {% if total_questions > 0 %}
+    {% set mpct = (mastered_count / total_questions * 100)|int %}
+    <div class="progress-hero">
+        <div class="progress-hero-left">
+            <span class="progress-hero-text">{{ mastered_count }}/{{ total_questions }} mastered</span>
+            {% if mastered_count == total_questions %}
+            <i class="fas fa-check-circle" style="color: #10b981;"></i>
+            {% endif %}
+        </div>
+        <div class="progress-hero-bar">
+            <div class="progress-fill" style="width: {{ mpct }}%"></div>
+        </div>
+        <a href="{{ lang_url('/child/quiz/' ~ chunk.chunk_id) }}" class="progress-quiz-link">
+            <i class="fas fa-pen"></i> {% if mastered_count == total_questions %}Review{% else %}Quiz{% endif %}
+        </a>
+    </div>
+    {% endif %}
 
     <!-- Key Learning Points -->
     {% if parsed.key_points %}
@@ -167,9 +236,8 @@
     {% if total_questions > 0 %}
     <div class="quiz-cta">
         <a href="{{ lang_url('/child/quiz/' ~ chunk.chunk_id) }}" class="quiz-btn">
-            <i class="fas fa-pen"></i> Start Quiz!
+            <i class="fas fa-pen"></i> {% if mastered_count == total_questions %}Review Quiz{% else %}Start Quiz!{% endif %}
         </a>
-        <div class="mastery-info">{{ mastered_count }}/{{ total_questions }} mastered</div>
     </div>
     {% endif %}
 </div>

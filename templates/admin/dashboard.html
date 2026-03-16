@@ -10,7 +10,7 @@
         </div>
         <div class="stat-info">
             <div class="stat-label">{{ t.admin.stat_users }}</div>
-            <div class="stat-value">0</div>
+            <div class="stat-value">{{ stats.children_count }}</div>
         </div>
     </div>
     <div class="stat-card">
@@ -19,16 +19,16 @@
         </div>
         <div class="stat-info">
             <div class="stat-label">{{ t.admin.stat_questions }}</div>
-            <div class="stat-value">0</div>
+            <div class="stat-value">{{ stats.questions_count }}</div>
         </div>
     </div>
     <div class="stat-card">
         <div class="stat-icon amber">
-            <i class="fas fa-book-open"></i>
+            <i class="fas fa-check-circle"></i>
         </div>
         <div class="stat-info">
-            <div class="stat-label">{{ t.admin.stat_today }}</div>
-            <div class="stat-value">0</div>
+            <div class="stat-label">{{ t.admin.total_mastered }}</div>
+            <div class="stat-value">{{ stats.total_mastered }}</div>
         </div>
     </div>
     <div class="stat-card">
@@ -37,44 +37,35 @@
         </div>
         <div class="stat-info">
             <div class="stat-label">{{ t.admin.stat_points }}</div>
-            <div class="stat-value">0</div>
+            <div class="stat-value">{{ stats.total_points }}</div>
         </div>
     </div>
 </div>
 
-<!-- Dashboard Grid -->
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
-
-    <!-- Recent Activity -->
-    <div class="section-card">
-        <div class="section-header">
-            <div class="section-title">
-                <i class="fas fa-clock"></i>
-                {{ t.admin.recent_activity if t.admin.recent_activity else 'Recent Activity' }}
-            </div>
+<!-- Children Overview -->
+<div class="section-card" style="margin-bottom: 1.5rem;">
+    <div class="section-header">
+        <div class="section-title">
+            <i class="fas fa-child"></i>
+            {{ t.admin.children_overview }}
         </div>
-        <div class="section-body">
-            <div style="text-align: center; padding: 2rem; color: #94a3b8;">
-                <i class="fas fa-inbox" style="font-size: 32px; margin-bottom: 0.75rem; display: block;"></i>
-                <p style="font-size: 13px;">{{ t.admin.no_activity if t.admin.no_activity else 'No activity yet' }}</p>
-            </div>
-        </div>
+        <a href="{{ lang_url('/admin/children') }}" style="font-size: 13px; color: #6366f1; text-decoration: none; font-weight: 600;">
+            {{ t.admin.menu_children }} <i class="fas fa-arrow-right" style="margin-left: 4px;"></i>
+        </a>
     </div>
-
-    <!-- Learning Summary -->
-    <div class="section-card">
-        <div class="section-header">
-            <div class="section-title">
-                <i class="fas fa-chart-pie"></i>
-                {{ t.admin.learning_summary if t.admin.learning_summary else 'Learning Summary' }}
-            </div>
+    <div class="section-body">
+        {% if children_data %}
+        <div class="dash-children">
+            {% for item in children_data %}
+            {% include "admin/components/child_card.html" %}
+            {% endfor %}
         </div>
-        <div class="section-body">
-            <div style="text-align: center; padding: 2rem; color: #94a3b8;">
-                <i class="fas fa-chart-bar" style="font-size: 32px; margin-bottom: 0.75rem; display: block;"></i>
-                <p style="font-size: 13px;">{{ t.admin.no_data if t.admin.no_data else 'No data yet' }}</p>
-            </div>
+        {% else %}
+        <div style="text-align: center; padding: 2rem; color: #94a3b8;">
+            <i class="fas fa-child" style="font-size: 36px; margin-bottom: 0.75rem; display: block;"></i>
+            <p style="font-size: 13px;">{{ t.admin.no_children_yet }}</p>
         </div>
+        {% endif %}
     </div>
 </div>
 
@@ -83,52 +74,31 @@
     <div class="section-header">
         <div class="section-title">
             <i class="fas fa-bolt"></i>
-            {{ t.admin.quick_actions if t.admin.quick_actions else 'Quick Actions' }}
+            {{ t.admin.quick_actions }}
         </div>
     </div>
     <div class="section-body">
         <div class="menu-grid">
-            <a href="#" class="menu-card">
+            <a href="{{ lang_url('/admin/children') }}" class="menu-card">
+                <div class="menu-card-icon" style="background: #fce7f3; color: #db2777;">
+                    <i class="fas fa-child"></i>
+                </div>
+                <h3>{{ t.admin.menu_children }}</h3>
+                <p>{{ t.admin.menu_children_desc }}</p>
+            </a>
+            <a href="{{ lang_url('/admin/materials') }}" class="menu-card">
                 <div class="menu-card-icon" style="background: #ede9fe; color: #7c3aed;">
                     <i class="fas fa-file-alt"></i>
                 </div>
                 <h3>{{ t.admin.menu_materials }}</h3>
                 <p>{{ t.admin.menu_materials_desc }}</p>
             </a>
-            <a href="#" class="menu-card">
-                <div class="menu-card-icon" style="background: #d1fae5; color: #059669;">
-                    <i class="fas fa-robot"></i>
-                </div>
-                <h3>{{ t.admin.menu_questions }}</h3>
-                <p>{{ t.admin.menu_questions_desc }}</p>
-            </a>
-            <a href="#" class="menu-card">
+            <a href="{{ lang_url('/admin/children') }}" class="menu-card">
                 <div class="menu-card-icon" style="background: #dbeafe; color: #2563eb;">
                     <i class="fas fa-chart-bar"></i>
                 </div>
                 <h3>{{ t.admin.menu_progress }}</h3>
                 <p>{{ t.admin.menu_progress_desc }}</p>
-            </a>
-            <a href="#" class="menu-card">
-                <div class="menu-card-icon" style="background: #fef3c7; color: #d97706;">
-                    <i class="fas fa-coins"></i>
-                </div>
-                <h3>{{ t.admin.menu_points }}</h3>
-                <p>{{ t.admin.menu_points_desc }}</p>
-            </a>
-            <a href="#" class="menu-card">
-                <div class="menu-card-icon" style="background: #fce7f3; color: #db2777;">
-                    <i class="fas fa-award"></i>
-                </div>
-                <h3>{{ t.admin.menu_badges }}</h3>
-                <p>{{ t.admin.menu_badges_desc }}</p>
-            </a>
-            <a href="#" class="menu-card">
-                <div class="menu-card-icon" style="background: #e0f2fe; color: #0284c7;">
-                    <i class="fas fa-bell"></i>
-                </div>
-                <h3>{{ t.admin.menu_notifications }}</h3>
-                <p>{{ t.admin.menu_notifications_desc }}</p>
             </a>
         </div>
     </div>
@@ -137,9 +107,6 @@
 {% endblock %}
 
 {% block extra_css %}
-@media (max-width: 768px) {
-    div[style*="grid-template-columns: 1fr 1fr"] {
-        grid-template-columns: 1fr !important;
-    }
-}
+    .dash-children { display: flex; flex-direction: column; gap: 0.75rem; }
+    {% include "admin/components/child_card_css.html" %}
 {% endblock %}

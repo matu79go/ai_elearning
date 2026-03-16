@@ -1,0 +1,21 @@
+{# 共通サイドバーナビ — active_nav で現在ページをハイライト #}
+<div class="sidebar-card" style="flex:1; display:flex; flex-direction:column;">
+    <div class="sidebar-title">Menu</div>
+    <a href="{{ lang_url('/child/dashboard') }}" class="sidebar-link {{ 'active' if active_nav == 'home' }}">
+        <i class="fas fa-home"></i> {{ t.child.nav_home }}
+    </a>
+    <a href="{{ lang_url('/child/subjects') }}" class="sidebar-link {{ 'active' if active_nav == 'subjects' }}">
+        <i class="fas fa-th-large"></i> {{ t.child.nav_subjects }}
+    </a>
+    <a href="#" class="sidebar-link {{ 'active' if active_nav == 'badges' }}">
+        <i class="fas fa-award"></i> {{ t.child.nav_badges }}
+    </a>
+    <a href="{{ lang_url('/child/profile') }}" class="sidebar-link {{ 'active' if active_nav == 'profile' }}">
+        <i class="fas fa-user-circle"></i> {{ t.child.nav_profile }}
+    </a>
+    {% if current_user.is_authenticated %}
+    <a href="{{ lang_url('/child/logout') }}" class="sidebar-link logout">
+        <i class="fas fa-sign-out-alt"></i> {{ t.child.logout }}
+    </a>
+    {% endif %}
+</div>

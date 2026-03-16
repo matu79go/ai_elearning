@@ -1,0 +1,36 @@
+{# 子供カード（教科別進捗バー付き）
+   使用側で item = { child: Child, stats: { subjects: [...], total, mastered, pct } } を渡す
+   link_url: カードのリンク先（省略時はchild detail）
+#}
+{% set child = item.child %}
+{% set stats = item.stats %}
+<a href="{{ link_url or lang_url('/admin/children/' ~ child.child_id) }}" class="child-card-link">
+    <div class="cc-top">
+        <div class="cc-avatar">{{ child.display_name[0] }}</div>
+        <div class="cc-info">
+            <div class="cc-name">{{ child.display_name }}</div>
+            <div class="cc-meta">
+                <span><i class="fas fa-star" style="color: #f59e0b;"></i> {{ child.total_points }}</span>
+                <span>Lv.{{ child.level }}</span>
+                <span><i class="fas fa-fire" style="color: #ef4444;"></i> {{ child.streak_count }}d</span>
+            </div>
+        </div>
+        <div class="cc-overall">
+            <div class="cc-overall-pct">{{ stats.pct }}%</div>
+            <div class="cc-overall-label">{{ stats.mastered }}/{{ stats.total }}</div>
+        </div>
+    </div>
+    <div class="cc-subjects">
+        {% for s in stats.subjects %}
+        <div class="cc-subj">
+            <div class="cc-subj-header">
+                <span class="cc-subj-name">{{ s.name }}</span>
+                <span class="cc-subj-count">{{ s.mastered }}/{{ s.total }} ({{ s.pct }}%)</span>
+            </div>
+            <div class="cc-subj-bar">
+                <div class="cc-subj-fill" style="width: {{ s.pct }}%"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</a>

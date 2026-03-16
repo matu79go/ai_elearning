@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, abort, redirect
+from flask import Blueprint, render_template, abort, redirect, request, jsonify
 from flask_login import login_required, current_user
 from routes import dual_route
 from models import db
@@ -65,6 +65,106 @@ def child_dashboard():
         })
 
     return render_template('child/dashboard.html', subjects_data=subjects_data)
+
+
+@dual_route(child_dashboard_bp, '/child/profile')
+@login_required
+def child_profile():
+    if not hasattr(current_user, 'child_id'):
+        abort(403)
+
+    from sqlalchemy import func
+    from collections import OrderedDict
+
+    # 全問題 + マスタリー状態を一括取得
+    rows = db.session.query(
+        Material.subject,
+        Material.material_id,
+        Material.title.label('material_title'),
+        MaterialChunk.chunk_id,
+        MaterialChunk.title.label('chunk_title'),
+        MaterialChunk.sort_order,
+        func.count(Question.question_id).label('total'),
+        func.sum(db.case(
+            (db.and_(QuestionMastery.mastered == True,
+                     QuestionMastery.child_id == current_user.child_id), 1),
+            else_=0,
+        )).label('mastered'),
+    ).join(MaterialChunk, MaterialChunk.material_id == Material.material_id
+    ).join(Question, Question.chunk_id == MaterialChunk.chunk_id
+    ).outerjoin(QuestionMastery, db.and_(
+        QuestionMastery.question_id == Question.question_id,
+        QuestionMastery.child_id == current_user.child_id,
+    )).filter(
+        Material.status == 'published',
+        Material.year_group == YEAR_GROUP,
+    ).group_by(
+        Material.subject, Material.material_id, MaterialChunk.chunk_id,
+    ).order_by(
+        Material.subject, Material.title, MaterialChunk.sort_order,
+    ).all()
+
+    # 階層構造に組み立て
+    subjects = OrderedDict()
+    total_all = 0
+    mastered_all = 0
+
+    for r in rows:
+        t = r.total
+        m = int(r.mastered or 0)
+        total_all += t
+        mastered_all += m
+
+        if r.subject not in subjects:
+            subjects[r.subject] = {'materials': OrderedDict(), 'total': 0, 'mastered': 0}
+        subj = subjects[r.subject]
+        subj['total'] += t
+        subj['mastered'] += m
+
+        if r.material_id not in subj['materials']:
+            subj['materials'][r.material_id] = {
+                'title': r.material_title, 'chunks': [],
+                'total': 0, 'mastered': 0,
+            }
+        mat = subj['materials'][r.material_id]
+        mat['total'] += t
+        mat['mastered'] += m
+        mat['chunks'].append({
+            'chunk_id': r.chunk_id,
+            'title': r.chunk_title,
+            'total': t,
+            'mastered': m,
+            'pct': round(m / t * 100) if t > 0 else 0,
+        })
+
+    return render_template('child/profile.html',
+                           subjects=subjects,
+                           total_all=total_all,
+                           mastered_all=mastered_all)
+
+
+AVATAR_MAP = {
+    'boy1': '👦', 'boy2': '🧑', 'girl1': '👧', 'girl2': '👩',
+    'cat': '🐱', 'dog': '🐶', 'fox': '🦊', 'panda': '🐼',
+}
+
+
+@dual_route(child_dashboard_bp, '/child/profile/avatar', methods=['POST'])
+@login_required
+def child_profile_avatar():
+    if not hasattr(current_user, 'child_id'):
+        return jsonify({'error': 'forbidden'}), 403
+
+    data = request.get_json()
+    avatar_key = data.get('avatar', '')
+
+    if avatar_key not in AVATAR_MAP:
+        return jsonify({'error': 'invalid'}), 400
+
+    current_user.avatar = avatar_key
+    db.session.commit()
+
+    return jsonify({'ok': True, 'emoji': AVATAR_MAP[avatar_key]})
 
 
 def _find_next_section(subject, child_id):

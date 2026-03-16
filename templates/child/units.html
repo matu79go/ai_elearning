@@ -78,27 +78,23 @@
 
     .section-link-text { flex: 1; }
     .section-link-arrow { color: #cbd5e1; font-size: 11px; }
+
+    .section-progress { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .section-minibar {
+        width: 40px; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;
+    }
+    .section-minibar-fill { height: 100%; border-radius: 2px; }
+    .smf-green { background: #10b981; }
+    .smf-amber { background: #f59e0b; }
+    .smf-indigo { background: #6366f1; }
+    .section-pct { font-size: 10px; font-weight: 700; color: #94a3b8; width: 28px; text-align: right; }
 </style>
 {% endblock %}
 
 {% block sidebar %}
-<!-- Subject Navigation -->
-<div class="sidebar-card" style="flex:1;">
-    <div class="sidebar-title">{{ t.child.nav_subjects }}</div>
-    <div class="sidebar-nav">
-        {% for s_name, s_count in all_subjects %}
-        {% set cfg = SUBJ.get(s_name, {'emoji': '📚', 'bg': '#f1f5f9', 'color': '#64748b'}) %}
-        <a href="{{ lang_url('/child/subjects/' ~ s_name) }}"
-           class="sidebar-nav-item {{ 'active' if s_name == subject }}">
-            <span class="sidebar-nav-icon" style="background: {{ cfg.bg }}; color: {{ cfg.color }};">
-                {{ cfg.emoji }}
-            </span>
-            <span class="sidebar-nav-text">{{ s_name }}</span>
-            <span class="sidebar-nav-status" style="font-size:11px; opacity:0.6;">{{ s_count }}</span>
-        </a>
-        {% endfor %}
-    </div>
-</div>
+{% include "child/components/sidebar_profile.html" %}
+{% set active_nav = 'subjects' %}
+{% include "child/components/sidebar_nav.html" %}
 {% endblock %}
 
 {% block mobile_panel %}
@@ -151,10 +147,17 @@
 
             <div class="section-list" onclick="event.stopPropagation();">
                 {% for chunk in m.chunks.all() %}
+                {% set cp = ud.chunk_progress.get(chunk.chunk_id, {'total': 0, 'mastered': 0}) %}
+                {% set cpct = (cp.mastered / cp.total * 100)|int if cp.total > 0 else 0 %}
                 <a href="{{ lang_url('/child/section/' ~ chunk.chunk_id) }}" class="section-link">
                     <span class="section-num">{{ loop.index }}</span>
                     <span class="section-link-text">{{ chunk.title }}</span>
-                    <i class="fas fa-chevron-right section-link-arrow"></i>
+                    <div class="section-progress">
+                        <div class="section-minibar">
+                            <div class="section-minibar-fill {{ 'smf-green' if cpct == 100 else 'smf-indigo' if cpct > 0 else '' }}" style="width: {{ cpct }}%"></div>
+                        </div>
+                        <span class="section-pct">{{ cp.mastered }}/{{ cp.total }}</span>
+                    </div>
                 </a>
                 {% endfor %}
             </div>

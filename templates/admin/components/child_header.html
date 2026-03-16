@@ -1,0 +1,71 @@
+<!-- Child Header + Flash + Stats -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem;">
+    <div style="display: flex; align-items: center; gap: 1rem;">
+        <div class="detail-avatar">{{ child.display_name[0] }}</div>
+        <div>
+            <h1 style="font-size: 22px; font-weight: 700; color: #1e293b;">{{ child.display_name }}</h1>
+            <div style="display: flex; gap: 6px; margin-top: 4px;">
+                {% if child.grade %}
+                <span class="badge badge-grade">
+                    {% if child.grade <= 6 %}{{ t.admin['grade_elem_' ~ child.grade] }}
+                    {% else %}{{ t.admin['grade_mid_' ~ child.grade] }}{% endif %}
+                </span>
+                {% endif %}
+                <span class="badge badge-last-active">
+                    {{ t.admin.last_active }}: {{ child.last_study_date.strftime('%Y-%m-%d') if child.last_study_date else t.admin.never }}
+                </span>
+            </div>
+        </div>
+    </div>
+    <a href="{{ back_url or lang_url('/admin/children') }}" class="action-btn">
+        <i class="fas fa-arrow-left"></i> {{ t.admin.back_to_children }}
+    </a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div style="margin-bottom: 1rem;">
+    {% for category, msg in messages %}
+    <div class="flash-msg {{ 'flash-success' if category == 'success' else 'flash-error' }}">
+        <i class="fas {{ 'fa-check-circle' if category == 'success' else 'fa-exclamation-circle' }}" style="margin-right: 6px;"></i>
+        {% if msg.startswith('questions_reset:') %}
+            {{ msg.split(':')[1] }} {{ t.admin.questions_reset }}
+        {% else %}
+            {{ t.admin[msg] if t.admin[msg] is defined else msg }}
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-icon purple"><i class="fas fa-star"></i></div>
+        <div class="stat-info">
+            <div class="stat-label">{{ t.child.stat_points }}</div>
+            <div class="stat-value">{{ child.total_points }}</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon blue"><i class="fas fa-layer-group"></i></div>
+        <div class="stat-info">
+            <div class="stat-label">{{ t.child.stat_level }}</div>
+            <div class="stat-value">{{ child.level }}</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon amber"><i class="fas fa-fire"></i></div>
+        <div class="stat-info">
+            <div class="stat-label">{{ t.child.stat_streak }}</div>
+            <div class="stat-value">{{ child.streak_count }}</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
+        <div class="stat-info">
+            <div class="stat-label">{{ t.admin.total_mastered }}</div>
+            <div class="stat-value">{{ total_mastered }}<span class="stat-sub"> / {{ total_questions }}</span></div>
+        </div>
+    </div>
+</div>

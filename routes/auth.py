@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, flash
+from flask import Blueprint, render_template, request, redirect, flash, session
 from flask_login import login_user, logout_user, current_user
 from models import db
 from models.parent import Parent, ParentChild, generate_family_code
@@ -24,6 +24,7 @@ def parent_login():
         parent = Parent.query.filter_by(email=email).first()
         if parent and parent.check_password(password):
             login_user(parent)
+            session['_parent_uid'] = parent.get_id()
             return redirect(_lang_url('/admin/dashboard'))
         flash('login_failed', 'error')
     return render_template('auth/parent_login.html')
@@ -65,6 +66,7 @@ def parent_register():
         db.session.add(parent)
         db.session.commit()
         login_user(parent)
+        session['_parent_uid'] = parent.get_id()
         return redirect(_lang_url('/admin/dashboard'))
 
     return render_template('auth/parent_register.html')
@@ -73,6 +75,7 @@ def parent_register():
 # ---- Parent Logout ----
 @dual_route(auth_bp, '/parent/logout')
 def parent_logout():
+    session.pop('_parent_uid', None)
     logout_user()
     return redirect(_lang_url('/'))
 
@@ -110,6 +113,7 @@ def child_login():
                 child = db.session.get(Child, int(child_id))
                 if child and child.check_pin(pin):
                     login_user(child)
+                    session['_child_uid'] = child.get_id()
                     return redirect(_lang_url('/child/dashboard'))
                 flash('pin_incorrect', 'error')
                 selected_child_id = int(child_id)
@@ -130,5 +134,6 @@ def child_login():
 # ---- Child Logout ----
 @dual_route(auth_bp, '/child/logout')
 def child_logout():
+    session.pop('_child_uid', None)
     logout_user()
     return redirect(_lang_url('/'))

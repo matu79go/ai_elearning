@@ -43,48 +43,9 @@
 {% endblock %}
 
 {% block sidebar %}
-<!-- Profile -->
-<div class="sidebar-card">
-    <div class="sidebar-profile">
-        <div class="sidebar-avatar">{{ current_user.avatar or '🦊' }}</div>
-        <div>
-            <div class="sidebar-name">{{ current_user.display_name }}</div>
-            <div class="sidebar-grade">Year {{ 7 }}</div>
-        </div>
-    </div>
-    <div class="sidebar-stats">
-        <div class="sidebar-stat">
-            <div class="sidebar-stat-val">{{ current_user.total_points }}</div>
-            <div class="sidebar-stat-lbl">{{ t.child.stat_points }}</div>
-        </div>
-        <div class="sidebar-stat">
-            <div class="sidebar-stat-val">{{ current_user.level }}</div>
-            <div class="sidebar-stat-lbl">{{ t.child.stat_level }}</div>
-        </div>
-        <div class="sidebar-stat">
-            <div class="sidebar-stat-val">{{ current_user.streak_count }}</div>
-            <div class="sidebar-stat-lbl">{{ t.child.stat_streak }}</div>
-        </div>
-    </div>
-</div>
-
-<!-- Subject List -->
-<div class="sidebar-card" style="flex:1;">
-    <div class="sidebar-title">{{ t.child.nav_subjects }}</div>
-    <div class="sidebar-nav">
-        {% for subject, unit_count in subjects %}
-        {% set s = subject|lower %}
-        {% set cfg = SUBJ.get(subject, {'emoji': '📚', 'bg': '#f1f5f9', 'color': '#64748b'}) %}
-        <a href="{{ lang_url('/child/subjects/' ~ subject) }}" class="sidebar-nav-item">
-            <span class="sidebar-nav-icon" style="background: {{ cfg.bg }}; color: {{ cfg.color }};">
-                {{ cfg.emoji }}
-            </span>
-            <span class="sidebar-nav-text">{{ subject }}</span>
-            <span class="sidebar-nav-status" style="font-size:11px; opacity:0.6;">{{ unit_count }}</span>
-        </a>
-        {% endfor %}
-    </div>
-</div>
+{% include "child/components/sidebar_profile.html" %}
+{% set active_nav = 'subjects' %}
+{% include "child/components/sidebar_nav.html" %}
 {% endblock %}
 
 {% block main_content %}

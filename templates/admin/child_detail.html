@@ -1,0 +1,172 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ child.display_name }} - {{ t.admin.child_detail_title }}{% endblock %}
+{% block content %}
+
+{% include "admin/components/child_header.html" %}
+
+<!-- Progress Tree (read-only, chunk rows link to detail) -->
+<div class="section-card" style="margin-bottom: 1.5rem;">
+    <div class="section-header">
+        <div class="section-title">
+            <i class="fas fa-chart-bar"></i> {{ t.admin.progress_detail }}
+        </div>
+    </div>
+    <div class="section-body" style="padding: 0;">
+        {% if subjects %}
+        {% for subj_name, subj in subjects.items() %}
+        {% set subj_pct = (subj.mastered / subj.total * 100)|round|int if subj.total > 0 else 0 %}
+        <div class="tree-subject">
+            <div class="tree-row tree-row-subject" onclick="toggleTree(this)">
+                <div class="tree-left">
+                    <i class="fas fa-chevron-right tree-chevron"></i>
+                    <span class="tree-name">{{ subj_name }}</span>
+                    <span class="tree-count">{{ subj.mastered }}/{{ subj.total }}</span>
+                </div>
+                <div class="tree-bar-wrap">
+                    <div class="tree-bar">
+                        <div class="tree-bar-fill" style="width: {{ subj_pct }}%"></div>
+                    </div>
+                    <span class="tree-pct">{{ subj_pct }}%</span>
+                </div>
+            </div>
+            <div class="tree-children" style="display:none;">
+                {% for mat_id, mat in subj.materials.items() %}
+                {% set mat_pct = (mat.mastered / mat.total * 100)|round|int if mat.total > 0 else 0 %}
+                <div class="tree-material">
+                    <div class="tree-row tree-row-material" onclick="toggleTree(this)">
+                        <div class="tree-left">
+                            <i class="fas fa-chevron-right tree-chevron"></i>
+                            <span class="tree-name">{{ mat.title }}</span>
+                            <span class="tree-count">{{ mat.mastered }}/{{ mat.total }}</span>
+                        </div>
+                        <div class="tree-bar-wrap">
+                            <div class="tree-bar">
+                                <div class="tree-bar-fill" style="width: {{ mat_pct }}%"></div>
+                            </div>
+                            <span class="tree-pct">{{ mat_pct }}%</span>
+                        </div>
+                    </div>
+                    <div class="tree-children" style="display:none;">
+                        {% for chunk_id, chunk in mat.chunks.items() %}
+                        {% set chunk_pct = (chunk.mastered / chunk.total * 100)|round|int if chunk.total > 0 else 0 %}
+                        <a href="{{ lang_url('/admin/children/' ~ child.child_id ~ '/section/' ~ chunk_id) }}"
+                           class="tree-row tree-row-chunk tree-row-link">
+                            <div class="tree-left">
+                                <span class="tree-name">{{ chunk.title }}</span>
+                                <span class="tree-count">{{ chunk.mastered }}/{{ chunk.total }}</span>
+                            </div>
+                            <div class="tree-bar-wrap">
+                                <div class="tree-bar">
+                                    <div class="tree-bar-fill" style="width: {{ chunk_pct }}%"></div>
+                                </div>
+                                <span class="tree-pct">{{ chunk_pct }}%</span>
+                                <i class="fas fa-chevron-right" style="color: #cbd5e1; font-size: 10px; margin-left: 4px;"></i>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="text-align: center; padding: 2rem; color: #94a3b8;">
+            <i class="fas fa-chart-line" style="font-size: 36px; margin-bottom: 0.5rem; display: block;"></i>
+            {{ t.admin.no_mastery_data }}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Edit Points -->
+<div class="section-card" style="margin-bottom: 1.5rem;">
+    <div class="section-header">
+        <div class="section-title">
+            <i class="fas fa-coins"></i> {{ t.admin.edit_points }}
+        </div>
+    </div>
+    <div class="section-body">
+        <form method="POST" action="{{ lang_url('/admin/children/' ~ child.child_id ~ '/points') }}">
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end;">
+                <div>
+                    <label class="form-label">{{ t.admin.points_current }}: <strong style="color: #6366f1;">{{ child.total_points }}</strong></label>
+                    <input type="number" name="points" value="{{ child.total_points }}" min="0"
+                           class="form-input" style="width: 120px; text-align: center; font-weight: 700;">
+                </div>
+                <div style="flex: 1; min-width: 150px;">
+                    <label class="form-label">{{ t.admin.points_reason }}</label>
+                    <input type="text" name="reason" placeholder="{{ t.admin.points_reason_placeholder }}" class="form-input">
+                </div>
+                <button type="submit" class="btn-save">
+                    <i class="fas fa-check" style="margin-right: 4px;"></i>{{ t.admin.save }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+    {% include "admin/components/child_header_css.html" %}
+
+    /* Tree */
+    .tree-row {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 10px 16px; cursor: pointer; transition: background 0.15s;
+        gap: 12px; border-bottom: 1px solid #f1f5f9;
+    }
+    .tree-row:hover { background: #f8fafc; }
+    .tree-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+    .tree-chevron { font-size: 10px; color: #94a3b8; transition: transform 0.2s; width: 12px; }
+    .tree-chevron.open { transform: rotate(90deg); }
+    .tree-name { font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tree-count { font-size: 11px; color: #64748b; white-space: nowrap; flex-shrink: 0; }
+
+    .tree-bar-wrap { display: flex; align-items: center; gap: 8px; flex-shrink: 0; width: 160px; }
+    .tree-bar { height: 6px; background: #e2e8f0; border-radius: 3px; flex: 1; overflow: hidden; }
+    .tree-bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+    .tree-pct { font-size: 11px; font-weight: 700; color: #6366f1; width: 32px; text-align: right; }
+
+    .tree-row-subject { background: #f8fafc; }
+    .tree-row-subject .tree-name { font-size: 15px; }
+    .tree-row-material { padding-left: 32px; }
+    .tree-row-material .tree-name { font-size: 13px; }
+    .tree-row-chunk { padding-left: 52px; text-decoration: none; color: inherit; }
+    .tree-row-link:hover { background: #eef2ff; }
+    .tree-row-link:hover .tree-name { color: #6366f1; }
+
+    /* Form */
+    .form-label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px; }
+    .form-input {
+        padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px;
+        font-size: 14px; outline: none; transition: border-color 0.2s; font-family: inherit;
+    }
+    .form-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+    .btn-save {
+        padding: 8px 20px; background: #6366f1; color: white;
+        border: none; border-radius: 8px; font-size: 14px;
+        font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    }
+    .btn-save:hover { background: #4f46e5; }
+
+    @media (max-width: 768px) {
+        .tree-bar-wrap { width: 100px; }
+        .tree-row-material { padding-left: 24px; }
+        .tree-row-chunk { padding-left: 40px; }
+    }
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleTree(el) {
+    const children = el.nextElementSibling;
+    if (!children || !children.classList.contains('tree-children')) return;
+    const chevron = el.querySelector('.tree-chevron');
+    const isHidden = children.style.display === 'none';
+    children.style.display = isHidden ? '' : 'none';
+    if (chevron) chevron.classList.toggle('open', isHidden);
+}
+</script>
+{% endblock %}
