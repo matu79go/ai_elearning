@@ -1,11 +1,15 @@
 """子供用学習画面 — 教科選択 → 単元一覧 → セクション要約 → クイズ → 結果"""
 
-from flask import Blueprint, render_template, request, jsonify, abort
+from flask import Blueprint, render_template, request, jsonify, abort, Response
 from flask_login import login_required, current_user
 from models import db
 from models.material import Material, MaterialChunk, Question, QuestionMastery
 from routes import dual_route
 from datetime import datetime
+import json
+import os
+import urllib.request
+import urllib.error
 
 child_learn_bp = Blueprint('child_learn', __name__)
 
@@ -511,6 +515,87 @@ Do NOT use bullet points. Write in flowing prose.
         return _call_llm(prompt, model=model)
     except Exception:
         return None
+
+
+# ---- Oak API 動画プロキシ ----
+
+OAK_API_BASE = 'https://open-api.thenational.academy/api/v0'
+
+
+def _oak_api_get(path):
+    """Oak API への GET リクエスト（JSON）"""
+    api_key = os.environ.get('OAK_API_KEY', '')
+    url = f'{OAK_API_BASE}{path}'
+    req = urllib.request.Request(url, headers={
+        'Authorization': f'Bearer {api_key}',
+        'Accept': 'application/json',
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read().decode('utf-8'))
+    except Exception:
+        return None
+
+
+def _get_lesson_slug(chunk):
+    """MaterialChunk の title から Oak API の lesson slug を推定"""
+    # title を slug 化: "Animal cell structures and their functions"
+    # → "animal-cell-structures-and-their-functions"
+    slug = chunk.title.lower()
+    slug = slug.replace("'", "").replace(",", "").replace(".", "")
+    slug = slug.replace("(", "").replace(")", "").replace(":", "")
+    slug = '-'.join(slug.split())
+    return slug
+
+
+@dual_route(child_learn_bp, '/child/oak-video/<int:chunk_id>')
+@login_required
+def child_oak_video(chunk_id):
+    """Oak 動画をプロキシ配信（Bearer認証を中継）"""
+    if not _is_child():
+        abort(403)
+    chunk = MaterialChunk.query.get_or_404(chunk_id)
+    lesson_slug = _get_lesson_slug(chunk)
+
+    api_key = os.environ.get('OAK_API_KEY', '')
+    url = f'{OAK_API_BASE}/lessons/{lesson_slug}/assets/video'
+    req = urllib.request.Request(url, headers={
+        'Authorization': f'Bearer {api_key}',
+    })
+
+    try:
+        resp = urllib.request.urlopen(req, timeout=60)
+
+        def generate():
+            while True:
+                data = resp.read(8192)
+                if not data:
+                    break
+                yield data
+            resp.close()
+
+        return Response(
+            generate(),
+            content_type='video/mp4',
+            headers={'Accept-Ranges': 'bytes'},
+        )
+    except Exception:
+        abort(404)
+
+
+@dual_route(child_learn_bp, '/child/oak-video-check/<int:chunk_id>')
+@login_required
+def child_oak_video_check(chunk_id):
+    """Oak 動画が利用可能かチェック"""
+    if not _is_child():
+        abort(403)
+    chunk = MaterialChunk.query.get_or_404(chunk_id)
+    lesson_slug = _get_lesson_slug(chunk)
+    assets = _oak_api_get(f'/lessons/{lesson_slug}/assets')
+    if assets:
+        has_video = any(a.get('type') == 'video' for a in assets.get('assets', []))
+        return jsonify({'available': has_video, 'lesson_slug': lesson_slug})
+    return jsonify({'available': False})
 
 
 def _parse_chunk_content(content):

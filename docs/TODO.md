@@ -1,11 +1,42 @@
 # TODO
 
-## Next: Oak API 切り替え
+## Next: 最優先
 
-- [ ] Oak National Academy 公式APIへの切り替え（APIキー取得済み）
-  - 現在のスクレイピング方式 → 公式API (Bearer認証) に移行
-  - エンドポイント調査・実装
-  - 既存データとの整合性確認
+### 1. 動画・読み上げ機能の動作確認
+- [ ] コンテナ再起動して動画プレーヤー・読み上げボタンの動作確認
+  - Oak動画プロキシ実装済み（`child_learn.py` の `child_oak_video`）
+  - Web Speech API 読み上げ実装済み（`section.html`）
+  - 動画は77MB/レッスン、ストリーミング配信をテスト
+- [ ] 動画の再生品質・UIの調整
+
+### 2. match問題の再インポート（Science Year 7）
+- [ ] 既存Science Year 7のmatch問題（free_response）を削除して再インポート
+  - `import_oak_api.py` のmatch→multiple_choice変換は実装済み
+  - 再インポートで反映される（タイトル重複チェックがあるので一度削除が必要）
+- [ ] 再インポート後、match問題がmultiple_choice として正しく表示されるか確認
+
+### 3. 全学年・全教科インポート（段階的）
+- [ ] スクリプトは全KS対応済み（`--key-stages`, `--years` オプション）
+- [ ] 進捗管理: `docs/oak_import_progress.md`
+- [ ] 1000 req/hour 制限のため分割実行（1教科×1KSずつ）
+- [ ] 推定: 全体 ~955ユニット, ~23,800 API calls, 約24時間
+
+### 4. セクション画面のラベル文言を翻訳辞書に移行
+- [ ] section.html のハードコード文言（"What you'll learn", "Key Words", "Watch out!" 等）を `{{ t.xxx }}` に置換
+- [ ] en.json / ja.json に追加
+
+---
+
+## 完了: Oak API 切り替え
+
+- [x] Oak National Academy 公式APIへの切り替え
+  - [x] エンドポイント調査（/api/v0 ベース、Bearer認証）
+  - [x] `batch/import_oak_api.py` 実装（API版、全KS対応、match→MC変換）
+  - [x] API仕様ドキュメント整理（`docs/oak_api_reference.md` に一本化）
+  - [x] `/oak-api` スキル作成
+  - [x] APIキー承認確認・全エンドポイント動作確認
+  - [x] Science Year 7 インポート完了（13ユニット, 96レッスン, 1,345問題）
+  - [x] スクレイピング版データ削除済み
 
 ## Backlog
 

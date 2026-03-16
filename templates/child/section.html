@@ -179,6 +179,27 @@
     </div>
     {% endif %}
 
+    <!-- Video Player -->
+    <div class="learn-card" id="videoCard" style="display:none;">
+        <div class="card-label purple"><i class="fas fa-video"></i> Lesson Video</div>
+        <video id="lessonVideo" controls preload="none"
+               style="width:100%; border-radius:10px; background:#000;"
+               controlsList="nodownload">
+            <source src="{{ lang_url('/child/oak-video/' ~ chunk.chunk_id) }}" type="video/mp4">
+        </video>
+    </div>
+
+    <!-- Read Aloud (Web Speech API) -->
+    {% if chunk.summary %}
+    <div style="display:flex; gap:8px; margin:8px 0 12px; justify-content:flex-end;">
+        <button onclick="toggleSpeech()" id="speechBtn"
+                style="padding:6px 14px; border:1px solid #c7d2fe; border-radius:8px; background:white; cursor:pointer; font-size:13px; font-weight:600; color:#4338ca; display:flex; align-items:center; gap:6px;">
+            <i class="fas fa-volume-up" id="speechIcon"></i>
+            <span id="speechLabel">Read Aloud</span>
+        </button>
+    </div>
+    {% endif %}
+
     <!-- Key Learning Points -->
     {% if parsed.key_points %}
     <div class="learn-card">
@@ -241,4 +262,48 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+// --- Video availability check ---
+(function() {
+    fetch('{{ lang_url("/child/oak-video-check/" ~ chunk.chunk_id) }}')
+        .then(r => r.json())
+        .then(d => {
+            if (d.available) {
+                document.getElementById('videoCard').style.display = '';
+            }
+        })
+        .catch(() => {});
+})();
+
+// --- Web Speech API: Read Aloud ---
+let speechActive = false;
+
+function toggleSpeech() {
+    if (speechActive) {
+        speechSynthesis.cancel();
+        speechActive = false;
+        document.getElementById('speechIcon').className = 'fas fa-volume-up';
+        document.getElementById('speechLabel').textContent = 'Read Aloud';
+        document.getElementById('speechBtn').style.background = 'white';
+        return;
+    }
+    const text = {{ chunk.summary|tojson }};
+    if (!text) return;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-GB';
+    utterance.rate = 0.9;
+    utterance.onend = () => {
+        speechActive = false;
+        document.getElementById('speechIcon').className = 'fas fa-volume-up';
+        document.getElementById('speechLabel').textContent = 'Read Aloud';
+        document.getElementById('speechBtn').style.background = 'white';
+    };
+    speechSynthesis.speak(utterance);
+    speechActive = true;
+    document.getElementById('speechIcon').className = 'fas fa-stop';
+    document.getElementById('speechLabel').textContent = 'Stop';
+    document.getElementById('speechBtn').style.background = '#eef2ff';
+}
+</script>
 {% endblock %}

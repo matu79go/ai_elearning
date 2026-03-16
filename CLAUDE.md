@@ -22,7 +22,7 @@
 
 1. **勝手にpushしない** — commit/pushは必ずユーザーの指示を待つ
 2. **データベース操作はmysqlコマンドで直接実行する**（下記参照）
-3. **設計ドキュメントは `docs/` 以下を参照**
+3. **設計ドキュメントは `docs/` 以下を参照** — Oak API関連は `docs/oak_api_reference.md`、TODO/進捗は `docs/TODO.md` と `docs/oak_import_progress.md`
 4. **CLAUDE.mdは簡潔に保つ** — 詳細はdocs/以下に記載
 5. **画面の文言はすべて辞書ファイル（`translations/en.json`, `translations/ja.json`）で管理する** — テンプレートにテキストをベタ打ちしない。`{{ t.xxx }}` で参照すること
 6. **日英両対応必須** — 新しい画面・文言追加時は必ず `en.json` と `ja.json` の両方に追加する

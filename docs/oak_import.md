@@ -2,122 +2,79 @@
 
 ## 概要
 
-Oak National Academy（UK政府公認の教育プラットフォーム）から KS3 の教材データをスクレイピングで取得し、DBに登録する。
+Oak National Academy（UK政府公認の教育プラットフォーム）から教材データを取得し、DBに登録する。
 
-**ライセンス:** Open Government Licence v3.0（非商業・教育目的、帰属表示必須）
-**URL:** https://www.thenational.academy/
-
----
-
-## 取得方法
-
-### データソース
-
-Oak のWebページは Next.js で構成されており、各ページの `<script id="__NEXT_DATA__">` タグ内に教材データがJSON形式で埋め込まれている。APIキー不要でアクセス可能。
-
-### 取得するデータ
-
-各レッスンページから以下を抽出：
-
-| データ | JSON パス | 用途 |
-|--------|-----------|------|
-| レッスン名 | `lessonTitle` | チャンクのタイトル |
-| 学習目標 | `pupilLessonOutcome` | チャンク本文 |
-| Key Learning Points | `keyLearningPoints[].keyLearningPoint` | チャンク本文 |
-| キーワード＋定義 | `lessonKeywords[].keyword / .description` | チャンク本文 |
-| よくある誤解 | `misconceptionsAndCommonMistakes[].misconception / .response` | チャンク本文 |
-| 授業トランスクリプト | `transcriptSentences[]` | チャンク本文（メイン教材） |
-| Starter Quiz | `starterQuiz[]` | 問題（source=oak） |
-| Exit Quiz | `exitQuiz[]` | 問題（source=oak） |
-
-### URL構造
-
-```
-# 単元一覧
-https://www.thenational.academy/teachers/programmes/{programme}/units
-
-# レッスン一覧
-https://www.thenational.academy/teachers/programmes/{programme}/units/{unit}/lessons
-
-# レッスン詳細（データ取得元）
-https://www.thenational.academy/teachers/programmes/{programme}/units/{unit}/lessons/{lesson}
-```
-
-### DB登録の対応関係
-
-```
-1教科 = N個の Material（単元単位）
-1 Material = N個の MaterialChunk（レッスン単位）
-1 MaterialChunk = N個の Question（starter/exit quiz から抽出）
-```
+- **ライセンス:** Open Government Licence v3.0
+- **API仕様:** [docs/oak_api_reference.md](oak_api_reference.md) を参照
+- **進捗管理:** [docs/oak_import_progress.md](oak_import_progress.md) を参照
 
 ---
 
-## プログラムslug一覧（KS3 全教科）
+## スクリプト
 
-| 教科 | プログラムslug | インポート状況 |
-|------|---------------|---------------|
-| Science | `science-secondary-ks3` | ✅ 済（import_oak.py） |
-| Maths | `maths-secondary-ks3` | ✅ 済 |
-| English | `english-secondary-ks3` | ✅ 済 |
-| History | `history-secondary-ks3` | ✅ 済 |
-| Geography | `geography-secondary-ks3` | ✅ 済 |
-| Computing | `computing-secondary-ks3` | ✅ 済 |
-| Spanish | `spanish-secondary-ks3` | ✅ 済 |
-| French | `french-secondary-ks3` | 未 |
-| German | `german-secondary-ks3` | 未 |
-| Latin | `latin-secondary-ks3-l` | 未 |
-| Art and design | `art-secondary-ks3` | 未 |
-| Citizenship | `citizenship-secondary-ks3` | 未 |
-| Cooking and nutrition | `cooking-nutrition-secondary-ks3` | 未 |
-| Design and technology | `design-technology-secondary-ks3` | 未 |
-| Drama | `drama-secondary-ks3-l` | 未 |
-| Financial education | `financial-education-secondary-ks3` | 未 |
-| Music | `music-secondary-ks3` | 未 |
-| Physical education | `physical-education-secondary-ks3` | 未 |
-| Religious education | `religious-education-secondary-ks3` | 未 |
-| RSHE (PSHE) | `rshe-pshe-secondary-ks3` | 未 |
+| 方式 | スクリプト | 状態 |
+|------|-----------|------|
+| 公式API（推奨） | `batch/import_oak_api.py` | 稼働中 |
+| スクレイピング（旧） | `batch/import_oak.py`, `batch/import_oak_all.py` | 非推奨 |
 
 ---
 
 ## 実行方法
 
-### Science のみ
-
 ```bash
-docker exec elearn_app python batch/import_oak.py
+# デフォルト（KS3, 7教科, 全学年）
+docker exec elearn_app python batch/import_oak_api.py
+
+# 特定教科・Key Stage・学年を指定
+docker exec elearn_app python batch/import_oak_api.py --subjects science --key-stages ks3 --years 7
+
+# 全Key Stage、全教科
+docker exec elearn_app python batch/import_oak_api.py --all-key-stages --all-subjects
+
+# KS1+KS2 の Maths と English
+docker exec elearn_app python batch/import_oak_api.py --key-stages ks1 ks2 --subjects maths english
+
+# dry-run（API接続テスト、DB書き込みなし）
+docker exec elearn_app python batch/import_oak_api.py --dry-run
+
+# 利用可能な教科一覧
+docker exec elearn_app python batch/import_oak_api.py --list-subjects
 ```
 
-### その他の教科（Maths, English, History, Geography, Computing, Spanish）
+---
 
-```bash
-docker exec elearn_app python batch/import_oak_all.py
+## DB登録の対応関係
+
+```
+1教科×1学年 = N個の Material（単元単位）
+1 Material = N個の MaterialChunk（レッスン単位）
+1 MaterialChunk = N個の Question（starter/exit quiz から抽出）
 ```
 
-### 追加教科をインポートする場合
+### Question の種類変換
 
-`batch/import_oak_all.py` の `SUBJECTS` 辞書に教科を追加してから実行する。
-既にインポート済みの教科は自動スキップされる。
+| Oak API questionType | DB question_type | 変換方法 |
+|---------------------|------------------|---------|
+| multiple-choice | multiple_choice | distractor=false が正解 |
+| short-answer | free_response | 全 answers が許容される正解バリエーション |
+| match | free_response | matchOption → 問題文に追加、correctChoice → 正解 |
+| ordering | free_response | order フィールドで正しい順番を組み立て |
 
 ---
 
 ## レート制限
 
-サーバー負荷を避けるため以下の間隔を設けている：
-
-| 間隔 | 秒数 |
-|------|------|
-| リクエスト間 | 2秒 |
-| 単元間 | 3秒 |
-| 教科間 | 5秒 |
-
-User-Agent: `OakContentImporter/1.0 (personal education project)`
+| 制限 | 値 |
+|------|-----|
+| API上限 | 1000 req/hour |
+| スクリプト間隔 | 3.6秒/リクエスト |
+| User-Agent | `OakContentImporter/2.0 (personal education project)` |
+| リトライ | 401エラー時 最大3回（Cloudflare一時エラー対策） |
 
 ---
 
 ## 注意事項
 
-- Oak National Academy の公式API（https://open-api.thenational.academy/）のキーが取得できたら、スクレイピングではなくAPIに切り替えること
-- APIキー申請済み（2026-03-14）、承認待ち
-- `__NEXT_DATA__` の構造は Oak のサイト更新で変わる可能性がある
-- トランスクリプトが存在しないレッスンもある（その場合 Key Points のみ）
+- タイトル重複チェックで既存データは自動スキップされる
+- トランスクリプトが存在しないレッスンもある（Key Points のみ）
+- 全Key Stage×全教科は約24時間かかるため分割実行を推奨
