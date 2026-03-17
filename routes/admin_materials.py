@@ -58,7 +58,7 @@ def admin_materials_list(year, subject):
     """マテリアル一覧 — 指定Year・教科のマテリアル"""
     materials = Material.query.filter_by(
         year_group=year, subject=subject
-    ).order_by(Material.updated_at.desc()).all()
+    ).order_by(Material.sort_order, Material.title).all()
     return render_template('admin/materials.html',
                            materials=materials, year=year, subject=subject)
 
@@ -123,6 +123,76 @@ def admin_materials_detail(material_id):
                            questions_by_chunk=questions_by_chunk,
                            unlinked_questions=unlinked_questions,
                            total_questions=len(all_questions))
+
+
+@dual_route(admin_materials_bp, '/admin/materials/<int:material_id>/chunks/<int:chunk_id>', methods=['GET'])
+@login_required
+@admin_required
+def admin_materials_chunk_detail(material_id, chunk_id):
+    """チャンク詳細 — Contents / Questions タブ"""
+    material = Material.query.get_or_404(material_id)
+    chunk = MaterialChunk.query.get_or_404(chunk_id)
+    if chunk.material_id != material_id:
+        abort(404)
+
+    questions = Question.query.filter_by(chunk_id=chunk_id)\
+        .order_by(Question.question_id).all()
+
+    # サイドバー用: 同じマテリアルの全チャンク
+    all_chunks = MaterialChunk.query.filter_by(
+        material_id=material_id
+    ).order_by(MaterialChunk.sort_order).all()
+
+    return render_template('admin/material_chunk_detail.html',
+                           material=material, chunk=chunk,
+                           questions=questions, all_chunks=all_chunks)
+
+
+@dual_route(admin_materials_bp, '/admin/materials/<int:material_id>/chunks/<int:chunk_id>/generate', methods=['POST'])
+@login_required
+@admin_required
+def admin_materials_chunk_generate(material_id, chunk_id):
+    """チャンク単位の問題生成"""
+    material = Material.query.get_or_404(material_id)
+    chunk = MaterialChunk.query.get_or_404(chunk_id)
+    if chunk.material_id != material_id:
+        abort(404)
+
+    mc_count = int(request.form.get('mc_count', 4))
+    fr_count = int(request.form.get('fr_count', 2))
+    difficulty = request.form.get('difficulty', material.difficulty)
+
+    from services.llm import generate_questions
+    try:
+        questions = generate_questions(
+            chunk_text=chunk.content,
+            count=mc_count + fr_count,
+            mc_count=mc_count,
+            fr_count=fr_count,
+            difficulty=difficulty,
+        )
+        for q in questions:
+            question = Question(
+                material_id=material_id,
+                chunk_id=chunk_id,
+                question_type=q['question_type'],
+                question_text=q['question_text'],
+                options=q.get('options'),
+                correct_answer=q.get('correct_answer', ''),
+                explanation=q.get('explanation'),
+                reference_answer=q.get('reference_answer'),
+                max_score=q.get('max_score', 10),
+                scoring_rubric=q.get('scoring_rubric'),
+                difficulty=q.get('difficulty', difficulty),
+                source='llm_generated',
+            )
+            db.session.add(question)
+        db.session.commit()
+        flash(f'questions_generated:{len(questions)}', 'success')
+    except Exception as e:
+        flash(f'Error: {str(e)}', 'error')
+
+    return redirect(_lang_url(f'/admin/materials/{material_id}/chunks/{chunk_id}'))
 
 
 @dual_route(admin_materials_bp, '/admin/materials/<int:material_id>/edit', methods=['GET', 'POST'])

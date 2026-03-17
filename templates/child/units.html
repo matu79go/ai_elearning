@@ -94,6 +94,7 @@
 {% block sidebar %}
 {% include "child/components/sidebar_profile.html" %}
 {% set active_nav = 'subjects' %}
+{% set active_subject = subject %}
 {% include "child/components/sidebar_nav.html" %}
 {% endblock %}
 
@@ -108,7 +109,7 @@
     </button>
     <div class="accordion-body" id="mobileSubjNav">
         <div class="accordion-inner">
-            {% for s_name, s_count in all_subjects %}
+            {% for s_name, s_cnt in nav_subjects %}
             {% set cfg = SUBJ.get(s_name, {'emoji': '📚', 'bg': '#f1f5f9', 'color': '#64748b'}) %}
             <a href="{{ lang_url('/child/subjects/' ~ s_name) }}"
                class="mobile-nav-link {{ 'active' if s_name == subject }}">
@@ -123,6 +124,13 @@
 
 {% block main_content %}
 {% set cfg = SUBJ.get(subject, {'emoji': '📚', 'bg': '#f1f5f9', 'color': '#64748b'}) %}
+<!-- Breadcrumb -->
+<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12px; margin-bottom:8px; color:rgba(255,255,255,0.6);">
+    <a href="{{ lang_url('/child/subjects') }}" style="color:rgba(255,255,255,0.8); text-decoration:none;">Subjects</a>
+    <i class="fas fa-chevron-right" style="font-size:8px;"></i>
+    <span>{{ cfg.emoji }} {{ subject }}</span>
+</div>
+
 <div class="content-card">
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:0.25rem;">
         <span style="font-size:28px;">{{ cfg.emoji }}</span>
@@ -134,7 +142,7 @@
         {% for ud in units_data %}
         {% set m = ud.material %}
         {% set pct = ((ud.mastered / ud.total * 100) if ud.total > 0 else 0)|int %}
-        <div class="unit-card" onclick="this.classList.toggle('open')">
+        <div class="unit-card" data-unit-id="{{ m.material_id }}" onclick="this.classList.toggle('open')">
             <div class="unit-header">
                 <div class="unit-title">{{ m.title.replace('KS3 ' ~ subject ~ ' - ', '') }}</div>
                 <button class="unit-toggle"><i class="fas fa-chevron-down"></i></button>
@@ -165,4 +173,19 @@
         {% endfor %}
     </div>
 </div>
+
+<script>
+// Auto-open unit from ?unit= parameter
+(function() {
+    const params = new URLSearchParams(window.location.search);
+    const unitId = params.get('unit');
+    if (unitId) {
+        const card = document.querySelector(`.unit-card[data-unit-id="${unitId}"]`);
+        if (card) {
+            card.classList.add('open');
+            setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+        }
+    }
+})();
+</script>
 {% endblock %}

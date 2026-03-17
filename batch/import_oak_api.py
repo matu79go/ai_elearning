@@ -435,7 +435,7 @@ def import_unit(key_stage, subject_slug, subject_name, year, unit_slug, unit_tit
         year_group=year,
         difficulty='normal',
         language='en',
-        status='draft',
+        status='published',
         created_by=parent_id,
     )
     db.session.add(material)
@@ -481,6 +481,58 @@ def import_unit(key_stage, subject_slug, subject_name, year, unit_slug, unit_tit
     db.session.commit()
     chunk_count = material.chunks.count()
     print(f'    -> {chunk_count} chunks, {total_questions} questions')
+
+
+def _get_lesson_slug(chunk):
+    """MaterialChunk の title から Oak API の lesson slug を推定"""
+    slug = chunk.title.lower()
+    slug = slug.replace("'", "").replace(",", "").replace(".", "")
+    slug = slug.replace("(", "").replace(")", "").replace(":", "")
+    slug = '-'.join(slug.split())
+    return slug
+
+
+def reimport_quiz_for_existing(subjects, target_years, key_stages):
+    """既存マテリアルのチャンクに対してquizだけ再取得（match→MC変換用）"""
+    query = Material.query
+    if subjects:
+        query = query.filter(Material.subject.in_(subjects.values()))
+    if target_years:
+        query = query.filter(Material.year_group.in_(target_years))
+
+    materials = query.all()
+    print(f'\nReimport quiz mode: {len(materials)} materials found')
+
+    total_added = 0
+    for mat in materials:
+        chunks = MaterialChunk.query.filter_by(material_id=mat.material_id)\
+            .order_by(MaterialChunk.sort_order).all()
+        print(f'\n  {mat.title} ({len(chunks)} chunks)')
+
+        for chunk in chunks:
+            lesson_slug = _get_lesson_slug(chunk)
+            quiz = get_lesson_quiz(lesson_slug)
+            if not quiz:
+                continue
+
+            # match問題だけ抽出（extract_quiz_questionsはmatch→MCに変換済み）
+            new_questions = []
+            for quiz_section in ['starterQuiz', 'exitQuiz']:
+                for q_data in quiz.get(quiz_section, []):
+                    q_type = q_data.get('questionType', '')
+                    if q_type == 'match':
+                        new_questions.extend(
+                            extract_quiz_questions([q_data], chunk.chunk_id))
+
+            if new_questions:
+                for q in new_questions:
+                    q.material_id = mat.material_id
+                db.session.add_all(new_questions)
+                total_added += len(new_questions)
+                print(f'    {chunk.title}: +{len(new_questions)} match→MC questions')
+
+    db.session.commit()
+    print(f'\n  Total added: {total_added} questions')
 
 
 def import_subject(key_stage, subject_slug, subject_name, target_years,
@@ -536,6 +588,8 @@ Examples:
                         help='Specific years to import (e.g. 7 8 9)')
     parser.add_argument('--dry-run', action='store_true',
                         help='Test API calls without writing to DB')
+    parser.add_argument('--reimport-quiz', action='store_true',
+                        help='Re-import quiz questions for existing materials (match→MC conversion)')
     parser.add_argument('--list-subjects', action='store_true',
                         help='List available subject slugs and exit')
     args = parser.parse_args()
@@ -611,10 +665,14 @@ Examples:
             print(f'Years: {args.years}')
         print(f'Rate limit: {REQUEST_INTERVAL}s/request (API: 1000 req/hour)')
 
-        for ks in key_stages:
-            target_years = args.years if args.years else KS_YEARS.get(ks, [])
-            for slug, name in subjects.items():
-                import_subject(ks, slug, name, target_years, parent.parent_id)
+        if args.reimport_quiz:
+            # 既存マテリアルのチャンクに対してquizだけ再取得
+            reimport_quiz_for_existing(subjects, args.years or [], key_stages)
+        else:
+            for ks in key_stages:
+                target_years = args.years if args.years else KS_YEARS.get(ks, [])
+                for slug, name in subjects.items():
+                    import_subject(ks, slug, name, target_years, parent.parent_id)
 
         # サマリー
         print(f'\n{"="*60}')

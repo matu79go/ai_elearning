@@ -288,6 +288,10 @@ def admin_children_section(child_id, chunk_id):
             'attempts': q.attempts or 0,
         })
 
+    # Q&Aタブ用: 全問題の詳細データ
+    full_questions = Question.query.filter_by(chunk_id=chunk_id)\
+        .order_by(Question.question_id).all()
+
     # 全体集計（共通ヘッダー用）
     total_questions = Question.query.join(Material).filter(
         Material.status == 'published').count()
@@ -296,7 +300,8 @@ def admin_children_section(child_id, chunk_id):
 
     return render_template('admin/child_section.html',
                            child=child, chunk=chunk, material=material,
-                           questions=q_list, mastered_count=mastered_count,
+                           questions=q_list, full_questions=full_questions,
+                           mastered_count=mastered_count,
                            total_questions=total_questions,
                            total_mastered=total_mastered)
 

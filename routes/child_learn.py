@@ -47,7 +47,7 @@ def child_units(subject):
         abort(403)
     materials = Material.query.filter_by(
         subject=subject, year_group=YEAR_GROUP, status='published',
-    ).order_by(Material.title).all()
+    ).order_by(Material.sort_order, Material.title).all()
 
     # 各単元のマスタリー進捗を計算（チャンク別も含む）
     from sqlalchemy import func as sqlfunc
@@ -156,10 +156,16 @@ def child_section(chunk_id):
             'total': cs.total, 'mastered': int(cs.mastered or 0),
         }
 
+    # サイドバー用: 同じ教科の全ユニット（material）リスト
+    sibling_units = Material.query.filter_by(
+        subject=material.subject, year_group=material.year_group, status='published',
+    ).order_by(Material.sort_order, Material.material_id).all()
+
     return render_template('child/section.html',
                            chunk=chunk, material=material, parsed=parsed,
                            total_questions=len(questions), mastered_count=mastered_count,
-                           all_chunks=all_chunks, chunk_progress=chunk_progress)
+                           all_chunks=all_chunks, chunk_progress=chunk_progress,
+                           sibling_units=sibling_units)
 
 
 # ---- クイズ画面 ----
@@ -196,10 +202,33 @@ def child_quiz_check(chunk_id):
     chunk = MaterialChunk.query.get_or_404(chunk_id)
     data = request.get_json()
     answer_list = data.get('answers', [])
+    skipped_ids = data.get('skipped_ids', [])
 
     results = []
     total_correct = 0
     total_points = 0
+
+    # skipped問題の正解情報・解説も返す
+    for qid in skipped_ids:
+        question = Question.query.get(qid)
+        if not question or question.chunk_id != chunk_id:
+            continue
+        if question.question_type == 'multiple_choice' and question.options:
+            correct_label = (question.correct_answer or '').strip()
+            correct_text = next(
+                (opt['text'] for opt in question.options if opt['label'] == correct_label), '')
+            display_answer = f"{correct_label}) {correct_text}" if correct_text else correct_label
+        else:
+            display_answer = (question.correct_answer or '').strip()
+            if not display_answer:
+                display_answer = (question.reference_answer or '').strip()
+        results.append({
+            'question_id': question.question_id,
+            'correct': True,
+            'correct_answer': display_answer,
+            'explanation': question.explanation or '',
+            'points_earned': 0,
+        })
 
     for ans in answer_list:
         question = Question.query.get(ans.get('question_id'))
@@ -240,10 +269,17 @@ def child_quiz_check(chunk_id):
                 total_points += 1
                 current_user.total_points += 1
 
-        # 表示用の正解: correct_answer が空なら reference_answer を使う
-        display_answer = (question.correct_answer or '').strip()
-        if not display_answer:
-            display_answer = (question.reference_answer or '').strip()
+        # 表示用の正解: MCは正解ラベル+テキスト、FRはreference_answer
+        if question.question_type == 'multiple_choice' and question.options:
+            correct_label = (question.correct_answer or '').strip()
+            correct_text = next(
+                (opt['text'] for opt in question.options if opt['label'] == correct_label),
+                '')
+            display_answer = f"{correct_label}) {correct_text}" if correct_text else correct_label
+        else:
+            display_answer = (question.correct_answer or '').strip()
+            if not display_answer:
+                display_answer = (question.reference_answer or '').strip()
 
         results.append({
             'question_id': question.question_id,
@@ -255,12 +291,84 @@ def child_quiz_check(chunk_id):
 
     db.session.commit()
 
+    # 解説が未生成の問題にLLMで解説を生成してDB保存
+    _generate_explanations(results, chunk_id)
+
     return jsonify({
         'results': results,
         'total_correct': total_correct,
         'total_questions': len(results),
         'total_points': total_points,
     })
+
+
+def _generate_explanations(results, chunk_id):
+    """採点結果に解説がない問題にLLMで一括生成"""
+    needs_explain = []
+    for r in results:
+        if not r.get('explanation'):
+            q = Question.query.get(r['question_id'])
+            if q:
+                needs_explain.append((r, q))
+
+    if not needs_explain:
+        return
+
+    # バッチプロンプト: 全問まとめて1回のAPI呼び出し
+    lines = []
+    for i, (r, q) in enumerate(needs_explain):
+        correct_label = r['correct_answer']
+        if q.question_type == 'multiple_choice' and q.options:
+            # 正解の選択肢テキストを取得
+            correct_text = next(
+                (opt['text'] for opt in q.options if opt['label'] == q.correct_answer),
+                correct_label)
+            lines.append(
+                f"Q{i+1}: {q.question_text}\n"
+                f"Correct answer: {q.correct_answer}) {correct_text}")
+        else:
+            lines.append(
+                f"Q{i+1}: {q.question_text}\n"
+                f"Correct answer: {correct_label}")
+
+    questions_block = "\n\n".join(lines)
+
+    prompt = f"""Explain each answer to a Year 7 student in 1 short sentence (max 20 words). Simple language only.
+
+{questions_block}
+
+Format:
+Q1: [explanation]
+Q2: [explanation]"""
+
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+
+        response = client.responses.create(
+            model=os.environ.get('LLM_MODEL_EXPLAIN', 'gpt-5-mini'),
+            input=prompt,
+        )
+
+        text = response.output_text.strip()
+        import re
+        # Q1: ..., Q2: ... のパターンをパース
+        explanations = {}
+        for match in re.finditer(r'Q(\d+):\s*(.+?)(?=\nQ\d+:|\Z)', text, re.DOTALL):
+            idx = int(match.group(1)) - 1
+            explanations[idx] = match.group(2).strip()
+
+        # DB保存 & results更新
+        for i, (r, q) in enumerate(needs_explain):
+            if i in explanations:
+                q.explanation = explanations[i]
+                r['explanation'] = explanations[i]
+
+        db.session.commit()
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
 
 
 # ---- ヒント (Ajax) ----
@@ -529,6 +637,7 @@ def _oak_api_get(path):
     req = urllib.request.Request(url, headers={
         'Authorization': f'Bearer {api_key}',
         'Accept': 'application/json',
+        'User-Agent': 'OakAPIClient/1.0',
     })
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
@@ -551,9 +660,7 @@ def _get_lesson_slug(chunk):
 @dual_route(child_learn_bp, '/child/oak-video/<int:chunk_id>')
 @login_required
 def child_oak_video(chunk_id):
-    """Oak 動画をプロキシ配信（Bearer認証を中継）"""
-    if not _is_child():
-        abort(403)
+    """Oak 動画をプロキシ配信（Bearer認証を中継）— parent/childどちらもアクセス可"""
     chunk = MaterialChunk.query.get_or_404(chunk_id)
     lesson_slug = _get_lesson_slug(chunk)
 
@@ -561,6 +668,7 @@ def child_oak_video(chunk_id):
     url = f'{OAK_API_BASE}/lessons/{lesson_slug}/assets/video'
     req = urllib.request.Request(url, headers={
         'Authorization': f'Bearer {api_key}',
+        'User-Agent': 'OakAPIClient/1.0',
     })
 
     try:
@@ -586,9 +694,7 @@ def child_oak_video(chunk_id):
 @dual_route(child_learn_bp, '/child/oak-video-check/<int:chunk_id>')
 @login_required
 def child_oak_video_check(chunk_id):
-    """Oak 動画が利用可能かチェック"""
-    if not _is_child():
-        abort(403)
+    """Oak 動画が利用可能かチェック — parent/childどちらもアクセス可"""
     chunk = MaterialChunk.query.get_or_404(chunk_id)
     lesson_slug = _get_lesson_slug(chunk)
     assets = _oak_api_get(f'/lessons/{lesson_slug}/assets')

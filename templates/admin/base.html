@@ -457,6 +457,7 @@
                     <span>{{ t.admin.menu_children }}</span>
                 </a>
             </div>
+            {% block sidebar_children_sub %}{% endblock %}
 
             {% if current_user.is_authenticated and current_user.role == 'admin' %}
             <div class="nav-category">
@@ -473,53 +474,14 @@
                     <span>{{ t.admin.menu_materials }}</span>
                 </a>
             </div>
-            <div class="nav-item">
-                <a href="#" class="nav-link">
-                    <i class="fas fa-question-circle"></i>
-                    <span>{{ t.admin.menu_questions }}</span>
-                </a>
-            </div>
-            {% endif %}
-
-            <div class="nav-category">
-                <div class="nav-category-label">
-                    <i class="fas fa-users"></i>
-                    <span>{{ t.admin.nav_management if t.admin.nav_management else 'Management' }}</span>
-                </div>
-            </div>
-
-            <div class="nav-item">
-                <a href="#" class="nav-link">
-                    <i class="fas fa-chart-bar"></i>
-                    <span>{{ t.admin.menu_progress }}</span>
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="#" class="nav-link">
-                    <i class="fas fa-coins"></i>
-                    <span>{{ t.admin.menu_points }}</span>
-                </a>
-            </div>
+            {% block sidebar_materials_sub %}{% endblock %}
             <div class="nav-item">
                 <a href="#" class="nav-link">
                     <i class="fas fa-award"></i>
                     <span>{{ t.admin.menu_badges }}</span>
                 </a>
             </div>
-
-            <div class="nav-category">
-                <div class="nav-category-label">
-                    <i class="fas fa-cog"></i>
-                    <span>{{ t.admin.nav_settings if t.admin.nav_settings else 'Settings' }}</span>
-                </div>
-            </div>
-
-            <div class="nav-item">
-                <a href="#" class="nav-link">
-                    <i class="fas fa-bell"></i>
-                    <span>{{ t.admin.menu_notifications }}</span>
-                </a>
-            </div>
+            {% endif %}
         </nav>
     </div>
 

@@ -55,6 +55,19 @@ def child_dashboard():
         # 次にやるべきセクション（最初の未完了チャンク）
         next_section = _find_next_section(subj, current_user.child_id)
 
+        # 最終学習日時（この教科の最新mastery更新）
+        last_activity = None
+        if mastered_q > 0:
+            last_activity = db.session.query(func.max(QuestionMastery.updated_at)).join(
+                Question, QuestionMastery.question_id == Question.question_id
+            ).join(
+                Material, Question.material_id == Material.material_id
+            ).filter(
+                Material.subject == subj,
+                Material.year_group == YEAR_GROUP,
+                QuestionMastery.child_id == current_user.child_id,
+            ).scalar()
+
         subjects_data.append({
             'name': subj,
             'unit_count': unit_count,
@@ -62,7 +75,26 @@ def child_dashboard():
             'mastered': mastered_q,
             'pct': pct,
             'next_section': next_section,
+            'last_activity': last_activity,
         })
+
+    # ソート: 進行中（0<pct<100）を最終学習日時降順で上に、次に未着手、最後に完了
+    from datetime import datetime
+    def sort_key(sd):
+        in_progress = 0 < sd['pct'] < 100
+        has_started = sd['mastered'] > 0
+        last = sd['last_activity'] or datetime.min
+        # 優先: 進行中(最新順) → 未着手 → 完了(最新順)
+        if in_progress:
+            return (0, -last.timestamp())
+        elif not has_started and sd['total'] > 0:
+            return (1, sd['name'])
+        elif sd['pct'] == 100:
+            return (3, -last.timestamp())
+        else:
+            return (2, sd['name'])
+
+    subjects_data.sort(key=sort_key)
 
     return render_template('child/dashboard.html', subjects_data=subjects_data)
 
@@ -171,7 +203,7 @@ def _find_next_section(subject, child_id):
     """教科内で最初の未完了セクションを返す"""
     materials = Material.query.filter_by(
         subject=subject, year_group=YEAR_GROUP, status='published'
-    ).order_by(Material.title).all()
+    ).order_by(Material.sort_order, Material.title).all()
 
     for m in materials:
         chunks = MaterialChunk.query.filter_by(

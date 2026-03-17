@@ -14,6 +14,7 @@ class Material(db.Model):
     difficulty = db.Column(db.String(10), nullable=False, default='normal')
     language = db.Column(db.String(2), nullable=False, default='en')
     status = db.Column(db.String(10), nullable=False, default='published')
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
     created_by = db.Column(db.Integer, db.ForeignKey('parents.parent_id'), nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())

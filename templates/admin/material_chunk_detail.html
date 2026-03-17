@@ -1,0 +1,388 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ chunk.title }} - {{ material.title }}{% endblock %}
+
+{% block sidebar_materials_sub %}
+<div style="padding:0 0.75rem;">
+    <div style="padding-left:32px; display:flex; flex-direction:column; gap:1px;">
+        <a href="{{ lang_url('/admin/materials/year/' ~ material.year_group ~ '/' ~ material.subject) }}"
+           class="nav-link" style="font-size:11px; padding:4px 10px;">
+            <i class="fas fa-folder" style="font-size:10px;"></i>
+            <span>{{ material.subject }}</span>
+        </a>
+        <a href="{{ lang_url('/admin/materials/' ~ material.material_id) }}"
+           class="nav-link" style="font-size:10px; padding:3px 10px; margin-left:8px;">
+            <i class="fas fa-book" style="font-size:9px;"></i>
+            <span>{{ material.title.replace('KS3 ' ~ material.subject ~ ' - ', '') }}</span>
+        </a>
+        {% for c in all_chunks %}
+        <a href="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks/' ~ c.chunk_id) }}"
+           class="nav-link {{ 'active' if c.chunk_id == chunk.chunk_id }}"
+           style="font-size:10px; padding:2px 10px; margin-left:16px;">
+            <span style="min-width:14px; text-align:center; font-weight:700; font-size:9px;">{{ loop.index }}</span>
+            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ c.title }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<div style="display:flex; align-items:center; gap:8px; font-size:13px; color:#64748b; margin-bottom:1rem; padding:10px 16px; background:#f8fafc; border-radius:10px; flex-wrap:wrap;">
+    <a href="{{ lang_url('/admin/materials') }}" style="color:#6366f1; text-decoration:none;">{{ t.admin.menu_materials }}</a>
+    <i class="fas fa-chevron-right" style="font-size:8px; color:#cbd5e1;"></i>
+    <a href="{{ lang_url('/admin/materials/year/' ~ material.year_group ~ '/' ~ material.subject) }}" style="color:#6366f1; text-decoration:none;">{{ material.subject }}</a>
+    <i class="fas fa-chevron-right" style="font-size:8px; color:#cbd5e1;"></i>
+    <a href="{{ lang_url('/admin/materials/' ~ material.material_id) }}" style="color:#6366f1; text-decoration:none;">{{ material.title.replace('KS3 ' ~ material.subject ~ ' - ', '') }}</a>
+    <i class="fas fa-chevron-right" style="font-size:8px; color:#cbd5e1;"></i>
+    <span style="color:#1e293b; font-weight:600;">{{ chunk.title }}</span>
+</div>
+
+<!-- Header -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:0.75rem;">
+    <div>
+        <h1 style="font-size:20px; font-weight:700; color:#1e293b;">
+            <i class="fas fa-file-alt" style="color:#6366f1; margin-right:8px;"></i>{{ chunk.title }}
+        </h1>
+        <div style="font-size:13px; color:#94a3b8; margin-top:4px;">
+            {{ material.title.replace('KS3 ' ~ material.subject ~ ' - ', '') }} &middot; {{ questions|length }} questions
+        </div>
+    </div>
+    <a href="{{ lang_url('/admin/materials/' ~ material.material_id) }}" class="action-btn">
+        <i class="fas fa-arrow-left"></i> Back to Unit
+    </a>
+</div>
+
+<!-- Flash messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div style="margin-bottom: 1rem;">
+    {% for category, msg in messages %}
+    <div class="flash-msg {{ 'flash-success' if category == 'success' else 'flash-error' }}">
+        <i class="fas {{ 'fa-check-circle' if category == 'success' else 'fa-exclamation-circle' }}" style="margin-right: 6px;"></i>
+        {% if msg.startswith('questions_generated:') %}
+            {{ t.admin.questions_generated }} ({{ msg.split(':')[1] }})
+        {% else %}
+            {{ t.admin[msg] if t.admin[msg] is defined else msg }}
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<!-- Tabs -->
+<div class="tabs" style="margin-bottom: 1rem;">
+    <button class="tab-btn active" onclick="switchTab('contents')">
+        <i class="fas fa-book-open"></i> Contents
+    </button>
+    <button class="tab-btn" onclick="switchTab('questions')">
+        <i class="fas fa-question-circle"></i> Questions ({{ questions|length }})
+    </button>
+</div>
+
+<!-- Tab: Contents -->
+<div id="tab-contents">
+    <!-- Video -->
+    <div id="videoCard" style="display:none; margin-bottom:1rem;">
+        <div style="padding:12px 16px; background:#f5f3ff; border:1px solid #c7d2fe; border-radius:12px;">
+            <div style="font-size:13px; font-weight:600; color:#6366f1; margin-bottom:8px;">
+                <i class="fas fa-video"></i> Lesson Video
+            </div>
+            <video controls preload="none"
+                   style="width:100%; border-radius:10px; background:#000; max-height:400px;"
+                   controlsList="nodownload">
+                <source src="{{ lang_url('/child/oak-video/' ~ chunk.chunk_id) }}" type="video/mp4">
+            </video>
+        </div>
+    </div>
+
+    <!-- Summary / Transcript -->
+    {% if chunk.summary or chunk.content %}
+    <div class="section-card">
+        <div class="section-header" style="gap:0; padding:0;">
+            <div class="content-tabs">
+                {% if chunk.summary %}
+                <button class="content-tab active" onclick="switchContentTab('summary')">
+                    <i class="fas fa-compress-alt"></i> Summary
+                </button>
+                {% endif %}
+                {% if chunk.content %}
+                <button class="content-tab {{ '' if chunk.summary else 'active' }}" onclick="switchContentTab('full')">
+                    <i class="fas fa-file-alt"></i> Full Transcript
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        <div class="section-body">
+            {% if chunk.summary %}
+            <div id="contentTab-summary" class="content-text">{{ chunk.summary }}</div>
+            {% endif %}
+            {% if chunk.content %}
+            <div id="contentTab-full" class="content-text content-full" style="{{ 'display:none;' if chunk.summary else '' }}">{{ chunk.content }}</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Tab: Questions -->
+<div id="tab-questions" style="display:none;">
+    {% if questions %}
+    <div class="qa-list">
+        {% for q in questions %}
+        <div class="qa-item">
+            <div class="qa-header">
+                <span class="qa-num">{{ loop.index }}</span>
+                <span class="qa-type {{ 'qa-type-mc' if q.question_type == 'multiple_choice' else 'qa-type-fr' }}">
+                    {{ 'MC' if q.question_type == 'multiple_choice' else 'FR' }}
+                </span>
+                <span class="qa-source">{{ q.source }}</span>
+            </div>
+            <div class="qa-question">{{ q.question_text }}</div>
+
+            {% if q.question_type == 'multiple_choice' and q.options %}
+            <div class="qa-options">
+                {% for opt in q.options %}
+                <div class="qa-option {{ 'qa-option-correct' if opt.label == q.correct_answer }}">
+                    <span class="qa-option-label">{{ opt.label }}</span>
+                    <span>{{ opt.text }}</span>
+                    {% if opt.label == q.correct_answer %}
+                    <i class="fas fa-check" style="margin-left:auto; color:#059669;"></i>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% elif q.correct_answer or q.reference_answer %}
+            <div class="qa-answer">
+                <i class="fas fa-check-circle" style="color:#059669;"></i>
+                <span>{{ q.correct_answer or q.reference_answer }}</span>
+            </div>
+            {% endif %}
+
+            {% if q.explanation %}
+            <div class="qa-explanation">
+                <i class="fas fa-lightbulb" style="color:#f59e0b;"></i>
+                {{ q.explanation }}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="section-card">
+        <div class="section-body" style="text-align:center; padding:2rem; color:#94a3b8;">
+            No questions yet.
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Generate Questions (per chunk) -->
+    <div style="text-align:center; margin-top:1.5rem;">
+        <button class="generate-btn" onclick="document.getElementById('genOverlay').style.display='flex'">
+            <i class="fas fa-robot" style="margin-right:6px;"></i> Generate Questions
+        </button>
+    </div>
+
+    <div id="genOverlay" class="gen-overlay" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+        <div class="gen-dialog">
+            <h3 style="font-size:16px; font-weight:700; color:#1e293b; margin-bottom:1rem;">
+                <i class="fas fa-robot" style="color:#6366f1; margin-right:6px;"></i> Generate for: {{ chunk.title }}
+            </h3>
+            <form method="POST" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks/' ~ chunk.chunk_id ~ '/generate') }}" id="genForm">
+                <div class="gen-row">
+                    <div class="form-group">
+                        <label class="form-label">MC</label>
+                        <select name="mc_count" class="form-input">
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4" selected>4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">FR</label>
+                        <select name="fr_count" class="form-input">
+                            <option value="1">1</option>
+                            <option value="2" selected>2</option>
+                            <option value="3">3</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Difficulty</label>
+                        <select name="difficulty" class="form-input">
+                            <option value="easy">Easy</option>
+                            <option value="normal" selected>Normal</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+                    <button type="submit" class="btn-save" id="genSubmitBtn">
+                        <i class="fas fa-bolt" style="margin-right:4px;"></i> Generate
+                    </button>
+                    <button type="button" class="btn-cancel" onclick="document.getElementById('genOverlay').style.display='none'">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+            <div id="genLoading" style="display:none; text-align:center; padding:2rem;">
+                <div class="spinner"></div>
+                <p style="margin-top:1rem; color:#64748b; font-size:14px;">Generating...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+    .flash-msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 0.5rem; }
+    .flash-success { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+    .flash-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+    .action-btn {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 6px 14px; background: #f1f5f9; color: #475569;
+        border: 1px solid #e2e8f0; border-radius: 8px;
+        font-size: 13px; font-weight: 500; cursor: pointer;
+        text-decoration: none; transition: all 0.2s;
+    }
+    .action-btn:hover { background: #e2e8f0; color: #1e293b; }
+
+    .tabs { display: flex; gap: 4px; border-bottom: 2px solid #e2e8f0; }
+    .tab-btn {
+        padding: 10px 20px; border: none; background: none;
+        font-size: 14px; font-weight: 600; color: #64748b;
+        cursor: pointer; border-bottom: 2px solid transparent;
+        margin-bottom: -2px; transition: all 0.2s;
+        display: flex; align-items: center; gap: 6px;
+    }
+    .tab-btn:hover { color: #1e293b; }
+    .tab-btn.active { color: #6366f1; border-bottom-color: #6366f1; }
+
+    .content-tabs { display: flex; gap: 0; width: 100%; }
+    .content-tab {
+        flex: 1; padding: 10px 16px; border: none; background: none;
+        font-size: 13px; font-weight: 600; color: #94a3b8;
+        cursor: pointer; transition: all 0.2s; text-align: center;
+        border-bottom: 2px solid transparent;
+    }
+    .content-tab:hover { color: #475569; }
+    .content-tab.active { color: #6366f1; border-bottom-color: #6366f1; background: #f8fafc; }
+
+    .content-text { font-size: 14px; color: #374151; line-height: 1.8; white-space: pre-line; padding: 1rem; }
+    .content-full { max-height: 500px; overflow-y: auto; }
+
+    .qa-list { display: flex; flex-direction: column; gap: 0.75rem; }
+    .qa-item {
+        background: white; border: 1px solid #e2e8f0; border-radius: 12px;
+        padding: 1rem 1.25rem; transition: box-shadow 0.2s;
+    }
+    .qa-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+    .qa-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .qa-num {
+        width: 24px; height: 24px; border-radius: 6px; background: #f1f5f9; color: #64748b;
+        font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    }
+    .qa-type { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+    .qa-type-mc { background: #dbeafe; color: #1d4ed8; }
+    .qa-type-fr { background: #fce7f3; color: #be185d; }
+    .qa-source { font-size: 10px; color: #94a3b8; }
+    .qa-question { font-size: 14px; font-weight: 600; color: #1e293b; line-height: 1.5; margin-bottom: 10px; white-space: pre-line; }
+    .qa-options { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+    .qa-option {
+        display: flex; align-items: center; gap: 8px;
+        padding: 6px 10px; border-radius: 6px; font-size: 13px; color: #475569; background: #f8fafc;
+    }
+    .qa-option-correct { background: #d1fae5; color: #065f46; font-weight: 600; }
+    .qa-option-label {
+        width: 22px; height: 22px; border-radius: 50%; background: #e2e8f0;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 11px; font-weight: 700; flex-shrink: 0;
+    }
+    .qa-option-correct .qa-option-label { background: #059669; color: white; }
+    .qa-answer {
+        display: flex; align-items: center; gap: 8px;
+        padding: 8px 12px; background: #d1fae5; border-radius: 8px;
+        font-size: 13px; font-weight: 600; color: #065f46; margin-bottom: 8px;
+    }
+    .qa-explanation {
+        padding: 8px 12px; background: #fffbeb; border-radius: 8px; border-left: 3px solid #f59e0b;
+        font-size: 13px; color: #92400e; line-height: 1.5; font-style: italic;
+    }
+
+    .form-label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 4px; }
+    .form-input {
+        width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px;
+        font-size: 14px; outline: none; font-family: inherit;
+    }
+    .btn-save {
+        padding: 8px 20px; background: #6366f1; color: white;
+        border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .btn-save:hover { background: #4f46e5; }
+    .btn-cancel {
+        padding: 8px 20px; background: #f1f5f9; color: #475569;
+        border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; cursor: pointer;
+    }
+    .generate-btn {
+        padding: 12px 32px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: white; border: none; border-radius: 10px;
+        font-size: 15px; font-weight: 700; cursor: pointer;
+        box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+    }
+    .generate-btn:hover { transform: translateY(-1px); }
+    .gen-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5); z-index: 2000;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .gen-dialog {
+        background: white; border-radius: 16px; padding: 1.5rem;
+        width: 90%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .gen-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; }
+    .spinner {
+        width: 36px; height: 36px; border: 3px solid #e2e8f0;
+        border-top-color: #6366f1; border-radius: 50%;
+        animation: spin 0.8s linear infinite; margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Video check
+fetch('{{ lang_url("/child/oak-video-check/" ~ chunk.chunk_id) }}')
+    .then(r => r.json())
+    .then(d => { if (d.available) document.getElementById('videoCard').style.display = ''; })
+    .catch(() => {});
+
+// Main tabs
+function switchTab(tab) {
+    document.getElementById('tab-contents').style.display = tab === 'contents' ? '' : 'none';
+    document.getElementById('tab-questions').style.display = tab === 'questions' ? '' : 'none';
+    document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+        btn.classList.toggle('active', (i === 0 && tab === 'contents') || (i === 1 && tab === 'questions'));
+    });
+}
+
+// Content sub-tabs
+function switchContentTab(tab) {
+    document.querySelectorAll('.content-tab').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('[id^="contentTab-"]').forEach(el => el.style.display = 'none');
+    const target = document.getElementById('contentTab-' + tab);
+    if (target) target.style.display = '';
+    event.target.closest('.content-tab').classList.add('active');
+}
+
+// Generate loading
+document.getElementById('genForm')?.addEventListener('submit', function() {
+    document.getElementById('genSubmitBtn').style.display = 'none';
+    document.getElementById('genLoading').style.display = 'block';
+});
+</script>
+{% endblock %}

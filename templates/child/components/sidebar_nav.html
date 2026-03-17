@@ -1,12 +1,24 @@
-{# 共通サイドバーナビ — active_nav で現在ページをハイライト #}
+{# 共通サイドバーナビ — active_nav / active_subject で現在ページをハイライト #}
 <div class="sidebar-card" style="flex:1; display:flex; flex-direction:column;">
     <div class="sidebar-title">Menu</div>
     <a href="{{ lang_url('/child/dashboard') }}" class="sidebar-link {{ 'active' if active_nav == 'home' }}">
         <i class="fas fa-home"></i> {{ t.child.nav_home }}
     </a>
-    <a href="{{ lang_url('/child/subjects') }}" class="sidebar-link {{ 'active' if active_nav == 'subjects' }}">
+    <a href="{{ lang_url('/child/subjects') }}" class="sidebar-link {{ 'active' if active_nav == 'subjects' and not active_subject }}">
         <i class="fas fa-th-large"></i> {{ t.child.nav_subjects }}
     </a>
+    {% if active_nav == 'subjects' and nav_subjects %}
+    <div style="padding-left:12px; display:flex; flex-direction:column; gap:1px;">
+        {% for s_name, s_cnt in nav_subjects %}
+        {% set cfg = SUBJ.get(s_name, {'emoji': '📚'}) %}
+        <a href="{{ lang_url('/child/subjects/' ~ s_name) }}"
+           class="sidebar-link {{ 'active' if active_subject == s_name }}"
+           style="font-size:12px; padding:6px 10px; gap:8px;">
+            <span style="font-size:14px;">{{ cfg.emoji }}</span> {{ s_name }}
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
     <a href="#" class="sidebar-link {{ 'active' if active_nav == 'badges' }}">
         <i class="fas fa-award"></i> {{ t.child.nav_badges }}
     </a>

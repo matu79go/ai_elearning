@@ -42,7 +42,25 @@
     .mc-wrong { color: #dc2626; font-weight: 600; }
     .mc-right { color: #059669; font-size: 13px; margin-top: 2px; }
 
-    .summary-text { font-size: 14px; color: #374151; line-height: 1.7; }
+    .summary-text {
+        font-size: 14px; color: #374151; line-height: 1.8;
+        white-space: pre-line;
+    }
+
+    .text-tabs { display: flex; gap: 0; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; }
+    .text-tab {
+        padding: 8px 18px; border: none; background: none;
+        font-size: 13px; font-weight: 600; color: #94a3b8;
+        cursor: pointer; border-bottom: 2px solid transparent;
+        margin-bottom: -2px; transition: all 0.2s;
+    }
+    .text-tab:hover { color: #475569; }
+    .text-tab.active { color: #6366f1; border-bottom-color: #6366f1; }
+    .transcript-text {
+        font-size: 13px; color: #475569; line-height: 1.8;
+        white-space: pre-line; max-height: 500px; overflow-y: auto;
+        padding-right: 8px;
+    }
 
     .quiz-cta { text-align: center; padding: 1.5rem 0 0.5rem; }
 
@@ -106,29 +124,54 @@
 {% block sidebar %}
 {% include "child/components/sidebar_profile.html" %}
 
-<!-- Section Navigation -->
-<div class="sidebar-card" style="flex:1;">
-    <div class="sidebar-title">{{ material.title.replace('KS3 ' ~ material.subject ~ ' - ', '') }}</div>
+<!-- Unit Navigation (同じ教科の全ユニット) -->
+<div class="sidebar-card">
+    <a href="{{ lang_url('/child/subjects/' ~ material.subject) }}" class="sidebar-title" style="text-decoration:none; display:flex; align-items:center; gap:6px;">
+        {% set cfg = SUBJ.get(material.subject, {'emoji': '📚'}) %}
+        <span>{{ cfg.emoji }}</span> {{ material.subject }}
+    </a>
     <div class="sidebar-nav">
-        {% for c in all_chunks %}
-        {% set cp = chunk_progress.get(c.chunk_id, {'total': 0, 'mastered': 0}) %}
-        {% set cpct = (cp.mastered / cp.total * 100)|int if cp.total > 0 else 0 %}
-        <a href="{{ lang_url('/child/section/' ~ c.chunk_id) }}"
-           class="sidebar-nav-item {{ 'active' if c.chunk_id == chunk.chunk_id }}">
-            <span class="sidebar-nav-num">{{ loop.index }}</span>
-            <span class="sidebar-nav-text">
-                {{ c.title }}
-                <div class="sidebar-section-progress">
-                    <div class="sidebar-minibar"><div class="sidebar-minibar-fill {{ 'done' if cpct == 100 }}" style="width:{{ cpct }}%"></div></div>
-                    <span class="sidebar-section-pct">{{ cp.mastered }}/{{ cp.total }}</span>
-                </div>
-            </span>
+        {% for u in sibling_units %}
+        {% set u_name = u.title.replace('KS3 ' ~ material.subject ~ ' - ', '') %}
+        {% if u.material_id == material.material_id %}
+        <div class="sidebar-nav-item active" style="flex-direction:column; align-items:stretch;">
+            <div style="display:flex; align-items:center; gap:8px; font-weight:700; color:white;">
+                <i class="fas fa-folder-open" style="font-size:12px;"></i>
+                <span style="flex:1;">{{ u_name }}</span>
+            </div>
+            <!-- Sections inside current unit -->
+            <div style="margin-top:6px; padding-left:4px; display:flex; flex-direction:column; gap:2px;">
+                {% for c in all_chunks %}
+                {% set cp = chunk_progress.get(c.chunk_id, {'total': 0, 'mastered': 0}) %}
+                {% set cpct = (cp.mastered / cp.total * 100)|int if cp.total > 0 else 0 %}
+                <a href="{{ lang_url('/child/section/' ~ c.chunk_id) }}"
+                   class="sidebar-nav-item {{ 'active' if c.chunk_id == chunk.chunk_id }}"
+                   style="padding:6px 8px; font-size:12px;">
+                    <span class="sidebar-nav-num" style="width:22px; height:22px; font-size:10px;">{{ loop.index }}</span>
+                    <span class="sidebar-nav-text" style="font-size:12px;">
+                        {{ c.title }}
+                        <div class="sidebar-section-progress">
+                            <div class="sidebar-minibar"><div class="sidebar-minibar-fill {{ 'done' if cpct == 100 }}" style="width:{{ cpct }}%"></div></div>
+                            <span class="sidebar-section-pct">{{ cp.mastered }}/{{ cp.total }}</span>
+                        </div>
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <a href="{{ lang_url('/child/subjects/' ~ material.subject ~ '?unit=' ~ u.material_id) }}"
+           class="sidebar-nav-item" style="padding:8px 10px;">
+            <i class="fas fa-folder" style="font-size:11px; color:rgba(255,255,255,0.4); min-width:16px;"></i>
+            <span class="sidebar-nav-text" style="font-size:12px;">{{ u_name }}</span>
         </a>
+        {% endif %}
         {% endfor %}
     </div>
 </div>
 
 {% set active_nav = 'subjects' %}
+{% set active_subject = material.subject %}
 {% include "child/components/sidebar_nav.html" %}
 {% endblock %}
 
@@ -136,13 +179,14 @@
 <div class="mobile-panel">
     <button class="accordion-toggle" onclick="this.classList.toggle('open'); document.getElementById('mobileSectionNav').classList.toggle('open');">
         <span class="accordion-toggle-left">
-            <i class="fas fa-list"></i>
-            <span>Sections</span>
+            <i class="fas fa-folder-open"></i>
+            <span>{{ material.title.replace('KS3 ' ~ material.subject ~ ' - ', '') }}</span>
         </span>
         <span class="acc-chevron"><i class="fas fa-chevron-down"></i></span>
     </button>
     <div class="accordion-body" id="mobileSectionNav">
         <div class="accordion-inner">
+            <!-- Current unit sections -->
             {% for c in all_chunks %}
             <a href="{{ lang_url('/child/section/' ~ c.chunk_id) }}"
                class="mobile-nav-link {{ 'active' if c.chunk_id == chunk.chunk_id }}">
@@ -150,12 +194,37 @@
                 <span>{{ c.title }}</span>
             </a>
             {% endfor %}
+
+            <!-- Other units -->
+            <div style="border-top:1px solid rgba(255,255,255,0.1); margin-top:8px; padding-top:8px;">
+                <div style="font-size:10px; font-weight:700; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:1px; padding:0 12px 4px;">Other Units</div>
+                {% for u in sibling_units %}
+                {% if u.material_id != material.material_id %}
+                <a href="{{ lang_url('/child/subjects/' ~ material.subject ~ '?unit=' ~ u.material_id) }}"
+                   class="mobile-nav-link" style="font-size:12px; opacity:0.7;">
+                    <i class="fas fa-folder" style="font-size:10px; min-width:20px; text-align:center;"></i>
+                    <span>{{ u.title.replace('KS3 ' ~ material.subject ~ ' - ', '') }}</span>
+                </a>
+                {% endif %}
+                {% endfor %}
+            </div>
         </div>
     </div>
 </div>
 {% endblock %}
 
 {% block main_content %}
+<!-- Breadcrumb -->
+<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12px; margin-bottom:8px; color:rgba(255,255,255,0.6);">
+    <a href="{{ lang_url('/child/subjects') }}" style="color:rgba(255,255,255,0.8); text-decoration:none;">Subjects</a>
+    <i class="fas fa-chevron-right" style="font-size:8px;"></i>
+    <a href="{{ lang_url('/child/subjects/' ~ material.subject ~ '?unit=' ~ material.material_id) }}" style="color:rgba(255,255,255,0.8); text-decoration:none;">{{ material.subject }}</a>
+    <i class="fas fa-chevron-right" style="font-size:8px;"></i>
+    <a href="{{ lang_url('/child/subjects/' ~ material.subject ~ '?unit=' ~ material.material_id) }}" style="color:rgba(255,255,255,0.8); text-decoration:none;">{{ material.title.replace('KS3 ' ~ material.subject ~ ' - ', '') }}</a>
+    <i class="fas fa-chevron-right" style="font-size:8px;"></i>
+    <span>{{ chunk.title }}</span>
+</div>
+
 <div class="content-card">
     <div class="content-card-title">{{ chunk.title }}</div>
     <div class="content-card-subtitle">{{ material.title.replace('KS3 ' ~ material.subject ~ ' - ', '') }}</div>
@@ -245,11 +314,28 @@
     </div>
     {% endif %}
 
-    <!-- Summary -->
-    {% if chunk.summary %}
+    <!-- Summary / Transcript Tabs -->
+    {% if chunk.summary or chunk.content %}
     <div class="learn-card">
-        <div class="card-label purple"><i class="fas fa-book-open"></i> Summary</div>
-        <div class="summary-text">{{ chunk.summary }}</div>
+        <div class="card-label purple"><i class="fas fa-book-open"></i> Lesson Content</div>
+        <div class="text-tabs">
+            {% if chunk.summary %}
+            <button class="text-tab active" onclick="switchTextTab('summary')">
+                <i class="fas fa-compress-alt"></i> Summary
+            </button>
+            {% endif %}
+            {% if chunk.content %}
+            <button class="text-tab {{ '' if chunk.summary else 'active' }}" onclick="switchTextTab('transcript')">
+                <i class="fas fa-file-alt"></i> Full Transcript
+            </button>
+            {% endif %}
+        </div>
+        {% if chunk.summary %}
+        <div id="textTab-summary" class="summary-text">{{ chunk.summary }}</div>
+        {% endif %}
+        {% if chunk.content %}
+        <div id="textTab-transcript" class="transcript-text" style="{{ 'display:none;' if chunk.summary else '' }}">{{ chunk.content }}</div>
+        {% endif %}
     </div>
     {% endif %}
 
@@ -275,6 +361,16 @@
         })
         .catch(() => {});
 })();
+
+// --- Text Tab Switcher ---
+function switchTextTab(tab) {
+    document.querySelectorAll('.text-tab').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('[id^="textTab-"]').forEach(el => el.style.display = 'none');
+    const target = document.getElementById('textTab-' + tab);
+    if (target) target.style.display = '';
+    // Activate the clicked button
+    event.target.closest('.text-tab').classList.add('active');
+}
 
 // --- Web Speech API: Read Aloud ---
 let speechActive = false;

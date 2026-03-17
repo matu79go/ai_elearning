@@ -98,7 +98,20 @@ def create_app():
         else:
             switch_path = '/ja' + path
 
-        return dict(t=t, lang=lang, switch_lang_url=switch_path, lang_url=lang_url)
+        # 子供画面用: サイドバー教科リスト（child/ページでのみクエリ実行）
+        nav_subjects = []
+        if '/child/' in request.path:
+            from sqlalchemy import func as sqlfunc
+            from models.material import Material
+            nav_subjects = db.session.query(
+                Material.subject,
+                sqlfunc.count(Material.material_id).label('cnt'),
+            ).filter_by(status='published').group_by(
+                Material.subject
+            ).order_by(Material.subject).all()
+
+        return dict(t=t, lang=lang, switch_lang_url=switch_path,
+                    lang_url=lang_url, nav_subjects=nav_subjects)
 
     # ---- User loader ----
     from models.parent import Parent

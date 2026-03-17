@@ -63,6 +63,19 @@
 
     .result-star { color: #f59e0b; font-size: 14px; }
 
+    .result-item { cursor: pointer; transition: background 0.2s; flex-wrap: wrap; }
+    .result-item:hover { background: #f1f5f9; }
+    .result-detail {
+        display: none; width: 100%; padding: 8px 0 4px 38px;
+        font-size: 13px; line-height: 1.6;
+    }
+    .result-detail.open { display: block; }
+    .result-answer { color: #059669; font-weight: 600; margin-bottom: 4px; }
+    .result-answer.wrong-answer { color: #ef4444; }
+    .result-explanation { color: #475569; font-style: italic; }
+    .result-chevron { color: #94a3b8; font-size: 10px; transition: transform 0.2s; flex-shrink: 0; }
+    .result-item.expanded .result-chevron { transform: rotate(180deg); }
+
     /* Action Buttons */
     .action-btns {
         display: flex; flex-direction: column; gap: 0.75rem;
@@ -126,6 +139,15 @@
 {% endblock %}
 
 {% block main_content %}
+<!-- Breadcrumb -->
+<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12px; margin-bottom:8px; color:rgba(255,255,255,0.6);">
+    <a href="{{ lang_url('/child/subjects/' ~ material.subject ~ '?unit=' ~ material.material_id) }}" style="color:rgba(255,255,255,0.8); text-decoration:none;">{{ material.subject }}</a>
+    <i class="fas fa-chevron-right" style="font-size:8px;"></i>
+    <a href="{{ lang_url('/child/section/' ~ chunk.chunk_id) }}" style="color:rgba(255,255,255,0.8); text-decoration:none;">{{ chunk.title }}</a>
+    <i class="fas fa-chevron-right" style="font-size:8px;"></i>
+    <span>Results</span>
+</div>
+
 <div class="content-card">
     <div class="score-hero">
         <div class="score-emoji">
@@ -157,14 +179,35 @@
     <div class="result-list">
         {% for q in questions %}
         {% set m = mastery_map.get(q.question_id) %}
-        <div class="result-item">
-            <div class="result-icon {{ 'correct' if m and m.mastered else 'wrong' }}">
-                <i class="fas {{ 'fa-check' if m and m.mastered else 'fa-times' }}"></i>
+        {% set is_correct = m and m.mastered %}
+        <div class="result-item" onclick="toggleDetail(this)">
+            <div class="result-icon {{ 'correct' if is_correct else 'wrong' }}">
+                <i class="fas {{ 'fa-check' if is_correct else 'fa-times' }}"></i>
             </div>
             <div class="result-q-text">{{ q.question_text }}</div>
-            {% if m and m.mastered %}
+            {% if is_correct %}
             <span class="result-star"><i class="fas fa-star"></i></span>
             {% endif %}
+            <i class="fas fa-chevron-down result-chevron"></i>
+            <div class="result-detail">
+                {% if q.question_type == 'multiple_choice' and q.options %}
+                <div class="result-answer">
+                    <i class="fas fa-check-circle"></i>
+                    {% for opt in q.options %}
+                        {% if opt.label == q.correct_answer %}{{ opt.label }}) {{ opt.text }}{% endif %}
+                    {% endfor %}
+                </div>
+                {% elif q.correct_answer or q.reference_answer %}
+                <div class="result-answer">
+                    <i class="fas fa-check-circle"></i> {{ q.correct_answer or q.reference_answer }}
+                </div>
+                {% endif %}
+                {% if q.explanation %}
+                <div class="result-explanation">
+                    <i class="fas fa-lightbulb" style="color: #f59e0b;"></i> {{ q.explanation }}
+                </div>
+                {% endif %}
+            </div>
         </div>
         {% endfor %}
     </div>
@@ -183,3 +226,20 @@
 {% endblock %}
 
 {% block bottom_nav %}{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleDetail(item) {
+    const detail = item.querySelector('.result-detail');
+    const isOpen = detail.classList.contains('open');
+    // Close all
+    document.querySelectorAll('.result-detail.open').forEach(d => d.classList.remove('open'));
+    document.querySelectorAll('.result-item.expanded').forEach(i => i.classList.remove('expanded'));
+    // Toggle clicked
+    if (!isOpen) {
+        detail.classList.add('open');
+        item.classList.add('expanded');
+    }
+}
+</script>
+{% endblock %}

@@ -1,6 +1,29 @@
 {% extends "admin/base.html" %}
 {% block title %}{{ child.display_name }} - {{ t.admin.child_detail_title }}{% endblock %}
+
+{% block sidebar_children_sub %}
+<div style="padding:0 0.75rem;">
+    <div style="padding-left:32px; display:flex; flex-direction:column; gap:1px;">
+        <a href="{{ lang_url('/admin/children/' ~ child.child_id) }}"
+           class="nav-link active" style="font-size:12px; padding:6px 10px;">
+            <i class="fas fa-user" style="font-size:12px;"></i>
+            <span>{{ child.display_name }}</span>
+        </a>
+        {% for subj_name in subjects.keys() %}
+        <span style="font-size:11px; color:rgba(255,255,255,0.35); padding:4px 10px 2px 34px; font-weight:600;">{{ subj_name }}</span>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
 {% block content %}
+
+<!-- Breadcrumb -->
+<div style="display:flex; align-items:center; gap:8px; font-size:13px; color:#64748b; margin-bottom:1rem; padding:10px 16px; background:#f8fafc; border-radius:10px;">
+    <a href="{{ lang_url('/admin/children') }}" style="color:#6366f1; text-decoration:none;">{{ t.admin.menu_children }}</a>
+    <i class="fas fa-chevron-right" style="font-size:8px; color:#cbd5e1;"></i>
+    <span style="color:#1e293b; font-weight:600;">{{ child.display_name }}</span>
+</div>
 
 {% include "admin/components/child_header.html" %}
 
@@ -15,7 +38,7 @@
         {% if subjects %}
         {% for subj_name, subj in subjects.items() %}
         {% set subj_pct = (subj.mastered / subj.total * 100)|round|int if subj.total > 0 else 0 %}
-        <div class="tree-subject">
+        <div class="tree-subject" data-subject="{{ subj_name }}">
             <div class="tree-row tree-row-subject" onclick="toggleTree(this)">
                 <div class="tree-left">
                     <i class="fas fa-chevron-right tree-chevron"></i>
@@ -32,7 +55,7 @@
             <div class="tree-children" style="display:none;">
                 {% for mat_id, mat in subj.materials.items() %}
                 {% set mat_pct = (mat.mastered / mat.total * 100)|round|int if mat.total > 0 else 0 %}
-                <div class="tree-material">
+                <div class="tree-material" data-unit-id="{{ mat_id }}">
                     <div class="tree-row tree-row-material" onclick="toggleTree(this)">
                         <div class="tree-left">
                             <i class="fas fa-chevron-right tree-chevron"></i>
@@ -79,32 +102,6 @@
     </div>
 </div>
 
-<!-- Edit Points -->
-<div class="section-card" style="margin-bottom: 1.5rem;">
-    <div class="section-header">
-        <div class="section-title">
-            <i class="fas fa-coins"></i> {{ t.admin.edit_points }}
-        </div>
-    </div>
-    <div class="section-body">
-        <form method="POST" action="{{ lang_url('/admin/children/' ~ child.child_id ~ '/points') }}">
-            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end;">
-                <div>
-                    <label class="form-label">{{ t.admin.points_current }}: <strong style="color: #6366f1;">{{ child.total_points }}</strong></label>
-                    <input type="number" name="points" value="{{ child.total_points }}" min="0"
-                           class="form-input" style="width: 120px; text-align: center; font-weight: 700;">
-                </div>
-                <div style="flex: 1; min-width: 150px;">
-                    <label class="form-label">{{ t.admin.points_reason }}</label>
-                    <input type="text" name="reason" placeholder="{{ t.admin.points_reason_placeholder }}" class="form-input">
-                </div>
-                <button type="submit" class="btn-save">
-                    <i class="fas fa-check" style="margin-right: 4px;"></i>{{ t.admin.save }}
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
 
 {% endblock %}
 
@@ -168,5 +165,31 @@ function toggleTree(el) {
     children.style.display = isHidden ? '' : 'none';
     if (chevron) chevron.classList.toggle('open', isHidden);
 }
+
+// Auto-open from ?subject= and ?unit= parameters
+(function() {
+    const params = new URLSearchParams(window.location.search);
+    const subj = params.get('subject');
+    const unitId = params.get('unit');
+
+    if (subj) {
+        const subjEl = document.querySelector(`.tree-subject[data-subject="${subj}"]`);
+        if (subjEl) {
+            const row = subjEl.querySelector('.tree-row-subject');
+            if (row) toggleTree(row);
+
+            if (unitId) {
+                const unitEl = subjEl.querySelector(`.tree-material[data-unit-id="${unitId}"]`);
+                if (unitEl) {
+                    const unitRow = unitEl.querySelector('.tree-row-material');
+                    if (unitRow) toggleTree(unitRow);
+                    setTimeout(() => unitEl.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+                }
+            } else {
+                setTimeout(() => subjEl.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+            }
+        }
+    }
+})();
 </script>
 {% endblock %}
