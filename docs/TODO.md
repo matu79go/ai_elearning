@@ -2,13 +2,12 @@
 
 ## Next: 次にやること
 
-### 1. 動画アップロード（Google Drive）
-- [x] Year 7 完了（292件/約30GB、153件は動画なしスキップ）
-- [ ] Year 4 全594件
-
-### 2. 教材インポート（Oak API）— 追加Year
+### 1. 教材インポート（Oak API）— 追加Year
 - [ ] Year 8-11 の段階的インポート
 - [ ] 進捗管理: `docs/oak_import_progress.md`
+
+### 2. 動画アップロード（Google Drive）— 追加Year
+- [ ] Year 8-11 の動画もGoogle Driveにアップロード（段階的に）
 
 ---
 
@@ -34,21 +33,7 @@
 - [ ] メール通知（学習完了時）
 - [ ] 週次レポートメール
 
-### 動画配信
-- [ ] Year 8-11 の動画もGoogle Driveにアップロード（段階的に）
-
-### インフラ・デプロイ
-- [x] 本番用docker-compose（`docker-compose.prod.yml`）作成済み
-  - gunicorn (2 workers)、MySQL localhost限定、port 80、phpMyAdmin無し
-  - `.env.prod.example` テンプレートも用意済み
-  - `requirements.txt` に gunicorn 追加済み
-- [ ] さくらVPSへのデプロイ
-  - VPSにDocker + Docker Compose インストール
-  - ファイル一式アップロード（SFTP or git clone）
-  - `.env.prod` 作成（パスワード・APIキー設定）
-  - `credentials/` にGoogle Driveトークン配置
-  - `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build`
-- [ ] HTTPS / ドメイン設定（nginx or Caddy リバースプロキシ）
+### インフラ
 - [ ] バックアップ戦略（MySQL定期dump等）
 
 ### その他
@@ -58,6 +43,18 @@
 ---
 
 ## 完了済み
+
+### 2026-03-20 完了
+- [x] 週間/月間進捗ウィジェット（子供・親画面、教科別フィルター、バーチャート）
+- [x] Today's Goal（子供画面に今日の目標表示、親画面からgoal設定）
+- [x] バッジ管理UI（親画面から取り消し・手動付与・全リセット）
+- [x] 動画配信改善: Google Drive → Flaskプロキシ（Range Request対応、即再生+シーク可）
+- [x] YouTube動画アップロードバッチ（`batch/upload_videos_youtube.py`）※クォータ制限で保留
+- [x] Year 4 動画 Google Driveアップロード完了（479件/約52.7GB、115件動画なしスキップ）
+- [x] さくらVPSデプロイ完了（2GBプラン、Ubuntu 24.04、Docker）
+- [x] ドメイン取得（ai-elearning.net）+ HTTPS自動化（Caddy + Let's Encrypt）
+- [x] 本番DB移行（ローカル → VPS）
+- [x] デプロイ手順ドキュメント（`docs/deployment.md`）
 
 ### 2026-03-19 完了
 - [x] Year 4 全7教科インポート完了（100ユニット、8,366問題）
