@@ -27,6 +27,163 @@
 
 {% include "admin/components/child_header.html" %}
 
+<!-- Weekly Activity -->
+{% set day_names = [t.admin.day_mon, t.admin.day_tue, t.admin.day_wed, t.admin.day_thu, t.admin.day_fri, t.admin.day_sat, t.admin.day_sun] %}
+<div class="section-card" style="margin-bottom: 1.5rem;">
+    <div class="section-header">
+        <div class="section-title">
+            <i class="fas fa-chart-bar"></i> {{ t.admin.weekly_activity }}
+        </div>
+        <span id="adminWeekTotal" style="font-size:12px; color:#94a3b8;">
+            {{ weekly.week_total }} {{ t.admin.questions_answered }}
+        </span>
+    </div>
+    <div class="section-body">
+        <!-- Subject Filter Pills (shared for week + month) -->
+        {% if all_activity_subjects %}
+        <div class="admin-subject-pills" id="adminSubjectPills">
+            <button class="admin-pill active" data-subject="all">{{ t.admin.filter_all }}</button>
+            {% for subj in all_activity_subjects %}
+            <button class="admin-pill" data-subject="{{ subj }}">{{ subj }}</button>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Week Navigation -->
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+            <a href="{{ lang_url('/admin/children/' ~ child.child_id ~ '?week=' ~ (weekly.week_offset - 1)) }}"
+               style="font-size:12px; color:#6366f1; text-decoration:none; font-weight:600;">
+                <i class="fas fa-chevron-left"></i> {{ t.admin.prev_week }}
+            </a>
+            <span style="font-size:13px; font-weight:600; color:#374151;">
+                {{ weekly.monday.strftime('%Y/%m/%d') }} - {{ weekly.sunday.strftime('%m/%d') }}
+            </span>
+            {% if weekly.week_offset < 0 %}
+            <a href="{{ lang_url('/admin/children/' ~ child.child_id ~ '?week=' ~ (weekly.week_offset + 1)) }}"
+               style="font-size:12px; color:#6366f1; text-decoration:none; font-weight:600;">
+                {{ t.admin.next_week }} <i class="fas fa-chevron-right"></i>
+            </a>
+            {% else %}
+            <span style="font-size:12px; color:#94a3b8; font-weight:600;">{{ t.admin.this_week }}</span>
+            {% endif %}
+        </div>
+
+        <!-- Bar Chart -->
+        <div class="admin-bar-chart" id="adminBarChart">
+            {% for day in weekly.days %}
+            <div class="admin-bar-col"
+                 data-total="{{ day.total }}" data-correct="{{ day.correct }}"
+                 data-by-subject='{{ day.by_subject | tojson }}'>
+                <div class="admin-bar-value">{{ day.total if day.total > 0 else '' }}</div>
+                <div class="admin-bar-track">
+                    <div class="admin-bar-fill" style="height: 0%"></div>
+                </div>
+                <div class="admin-bar-day">{{ day_names[day.day_idx] }}</div>
+                <div class="admin-bar-date">{{ day.date.strftime('%-d') }}</div>
+                <div class="admin-bar-rate"></div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Daily Goal Setting -->
+        <div style="display:flex; align-items:center; gap:12px; margin-top:1rem; padding-top:1rem; border-top:1px solid #f1f5f9;">
+            <span style="font-size:13px; font-weight:600; color:#374151;">
+                <i class="fas fa-bullseye" style="color:#f59e0b; margin-right:4px;"></i>{{ t.admin.daily_goal }}
+            </span>
+            <form method="POST" action="{{ lang_url('/admin/children/' ~ child.child_id ~ '/daily-goal') }}"
+                  style="display:flex; align-items:center; gap:8px;">
+                <input type="number" name="daily_goal" value="{{ child.daily_goal }}" min="1" max="100"
+                       style="width:60px; padding:4px 8px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; text-align:center;">
+                <span style="font-size:12px; color:#64748b;">{{ t.admin.daily_goal_unit }}</span>
+                <button type="submit" class="btn-save" style="padding:4px 12px; font-size:12px;">{{ t.admin.save }}</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Monthly Activity -->
+<div class="section-card" style="margin-bottom: 1.5rem;">
+    <div class="section-header">
+        <div class="section-title">
+            <i class="fas fa-calendar-alt"></i> {{ t.admin.monthly_activity }}
+        </div>
+        <span id="adminMonthTotal" style="font-size:12px; color:#94a3b8;">
+            {{ monthly.study_days }} {{ t.admin.study_days }}
+        </span>
+    </div>
+    <div class="section-body">
+        <!-- Month Navigation -->
+        {% set prev_month = monthly.month - 1 if monthly.month > 1 else 12 %}
+        {% set prev_year = monthly.year if monthly.month > 1 else monthly.year - 1 %}
+        {% set next_month = monthly.month + 1 if monthly.month < 12 else 1 %}
+        {% set next_year = monthly.year if monthly.month < 12 else monthly.year + 1 %}
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+            <a href="{{ lang_url('/admin/children/' ~ child.child_id ~ '?year=' ~ prev_year ~ '&month=' ~ prev_month) }}"
+               style="font-size:12px; color:#6366f1; text-decoration:none; font-weight:600;">
+                <i class="fas fa-chevron-left"></i> {{ t.admin.prev_month }}
+            </a>
+            <span style="font-size:14px; font-weight:700; color:#374151;">
+                {{ monthly.year }}/{{ '%02d' | format(monthly.month) }}
+            </span>
+            <a href="{{ lang_url('/admin/children/' ~ child.child_id ~ '?year=' ~ next_year ~ '&month=' ~ next_month) }}"
+               style="font-size:12px; color:#6366f1; text-decoration:none; font-weight:600;">
+                {{ t.admin.next_month }} <i class="fas fa-chevron-right"></i>
+            </a>
+        </div>
+
+        <!-- Monthly Table -->
+        <div style="overflow-x:auto;" id="adminMonthlyTable">
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                <thead>
+                    <tr style="border-bottom:2px solid #e2e8f0;">
+                        <th style="padding:6px 8px; text-align:left; color:#64748b; font-weight:600;">{{ t.admin.date_label }}</th>
+                        <th style="padding:6px 8px; text-align:center; color:#64748b; font-weight:600;">{{ t.admin.total_label }}</th>
+                        <th style="padding:6px 8px; text-align:center; color:#64748b; font-weight:600;">{{ t.admin.correct_label }}</th>
+                        <th style="padding:6px 8px; text-align:center; color:#64748b; font-weight:600;">{{ t.admin.pt_unit }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for day in monthly.days %}
+                    {% if day.total > 0 %}
+                    <tr class="monthly-row" data-total="{{ day.total }}" data-correct="{{ day.correct }}"
+                        data-by-subject='{{ day.by_subject | tojson }}'>
+                        <td style="padding:8px; font-weight:600; color:#1e293b;">
+                            {{ day.date.strftime('%-d') }}
+                            <span style="color:#94a3b8; font-weight:400; margin-left:4px;">
+                                ({{ day_names[day.date.weekday()] }})
+                            </span>
+                        </td>
+                        <td class="m-total" style="padding:8px; text-align:center; font-weight:600; color:#374151;">
+                            {{ day.total }}
+                        </td>
+                        <td class="m-correct" style="padding:8px; text-align:center; color:#10b981; font-weight:600;">
+                            {{ day.correct }}
+                        </td>
+                        <td class="m-rate" style="padding:8px; text-align:center;">
+                            <span style="padding:2px 8px; border-radius:4px; font-size:12px; font-weight:600; background:#fef3c7; color:#92400e;">
+                                {{ day.correct }}{{ t.admin.pt_unit }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                    {% if monthly.month_total == 0 %}
+                    <tr class="monthly-empty">
+                        <td colspan="4" style="padding:2rem; text-align:center; color:#94a3b8;">
+                            {{ t.admin.no_data }}
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+        <div id="adminMonthSummary" style="display:flex; gap:1rem; margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid #f1f5f9; font-size:12px; color:#64748b;">
+            <span><strong id="adminMonthAnswered">{{ monthly.month_total }}</strong> {{ t.admin.questions_answered }}</span>
+            <span><strong id="adminMonthDays">{{ monthly.study_days }}</strong> {{ t.admin.study_days }}</span>
+        </div>
+    </div>
+</div>
+
 <!-- Progress Tree (read-only, chunk rows link to detail) -->
 <div class="section-card" style="margin-bottom: 1.5rem;">
     <div class="section-header">
@@ -103,6 +260,118 @@
 </div>
 
 
+<!-- Badges -->
+<div class="section-card" style="margin-bottom: 1.5rem;">
+    <div class="section-header">
+        <div class="section-title">
+            <i class="fas fa-award"></i> {{ t.admin.menu_badges }}
+            <span style="font-size:12px; color:#94a3b8; font-weight:400;">({{ earned_ids|length }}/{{ all_badges|length }})</span>
+        </div>
+        <a href="{{ lang_url('/admin/badges') }}" style="font-size:12px; color:#6366f1; text-decoration:none; font-weight:600;">
+            {{ t.admin.edit }} <i class="fas fa-arrow-right" style="margin-left:2px;"></i>
+        </a>
+    </div>
+    <div class="section-body" style="padding:0;">
+        {% for badge in all_badges %}
+        {% set earned = badge.badge_id in earned_ids %}
+        {% set b_name = badge.name_ja if t.lang_code == 'ja' else badge.name_en %}
+        {% set b_desc = badge.description_ja if t.lang_code == 'ja' else badge.description_en %}
+        {% set earned_info = earned_map.get(badge.badge_id) %}
+        <div style="display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid #f1f5f9;">
+            <div style="width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;
+                {% if earned %}background:{{ badge.color }}; color:white;{% else %}background:#f1f5f9; color:#cbd5e1;{% endif %}">
+                <i class="fas {{ badge.icon }}"></i>
+            </div>
+            <div style="flex:1; min-width:0;">
+                <div style="font-size:13px; font-weight:600; color:{% if earned %}#1e293b{% else %}#94a3b8{% endif %};">{{ b_name }}</div>
+                {% if earned and earned_info %}
+                <div style="font-size:11px; color:#94a3b8;">{{ earned_info.strftime('%Y/%m/%d %H:%M') }}</div>
+                {% elif not earned %}
+                <div style="font-size:11px; color:#cbd5e1;">{{ b_desc }}</div>
+                {% endif %}
+            </div>
+            <div style="flex-shrink:0;">
+                {% if earned %}
+                <form method="POST" action="{{ lang_url('/admin/children/' ~ child.child_id ~ '/badges/' ~ badge.badge_id ~ '/revoke') }}"
+                      style="display:inline;">
+                    <button type="submit" style="padding:4px 10px; background:#fee2e2; color:#991b1b; border:none; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer;"
+                            onclick="return confirm('{{ t.admin.badge_revoke_confirm }}');">
+                        <i class="fas fa-times"></i> {{ t.admin.badge_revoke }}
+                    </button>
+                </form>
+                {% else %}
+                <form method="POST" action="{{ lang_url('/admin/children/' ~ child.child_id ~ '/badges/' ~ badge.badge_id ~ '/grant') }}"
+                      style="display:inline;">
+                    <button type="submit" style="padding:4px 10px; background:#eef2ff; color:#6366f1; border:none; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer;">
+                        <i class="fas fa-plus"></i> {{ t.admin.badge_grant }}
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% if earned_ids %}
+    <div style="padding:12px 16px; border-top:1px solid #f1f5f9;">
+        <form method="POST" action="{{ lang_url('/admin/children/' ~ child.child_id ~ '/badges/reset-all') }}"
+              onsubmit="return confirm('{{ t.admin.badge_reset_all_confirm }}');">
+            <button type="submit" style="padding:6px 14px; background:#fee2e2; color:#991b1b; border:none; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">
+                <i class="fas fa-undo"></i> {{ t.admin.badge_reset_all }}
+            </button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Connected Parents -->
+<div class="section-card" style="margin-bottom: 1.5rem;">
+    <div class="section-header">
+        <div class="section-title">
+            <i class="fas fa-users"></i> {{ t.admin.connected_parents }}
+        </div>
+    </div>
+    <div class="section-body">
+        <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+            {% for link, parent in parent_links %}
+            <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:#f8fafc; border-radius:10px;">
+                <div style="width:36px; height:36px; border-radius:50%; background:#6366f1; color:white; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;">
+                    {{ parent.display_name[0] }}
+                </div>
+                <div style="flex:1;">
+                    <div style="font-size:14px; font-weight:600; color:#1e293b;">{{ parent.display_name }}</div>
+                    <div style="font-size:12px; color:#94a3b8;">{{ parent.email }}</div>
+                </div>
+                <span style="font-size:11px; font-weight:600; padding:3px 8px; border-radius:6px;
+                    {{ 'background:#ede9fe; color:#6366f1;' if link.role == 'owner' else 'background:#dbeafe; color:#2563eb;' }}">
+                    {{ t.admin.role_owner if link.role == 'owner' else t.admin.role_caretaker }}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Invite section -->
+        {% if active_invite %}
+        <div style="padding:12px 16px; background:#fefce8; border:1px solid #fde68a; border-radius:10px; margin-bottom:8px;">
+            <div style="font-size:12px; font-weight:600; color:#92400e; margin-bottom:4px;">{{ t.admin.invite_code_label }}</div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <code style="font-size:24px; font-weight:800; letter-spacing:3px; color:#1e293b;">{{ active_invite.invite_code }}</code>
+                <button onclick="navigator.clipboard.writeText('{{ active_invite.invite_code }}'); this.textContent='{{ t.admin.copied }}';"
+                        style="padding:4px 10px; background:#f59e0b; color:white; border:none; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer;">
+                    {{ t.admin.copy }}
+                </button>
+            </div>
+            <div style="font-size:11px; color:#92400e; margin-top:4px;">{{ t.admin.invite_code_desc }}</div>
+        </div>
+        {% endif %}
+
+        <form method="POST" action="{{ lang_url('/admin/children/' ~ child.child_id ~ '/invite') }}">
+            <button type="submit" style="padding:8px 16px; background:#6366f1; color:white; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                <i class="fas fa-user-plus"></i> {{ t.admin.invite_caretaker }}
+            </button>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_css %}
@@ -133,6 +402,57 @@
     .tree-row-chunk { padding-left: 52px; text-decoration: none; color: inherit; }
     .tree-row-link:hover { background: #eef2ff; }
     .tree-row-link:hover .tree-name { color: #6366f1; }
+
+    /* Admin Subject Filter Pills */
+    .admin-subject-pills {
+        display: flex; gap: 6px; flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+    .admin-pill {
+        padding: 4px 14px; border-radius: 20px;
+        font-size: 12px; font-weight: 600;
+        background: #f1f5f9; color: #64748b;
+        border: 1.5px solid transparent; cursor: pointer;
+        transition: all 0.2s; white-space: nowrap;
+    }
+    .admin-pill:hover { background: #e2e8f0; }
+    .admin-pill.active {
+        background: #eef2ff; color: #6366f1;
+        border-color: #6366f1;
+    }
+
+    /* Admin Bar Chart */
+    .admin-bar-chart {
+        display: flex; gap: 8px; align-items: flex-end;
+        height: 160px; padding: 0 8px;
+    }
+    .admin-bar-col {
+        flex: 1; display: flex; flex-direction: column;
+        align-items: center; height: 100%; min-width: 0;
+    }
+    .admin-bar-value {
+        font-size: 11px; font-weight: 700; color: #374151;
+        margin-bottom: 4px; height: 16px;
+    }
+    .admin-bar-track {
+        flex: 1; width: 100%; max-width: 48px;
+        background: #f1f5f9; border-radius: 6px;
+        display: flex; flex-direction: column; justify-content: flex-end;
+        overflow: hidden;
+    }
+    .admin-bar-fill {
+        width: 100%; border-radius: 6px;
+        background: linear-gradient(180deg, #818cf8, #6366f1);
+        transition: height 0.5s ease;
+    }
+    .admin-bar-day { font-size: 12px; font-weight: 600; color: #374151; margin-top: 6px; }
+    .admin-bar-date { font-size: 10px; color: #94a3b8; }
+    .admin-bar-rate { font-size: 9px; font-weight: 600; margin-top: 2px; white-space: nowrap; color: #f59e0b; }
+
+    @media (max-width: 768px) {
+        .admin-bar-chart { height: 120px; gap: 4px; }
+        .admin-bar-track { max-width: 36px; }
+    }
 
     /* Form */
     .form-label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px; }
@@ -166,6 +486,113 @@ function toggleTree(el) {
     if (chevron) chevron.classList.toggle('open', isHidden);
 }
 
+// --- Subject filter for Weekly + Monthly ---
+(function() {
+    const pills = document.querySelectorAll('#adminSubjectPills .admin-pill');
+    if (!pills.length) return;
+
+    const chart = document.getElementById('adminBarChart');
+    const cols = chart ? chart.querySelectorAll('.admin-bar-col') : [];
+    const weekTotalSpan = document.getElementById('adminWeekTotal');
+    const monthRows = document.querySelectorAll('.monthly-row');
+    const monthAnswered = document.getElementById('adminMonthAnswered');
+    const monthDays = document.getElementById('adminMonthDays');
+    const answeredLabel = '{{ t.admin.questions_answered }}';
+    const studyDaysLabel = '{{ t.admin.study_days }}';
+    const noDataText = '{{ t.admin.no_data }}';
+    const ptUnit = '{{ t.admin.pt_unit }}';
+
+    function getVal(bySubject, subject, field) {
+        if (subject === 'all') return null; // use data-total/data-correct
+        const s = bySubject[subject];
+        return s ? s[field] : 0;
+    }
+
+    function ptHtml(pts) {
+        return `<span style="padding:2px 8px; border-radius:4px; font-size:12px; font-weight:600; background:#fef3c7; color:#92400e;">${pts}${ptUnit}</span>`;
+    }
+
+    function update(subject) {
+        // --- Weekly bar chart ---
+        let maxVal = 0;
+        const values = [], corrects = [];
+        cols.forEach(col => {
+            const bySubj = JSON.parse(col.dataset.bySubject);
+            let total, correct;
+            if (subject === 'all') {
+                total = parseInt(col.dataset.total) || 0;
+                correct = parseInt(col.dataset.correct) || 0;
+            } else {
+                const s = bySubj[subject];
+                total = s ? s.total : 0;
+                correct = s ? s.correct : 0;
+            }
+            values.push(total);
+            corrects.push(correct);
+            if (total > maxVal) maxVal = total;
+        });
+
+        let weekSum = 0;
+        cols.forEach((col, i) => {
+            const val = values[i];
+            const cor = corrects[i];
+            weekSum += val;
+            col.querySelector('.admin-bar-value').textContent = val > 0 ? val : '';
+            const pct = maxVal > 0 ? Math.round(val / maxVal * 100) : 0;
+            col.querySelector('.admin-bar-fill').style.height = pct + '%';
+            const rateEl = col.querySelector('.admin-bar-rate');
+            if (cor > 0) {
+                rateEl.textContent = cor + ptUnit;
+            } else {
+                rateEl.textContent = '';
+            }
+        });
+        weekTotalSpan.textContent = weekSum + ' ' + answeredLabel;
+
+        // --- Monthly table ---
+        let mTotal = 0, mDays = 0;
+        monthRows.forEach(row => {
+            const bySubj = JSON.parse(row.dataset.bySubject);
+            let total, correct;
+            if (subject === 'all') {
+                total = parseInt(row.dataset.total) || 0;
+                correct = parseInt(row.dataset.correct) || 0;
+            } else {
+                const s = bySubj[subject];
+                total = s ? s.total : 0;
+                correct = s ? s.correct : 0;
+            }
+            if (total > 0) {
+                row.style.display = '';
+                row.querySelector('.m-total').textContent = total;
+                row.querySelector('.m-correct').textContent = correct;
+                row.querySelector('.m-rate').innerHTML = ptHtml(correct);
+                mTotal += total;
+                mDays++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        monthAnswered.textContent = mTotal;
+        monthDays.textContent = mDays;
+
+        // Show/hide empty message
+        const emptyRow = document.querySelector('.monthly-empty');
+        if (emptyRow) emptyRow.style.display = mTotal > 0 ? 'none' : '';
+    }
+
+    // Initial render
+    update('all');
+
+    pills.forEach(pill => {
+        pill.addEventListener('click', function() {
+            pills.forEach(p => p.classList.remove('active'));
+            this.classList.add('active');
+            update(this.dataset.subject);
+        });
+    });
+})();
+
 // Auto-open from ?subject= and ?unit= parameters
 (function() {
     const params = new URLSearchParams(window.location.search);
@@ -192,4 +619,5 @@ function toggleTree(el) {
     }
 })();
 </script>
+{% include "components/badge_animation.html" %}
 {% endblock %}

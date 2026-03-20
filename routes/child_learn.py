@@ -3,9 +3,11 @@
 from flask import Blueprint, render_template, request, jsonify, abort, Response
 from flask_login import login_required, current_user
 from models import db
-from models.material import Material, MaterialChunk, Question, QuestionMastery
+from models.material import (Material, MaterialChunk, Question, QuestionMastery,
+                             LearningSession, AnswerHistory)
+from models.badge import Badge, ChildBadge
 from routes import dual_route
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import os
 import urllib.request
@@ -161,11 +163,16 @@ def child_section(chunk_id):
         subject=material.subject, year_group=material.year_group, status='published',
     ).order_by(Material.sort_order, Material.material_id).all()
 
+    # 動画URL: Google Driveキャッシュ済みなら直リンク、なければプロキシ経由
+    video_url = None
+    if chunk.video_drive_id:
+        video_url = f'https://drive.google.com/file/d/{chunk.video_drive_id}/preview'
+
     return render_template('child/section.html',
                            chunk=chunk, material=material, parsed=parsed,
                            total_questions=len(questions), mastered_count=mastered_count,
                            all_chunks=all_chunks, chunk_progress=chunk_progress,
-                           sibling_units=sibling_units)
+                           sibling_units=sibling_units, video_url=video_url)
 
 
 # ---- クイズ画面 ----
@@ -207,6 +214,14 @@ def child_quiz_check(chunk_id):
     results = []
     total_correct = 0
     total_points = 0
+
+    # 学習セッション作成
+    session = LearningSession(
+        child_id=current_user.child_id,
+        material_id=chunk.material_id,
+    )
+    db.session.add(session)
+    db.session.flush()  # session_id を確定
 
     # skipped問題の正解情報・解説も返す
     for qid in skipped_ids:
@@ -281,6 +296,16 @@ def child_quiz_check(chunk_id):
             if not display_answer:
                 display_answer = (question.reference_answer or '').strip()
 
+        # 回答履歴を記録
+        db.session.add(AnswerHistory(
+            session_id=session.session_id,
+            question_id=question.question_id,
+            child_id=current_user.child_id,
+            user_answer=user_answer[:10],  # VARCHAR(10)制限
+            is_correct=is_correct,
+            points_earned=points_earned,
+        ))
+
         results.append({
             'question_id': question.question_id,
             'correct': is_correct,
@@ -289,7 +314,28 @@ def child_quiz_check(chunk_id):
             'points_earned': points_earned,
         })
 
+    # セッション完了情報を更新
+    session.completed_at = datetime.utcnow()
+    session.total_questions = len(answer_list)
+    session.correct_answers = total_correct
+    session.total_points_earned = total_points
+
+    # レベル自動更新（100ptごとにレベルアップ）
+    current_user.level = current_user.total_points // 100 + 1
+
+    # ストリーク自動更新
+    today = datetime.utcnow().date()
+    if current_user.last_study_date != today:
+        if current_user.last_study_date == today - timedelta(days=1):
+            current_user.streak_count = (current_user.streak_count or 0) + 1
+        elif current_user.last_study_date != today:
+            current_user.streak_count = 1
+        current_user.last_study_date = today
+
     db.session.commit()
+
+    # バッジ獲得チェック
+    new_badges = _check_badges(current_user, total_correct, len(answer_list))
 
     # 解説が未生成の問題にLLMで解説を生成してDB保存
     _generate_explanations(results, chunk_id)
@@ -299,7 +345,55 @@ def child_quiz_check(chunk_id):
         'total_correct': total_correct,
         'total_questions': len(results),
         'total_points': total_points,
+        'new_badges': new_badges,
     })
+
+
+def _check_badges(child, correct_count, answer_count):
+    """バッジ獲得条件をチェックし、新規獲得バッジを返す"""
+    # 既に持っているバッジID
+    owned_ids = {cb.badge_id for cb in ChildBadge.query.filter_by(child_id=child.child_id).all()}
+
+    # 全バッジ取得
+    all_badges = Badge.query.order_by(Badge.condition_type, Badge.condition_value).all()
+
+    # 累計回答数（今回分含む）
+    total_answers = QuestionMastery.query.filter(
+        QuestionMastery.child_id == child.child_id,
+        QuestionMastery.attempts > 0,
+    ).count()
+
+    new_badges = []
+    for badge in all_badges:
+        if badge.badge_id in owned_ids:
+            continue
+
+        earned = False
+        if badge.condition_type == 'first_correct' and correct_count >= 1:
+            earned = True
+        elif badge.condition_type == 'streak' and (child.streak_count or 0) >= badge.condition_value:
+            earned = True
+        elif badge.condition_type == 'total_answers' and total_answers >= badge.condition_value:
+            earned = True
+        elif badge.condition_type == 'total_points' and (child.total_points or 0) >= badge.condition_value:
+            earned = True
+
+        if earned:
+            db.session.add(ChildBadge(child_id=child.child_id, badge_id=badge.badge_id))
+            new_badges.append({
+                'badge_id': badge.badge_id,
+                'name_en': badge.name_en,
+                'name_ja': badge.name_ja,
+                'description_en': badge.description_en,
+                'description_ja': badge.description_ja,
+                'icon': badge.icon,
+                'color': badge.color,
+            })
+
+    if new_badges:
+        db.session.commit()
+
+    return new_badges
 
 
 def _generate_explanations(results, chunk_id):
@@ -660,10 +754,17 @@ def _get_lesson_slug(chunk):
 @dual_route(child_learn_bp, '/child/oak-video/<int:chunk_id>')
 @login_required
 def child_oak_video(chunk_id):
-    """Oak 動画をプロキシ配信（Bearer認証を中継）— parent/childどちらもアクセス可"""
+    """Oak 動画配信 — Google Driveキャッシュ優先、フォールバックでOak APIプロキシ"""
+    from flask import redirect
     chunk = MaterialChunk.query.get_or_404(chunk_id)
-    lesson_slug = _get_lesson_slug(chunk)
 
+    # Google Drive にキャッシュ済みならリダイレクト（シーク対応・高速）
+    if chunk.video_drive_id:
+        drive_url = f'https://drive.google.com/uc?export=download&id={chunk.video_drive_id}'
+        return redirect(drive_url)
+
+    # フォールバック: Oak API からストリーミングプロキシ
+    lesson_slug = _get_lesson_slug(chunk)
     api_key = os.environ.get('OAK_API_KEY', '')
     url = f'{OAK_API_BASE}/lessons/{lesson_slug}/assets/video'
     req = urllib.request.Request(url, headers={
@@ -696,11 +797,17 @@ def child_oak_video(chunk_id):
 def child_oak_video_check(chunk_id):
     """Oak 動画が利用可能かチェック — parent/childどちらもアクセス可"""
     chunk = MaterialChunk.query.get_or_404(chunk_id)
+
+    # Google Drive にキャッシュ済みなら即座に available
+    if chunk.video_drive_id:
+        return jsonify({'available': True, 'source': 'google_drive'})
+
+    # Oak API で確認
     lesson_slug = _get_lesson_slug(chunk)
     assets = _oak_api_get(f'/lessons/{lesson_slug}/assets')
     if assets:
         has_video = any(a.get('type') == 'video' for a in assets.get('assets', []))
-        return jsonify({'available': has_video, 'lesson_slug': lesson_slug})
+        return jsonify({'available': has_video, 'source': 'oak_proxy', 'lesson_slug': lesson_slug})
     return jsonify({'available': False})
 
 

@@ -1,3 +1,10 @@
+# 本番環境用（さくらVPS）
+# Usage: docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+#
+# 前提:
+#   - .env.prod を用意（.env.prod.example を参考に）
+#   - credentials/ にGoogle Drive OAuthトークンを配置
+
 services:
   db:
     image: mysql:8.0
@@ -7,7 +14,7 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       TZ: Asia/Tokyo
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./mysql-config/my.cnf:/etc/mysql/conf.d/my.cnf:ro
@@ -28,15 +35,16 @@ services:
     container_name: elearn_app
     working_dir: /app
     entrypoint: ["/entrypoint.sh"]
-    command: python app.py
+    command: gunicorn -w 2 -b 0.0.0.0:5000 --timeout 120 "app:create_app()"
     ports:
-      - "5000:5000"
+      - "80:5000"
     volumes:
       - .:/app
+      - ./credentials:/app/credentials:ro
     environment:
       - FLASK_APP=${FLASK_APP}
-      - FLASK_ENV=${FLASK_ENV}
-      - FLASK_DEBUG=${FLASK_DEBUG}
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
       - SECRET_KEY=${SECRET_KEY}
       - MYSQL_HOST=${MYSQL_HOST}
       - MYSQL_PORT=${MYSQL_PORT}
@@ -55,7 +63,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    restart: unless-stopped
+    restart: always
 
 volumes:
   mysql_data:

@@ -1,0 +1,153 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ t.admin.menu_badges }} - {{ t.site_name }}{% endblock %}
+{% block content %}
+
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:0.75rem;">
+    <h1 style="font-size:22px; font-weight:700; color:#1e293b;">
+        <i class="fas fa-award" style="color:#f59e0b;"></i> {{ t.admin.menu_badges }}
+    </h1>
+    <button onclick="document.getElementById('addModal').style.display='flex'"
+            style="padding:8px 16px; background:#6366f1; color:white; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;">
+        <i class="fas fa-plus"></i> {{ t.admin.badge_add }}
+    </button>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div style="margin-bottom:1rem;">
+    {% for category, msg in messages %}
+    <div style="padding:10px 16px; border-radius:10px; font-size:13px; font-weight:600;
+        {{ 'background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0;' if category == 'success' else 'background:#fef2f2; color:#991b1b; border:1px solid #fecaca;' }}">
+        <i class="fas {{ 'fa-check-circle' if category == 'success' else 'fa-exclamation-circle' }}"></i>
+        {{ t.admin[msg] if t.admin[msg] is defined else msg }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+{% set type_labels = {'first_correct': 'First Correct', 'streak': 'Streak (Days)', 'total_answers': 'Total Answers', 'total_points': 'Total Points'} %}
+{% set type_icons = {'first_correct': 'fa-shoe-prints', 'streak': 'fa-fire', 'total_answers': 'fa-dumbbell', 'total_points': 'fa-coins'} %}
+
+{% for ct, badge_list in groups.items() %}
+<div class="section-card" style="margin-bottom:1rem;">
+    <div class="section-header">
+        <div class="section-title">
+            <i class="fas {{ type_icons.get(ct, 'fa-award') }}"></i>
+            {{ type_labels.get(ct, ct) }}
+            <span style="font-size:12px; color:#94a3b8; font-weight:400;">({{ badge_list|length }})</span>
+        </div>
+    </div>
+    <div class="section-body" style="padding:0;">
+        {% for b in badge_list %}
+        {% set b_name = b.name_ja if t.lang_code == 'ja' else b.name_en %}
+        {% set b_desc = b.description_ja if t.lang_code == 'ja' else b.description_en %}
+        <div style="display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid #f1f5f9; cursor:pointer;"
+             data-icon="{{ b.icon }}" data-color="{{ b.color }}" data-name="{{ b_name }}" data-desc="{{ b_desc }}"
+             onclick="previewBadge(this.dataset.icon, this.dataset.color, this.dataset.name, this.dataset.desc)">
+            <div style="width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; color:white; background:{{ b.color }};">
+                <i class="fas {{ b.icon }}"></i>
+            </div>
+            <div style="flex:1;">
+                <div style="font-size:14px; font-weight:600; color:#1e293b;">{% if t.lang_code == 'ja' %}{{ b.name_ja }}{% else %}{{ b.name_en }}{% endif %}</div>
+                <div style="font-size:12px; color:#94a3b8;">{% if t.lang_code == 'ja' %}{{ b.description_ja }}{% else %}{{ b.description_en }}{% endif %}</div>
+            </div>
+            <div style="font-size:20px; font-weight:800; color:{{ b.color }}; min-width:60px; text-align:right;">
+                {{ b.condition_value }}
+            </div>
+            <form method="POST" action="{{ lang_url('/admin/badges/' ~ b.badge_id ~ '/delete') }}" style="margin:0;"
+                  onsubmit="return confirm('Delete this badge?')" onclick="event.stopPropagation()">
+                <button type="submit" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:14px; padding:4px 8px;">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+
+<!-- Add Badge Modal -->
+<div id="addModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; align-items:center; justify-content:center;"
+     onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:white; border-radius:16px; padding:1.5rem; width:90%; max-width:480px; box-shadow:0 20px 60px rgba(0,0,0,0.3); max-height:90vh; overflow-y:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3 style="font-size:16px; font-weight:700; color:#1e293b; margin:0;">
+                <i class="fas fa-plus" style="color:#6366f1; margin-right:6px;"></i>{{ t.admin.badge_add }}
+            </h3>
+            <button onclick="document.getElementById('addModal').style.display='none'"
+                    style="background:none; border:none; font-size:18px; color:#94a3b8; cursor:pointer;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form method="POST" action="{{ lang_url('/admin/badges/add') }}">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:600; color:#374151; margin-bottom:4px;">Type</label>
+                    <select name="condition_type" required
+                            style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;">
+                        <option value="first_correct">First Correct</option>
+                        <option value="streak">Streak (Days)</option>
+                        <option value="total_answers">Total Answers</option>
+                        <option value="total_points">Total Points</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:600; color:#374151; margin-bottom:4px;">Value</label>
+                    <input type="number" name="condition_value" min="1" required
+                           style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;">
+                </div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:600; color:#374151; margin-bottom:4px;">Name (EN)</label>
+                    <input type="text" name="name_en" required placeholder="e.g. 100 Points"
+                           style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:600; color:#374151; margin-bottom:4px;">Name (JA)</label>
+                    <input type="text" name="name_ja" placeholder="例: 100ポイント"
+                           style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;">
+                </div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:600; color:#374151; margin-bottom:4px;">Description (EN)</label>
+                    <input type="text" name="description_en" placeholder="e.g. Earned 100 points!"
+                           style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:600; color:#374151; margin-bottom:4px;">Description (JA)</label>
+                    <input type="text" name="description_ja" placeholder="例: 100ポイント達成！"
+                           style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;">
+                </div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:600; color:#374151; margin-bottom:4px;">Icon (FontAwesome)</label>
+                    <input type="text" name="icon" value="fa-award" placeholder="fa-award"
+                           style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:600; color:#374151; margin-bottom:4px;">Color</label>
+                    <input type="color" name="color" value="#6366f1"
+                           style="width:100%; padding:4px; height:38px; border:1px solid #d1d5db; border-radius:8px;">
+                </div>
+            </div>
+            <div style="display:flex; gap:8px; justify-content:flex-end;">
+                <button type="button" onclick="document.getElementById('addModal').style.display='none'"
+                        style="padding:8px 20px; background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; cursor:pointer;">
+                    {{ t.admin.cancel }}
+                </button>
+                <button type="submit"
+                        style="padding:8px 20px; background:#6366f1; color:white; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer;">
+                    <i class="fas fa-check" style="margin-right:4px;"></i>{{ t.admin.save }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% include "components/badge_animation.html" %}
+
+{% endblock %}

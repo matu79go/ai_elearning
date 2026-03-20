@@ -2,11 +2,138 @@ from flask import Blueprint, render_template, abort, redirect, request, jsonify
 from flask_login import login_required, current_user
 from routes import dual_route
 from models import db
-from models.material import Material, MaterialChunk, Question, QuestionMastery
+from models.material import Material, MaterialChunk, Question, QuestionMastery, AnswerHistory
 
 child_dashboard_bp = Blueprint('child_dashboard', __name__)
 
 YEAR_GROUP = 7
+
+
+def _get_weekly_progress(child_id, week_offset=0):
+    """指定週（月〜日）の日別回答データを返す（教科別内訳付き）"""
+    from datetime import date, timedelta
+    from sqlalchemy import func
+
+    today = date.today()
+    monday = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
+    sunday = monday + timedelta(days=6)
+
+    # 教科別・日別の集計
+    rows = db.session.query(
+        func.date(AnswerHistory.answered_at).label('study_date'),
+        Material.subject,
+        func.count(AnswerHistory.answer_id).label('total'),
+        func.sum(db.case((AnswerHistory.is_correct == True, 1), else_=0)).label('correct'),
+    ).join(
+        Question, AnswerHistory.question_id == Question.question_id
+    ).join(
+        Material, Question.material_id == Material.material_id
+    ).filter(
+        AnswerHistory.child_id == child_id,
+        func.date(AnswerHistory.answered_at) >= monday,
+        func.date(AnswerHistory.answered_at) <= sunday,
+    ).group_by(func.date(AnswerHistory.answered_at), Material.subject).all()
+
+    # {date_str: {subject: {total, correct}, ...}} の2段マップ
+    day_subj_map = {}
+    subjects_set = set()
+    for r in rows:
+        key = str(r.study_date)
+        subj = r.subject
+        subjects_set.add(subj)
+        if key not in day_subj_map:
+            day_subj_map[key] = {}
+        day_subj_map[key][subj] = {'total': r.total, 'correct': int(r.correct or 0)}
+
+    days = []
+    for i in range(7):
+        d = monday + timedelta(days=i)
+        key = str(d)
+        subj_data = day_subj_map.get(key, {})
+        total = sum(v['total'] for v in subj_data.values())
+        correct = sum(v['correct'] for v in subj_data.values())
+        days.append({
+            'date': d,
+            'day_idx': i,
+            'total': total,
+            'correct': correct,
+            'by_subject': subj_data,
+        })
+
+    week_total = sum(d['total'] for d in days)
+    max_day = max(d['total'] for d in days) if days else 0
+
+    return {
+        'days': days,
+        'monday': monday,
+        'sunday': sunday,
+        'week_total': week_total,
+        'max_day': max_day,
+        'week_offset': week_offset,
+        'subjects': sorted(subjects_set),
+    }
+
+
+def _get_monthly_progress(child_id, year, month):
+    """指定月の日別回答データを返す（教科別内訳付き）"""
+    from datetime import date, timedelta
+    from sqlalchemy import func
+    import calendar
+
+    first_day = date(year, month, 1)
+    last_day = date(year, month, calendar.monthrange(year, month)[1])
+
+    rows = db.session.query(
+        func.date(AnswerHistory.answered_at).label('study_date'),
+        Material.subject,
+        func.count(AnswerHistory.answer_id).label('total'),
+        func.sum(db.case((AnswerHistory.is_correct == True, 1), else_=0)).label('correct'),
+    ).join(
+        Question, AnswerHistory.question_id == Question.question_id
+    ).join(
+        Material, Question.material_id == Material.material_id
+    ).filter(
+        AnswerHistory.child_id == child_id,
+        func.date(AnswerHistory.answered_at) >= first_day,
+        func.date(AnswerHistory.answered_at) <= last_day,
+    ).group_by(func.date(AnswerHistory.answered_at), Material.subject).all()
+
+    day_subj_map = {}
+    subjects_set = set()
+    for r in rows:
+        key = str(r.study_date)
+        subj = r.subject
+        subjects_set.add(subj)
+        if key not in day_subj_map:
+            day_subj_map[key] = {}
+        day_subj_map[key][subj] = {'total': r.total, 'correct': int(r.correct or 0)}
+
+    days = []
+    d = first_day
+    while d <= last_day:
+        key = str(d)
+        subj_data = day_subj_map.get(key, {})
+        total = sum(v['total'] for v in subj_data.values())
+        correct = sum(v['correct'] for v in subj_data.values())
+        days.append({
+            'date': d,
+            'total': total,
+            'correct': correct,
+            'by_subject': subj_data,
+        })
+        d += timedelta(days=1)
+
+    month_total = sum(d['total'] for d in days)
+    study_days = sum(1 for d in days if d['total'] > 0)
+
+    return {
+        'days': days,
+        'year': year,
+        'month': month,
+        'month_total': month_total,
+        'study_days': study_days,
+        'subjects': sorted(subjects_set),
+    }
 
 
 @dual_route(child_dashboard_bp, '/child/dashboard')
@@ -96,7 +223,25 @@ def child_dashboard():
 
     subjects_data.sort(key=sort_key)
 
-    return render_template('child/dashboard.html', subjects_data=subjects_data)
+    # バッジ情報
+    from models.badge import Badge, ChildBadge
+    earned_ids = {cb.badge_id for cb in ChildBadge.query.filter_by(child_id=current_user.child_id).all()}
+    all_badges = Badge.query.order_by(Badge.condition_type, Badge.condition_value).all()
+
+    # 週間進捗
+    week_offset = request.args.get('week', 0, type=int)
+    weekly = _get_weekly_progress(current_user.child_id, week_offset)
+
+    # 今日の進捗 vs 目標
+    from datetime import date as date_type
+    today_data = next((d for d in weekly['days'] if d['date'] == date_type.today()), None)
+    today_count = today_data['total'] if today_data else 0
+    daily_goal = current_user.daily_goal
+
+    return render_template('child/dashboard.html', subjects_data=subjects_data,
+                           all_badges=all_badges, earned_ids=earned_ids,
+                           weekly=weekly, today_count=today_count,
+                           daily_goal=daily_goal, today_date=date_type.today())
 
 
 @dual_route(child_dashboard_bp, '/child/profile')

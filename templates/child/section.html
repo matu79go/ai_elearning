@@ -197,7 +197,7 @@
 
             <!-- Other units -->
             <div style="border-top:1px solid rgba(255,255,255,0.1); margin-top:8px; padding-top:8px;">
-                <div style="font-size:10px; font-weight:700; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:1px; padding:0 12px 4px;">Other Units</div>
+                <div style="font-size:10px; font-weight:700; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:1px; padding:0 12px 4px;">{{ t.child.section_other_units }}</div>
                 {% for u in sibling_units %}
                 {% if u.material_id != material.material_id %}
                 <a href="{{ lang_url('/child/subjects/' ~ material.subject ~ '?unit=' ~ u.material_id) }}"
@@ -216,7 +216,7 @@
 {% block main_content %}
 <!-- Breadcrumb -->
 <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12px; margin-bottom:8px; color:rgba(255,255,255,0.6);">
-    <a href="{{ lang_url('/child/subjects') }}" style="color:rgba(255,255,255,0.8); text-decoration:none;">Subjects</a>
+    <a href="{{ lang_url('/child/subjects') }}" style="color:rgba(255,255,255,0.8); text-decoration:none;">{{ t.child.section_breadcrumb_subjects }}</a>
     <i class="fas fa-chevron-right" style="font-size:8px;"></i>
     <a href="{{ lang_url('/child/subjects/' ~ material.subject ~ '?unit=' ~ material.material_id) }}" style="color:rgba(255,255,255,0.8); text-decoration:none;">{{ material.subject }}</a>
     <i class="fas fa-chevron-right" style="font-size:8px;"></i>
@@ -234,7 +234,7 @@
     {% set mpct = (mastered_count / total_questions * 100)|int %}
     <div class="progress-hero">
         <div class="progress-hero-left">
-            <span class="progress-hero-text">{{ mastered_count }}/{{ total_questions }} mastered</span>
+            <span class="progress-hero-text">{{ mastered_count }}/{{ total_questions }} {{ t.child.section_mastered }}</span>
             {% if mastered_count == total_questions %}
             <i class="fas fa-check-circle" style="color: #10b981;"></i>
             {% endif %}
@@ -243,20 +243,32 @@
             <div class="progress-fill" style="width: {{ mpct }}%"></div>
         </div>
         <a href="{{ lang_url('/child/quiz/' ~ chunk.chunk_id) }}" class="progress-quiz-link">
-            <i class="fas fa-pen"></i> {% if mastered_count == total_questions %}Review{% else %}Quiz{% endif %}
+            <i class="fas fa-pen"></i> {% if mastered_count == total_questions %}{{ t.child.section_review }}{% else %}{{ t.child.section_quiz }}{% endif %}
         </a>
     </div>
     {% endif %}
 
     <!-- Video Player -->
+    {% if video_url %}
+    {# Google Drive キャッシュ済み — iframe embed #}
+    <div class="learn-card" id="videoCard">
+        <div class="card-label purple"><i class="fas fa-video"></i> {{ t.child.section_lesson_video }}</div>
+        <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:10px;">
+            <iframe src="{{ video_url }}" style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;"
+                    allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        </div>
+    </div>
+    {% else %}
+    {# 未キャッシュ — Oak APIで可用性チェック後に表示 #}
     <div class="learn-card" id="videoCard" style="display:none;">
-        <div class="card-label purple"><i class="fas fa-video"></i> Lesson Video</div>
+        <div class="card-label purple"><i class="fas fa-video"></i> {{ t.child.section_lesson_video }}</div>
         <video id="lessonVideo" controls preload="none"
                style="width:100%; border-radius:10px; background:#000;"
                controlsList="nodownload">
             <source src="{{ lang_url('/child/oak-video/' ~ chunk.chunk_id) }}" type="video/mp4">
         </video>
     </div>
+    {% endif %}
 
     <!-- Read Aloud (Web Speech API) -->
     {% if chunk.summary %}
@@ -264,7 +276,7 @@
         <button onclick="toggleSpeech()" id="speechBtn"
                 style="padding:6px 14px; border:1px solid #c7d2fe; border-radius:8px; background:white; cursor:pointer; font-size:13px; font-weight:600; color:#4338ca; display:flex; align-items:center; gap:6px;">
             <i class="fas fa-volume-up" id="speechIcon"></i>
-            <span id="speechLabel">Read Aloud</span>
+            <span id="speechLabel">{{ t.child.section_read_aloud }}</span>
         </button>
     </div>
     {% endif %}
@@ -272,7 +284,7 @@
     <!-- Key Learning Points -->
     {% if parsed.key_points %}
     <div class="learn-card">
-        <div class="card-label green"><i class="fas fa-lightbulb"></i> What you'll learn</div>
+        <div class="card-label green"><i class="fas fa-lightbulb"></i> {{ t.child.section_what_youll_learn }}</div>
         <ul class="kp-list">
             {% for kp in parsed.key_points %}
             <li class="kp-item">
@@ -287,7 +299,7 @@
     <!-- Key Words -->
     {% if parsed.keywords %}
     <div class="learn-card">
-        <div class="card-label blue"><i class="fas fa-key"></i> Key Words</div>
+        <div class="card-label blue"><i class="fas fa-key"></i> {{ t.child.section_key_words }}</div>
         <div class="kw-grid">
             {% for kw in parsed.keywords %}
             <div class="kw-card">
@@ -302,7 +314,7 @@
     <!-- Misconceptions -->
     {% if parsed.misconceptions %}
     <div class="learn-card">
-        <div class="card-label red"><i class="fas fa-exclamation-triangle"></i> Watch out!</div>
+        <div class="card-label red"><i class="fas fa-exclamation-triangle"></i> {{ t.child.section_watch_out }}</div>
         {% for mc in parsed.misconceptions %}
         <div class="mc-item">
             <div class="mc-wrong"><i class="fas fa-times"></i> {{ mc.misconception }}</div>
@@ -317,16 +329,16 @@
     <!-- Summary / Transcript Tabs -->
     {% if chunk.summary or chunk.content %}
     <div class="learn-card">
-        <div class="card-label purple"><i class="fas fa-book-open"></i> Lesson Content</div>
+        <div class="card-label purple"><i class="fas fa-book-open"></i> {{ t.child.section_lesson_content }}</div>
         <div class="text-tabs">
             {% if chunk.summary %}
             <button class="text-tab active" onclick="switchTextTab('summary')">
-                <i class="fas fa-compress-alt"></i> Summary
+                <i class="fas fa-compress-alt"></i> {{ t.child.section_summary }}
             </button>
             {% endif %}
             {% if chunk.content %}
             <button class="text-tab {{ '' if chunk.summary else 'active' }}" onclick="switchTextTab('transcript')">
-                <i class="fas fa-file-alt"></i> Full Transcript
+                <i class="fas fa-file-alt"></i> {{ t.child.section_full_transcript }}
             </button>
             {% endif %}
         </div>
@@ -343,14 +355,15 @@
     {% if total_questions > 0 %}
     <div class="quiz-cta">
         <a href="{{ lang_url('/child/quiz/' ~ chunk.chunk_id) }}" class="quiz-btn">
-            <i class="fas fa-pen"></i> {% if mastered_count == total_questions %}Review Quiz{% else %}Start Quiz!{% endif %}
+            <i class="fas fa-pen"></i> {% if mastered_count == total_questions %}{{ t.child.section_review_quiz }}{% else %}{{ t.child.section_start_quiz }}{% endif %}
         </a>
     </div>
     {% endif %}
 </div>
 
 <script>
-// --- Video availability check ---
+// --- Video availability check (Google Driveキャッシュ済みならスキップ) ---
+{% if not video_url %}
 (function() {
     fetch('{{ lang_url("/child/oak-video-check/" ~ chunk.chunk_id) }}')
         .then(r => r.json())
@@ -361,6 +374,7 @@
         })
         .catch(() => {});
 })();
+{% endif %}
 
 // --- Text Tab Switcher ---
 function switchTextTab(tab) {
@@ -380,7 +394,7 @@ function toggleSpeech() {
         speechSynthesis.cancel();
         speechActive = false;
         document.getElementById('speechIcon').className = 'fas fa-volume-up';
-        document.getElementById('speechLabel').textContent = 'Read Aloud';
+        document.getElementById('speechLabel').textContent = '{{ t.child.section_read_aloud }}';
         document.getElementById('speechBtn').style.background = 'white';
         return;
     }
@@ -392,13 +406,13 @@ function toggleSpeech() {
     utterance.onend = () => {
         speechActive = false;
         document.getElementById('speechIcon').className = 'fas fa-volume-up';
-        document.getElementById('speechLabel').textContent = 'Read Aloud';
+        document.getElementById('speechLabel').textContent = '{{ t.child.section_read_aloud }}';
         document.getElementById('speechBtn').style.background = 'white';
     };
     speechSynthesis.speak(utterance);
     speechActive = true;
     document.getElementById('speechIcon').className = 'fas fa-stop';
-    document.getElementById('speechLabel').textContent = 'Stop';
+    document.getElementById('speechLabel').textContent = '{{ t.child.section_stop }}';
     document.getElementById('speechBtn').style.background = '#eef2ff';
 }
 </script>

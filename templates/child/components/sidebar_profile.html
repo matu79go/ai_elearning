@@ -12,15 +12,15 @@
     <!-- Streak -->
     <div class="sidebar-streak">
         <i class="fas fa-fire" style="color: #f59e0b;"></i>
-        <span>{{ current_user.streak_count }} day streak</span>
+        <span>{{ current_user.streak_count }} {{ t.child.stat_streak }}</span>
     </div>
 
     <!-- Level Bar -->
     {% set lvl = current_user.level %}
     {% set xp = current_user.total_points %}
-    {% set xp_for_level = lvl * 100 %}
-    {% set xp_in_level = xp % xp_for_level if xp_for_level > 0 else 0 %}
-    {% set xp_pct = (xp_in_level / xp_for_level * 100)|int if xp_for_level > 0 else 0 %}
+    {% set xp_for_level = 100 %}
+    {% set xp_in_level = xp % 100 %}
+    {% set xp_pct = xp_in_level %}
     <div class="level-bar">
         <div class="level-badge">Lv.{{ lvl }}</div>
         <div class="level-track">

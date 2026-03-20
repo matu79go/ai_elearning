@@ -1,0 +1,85 @@
+{# バッジ獲得アニメーション — 共通コンポーネント #}
+{# 使い方: {% include "components/badge_animation.html" %} #}
+{# JS: previewBadge(icon, color, name, desc) / showBadgeAnimation(badges) #}
+
+<style>
+.badge-overlay {
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.6); z-index:9999;
+    display:flex; align-items:center; justify-content:center;
+    animation: badgeFadeIn 0.3s ease;
+}
+@keyframes badgeFadeIn { from { opacity:0; } to { opacity:1; } }
+
+.badge-popup {
+    background:white; border-radius:24px; padding:2rem 2.5rem;
+    text-align:center; max-width:320px; width:90%;
+    box-shadow:0 20px 60px rgba(0,0,0,0.3);
+    animation: badgeBounce 0.5s cubic-bezier(0.68,-0.55,0.265,1.55);
+}
+@keyframes badgeBounce { from { transform:scale(0.3); opacity:0; } to { transform:scale(1); opacity:1; } }
+
+.badge-popup-sparkle { font-size:40px; margin-bottom:8px; animation: badgeSpin 1s ease; }
+@keyframes badgeSpin { from { transform:rotate(-20deg) scale(0.5); } 50% { transform:rotate(10deg) scale(1.2); } to { transform:rotate(0) scale(1); } }
+
+.badge-popup-icon { font-size:56px; margin-bottom:12px; }
+.badge-popup-title { font-size:13px; font-weight:700; color:#f59e0b; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+.badge-popup-name { font-size:22px; font-weight:800; color:#1e293b; margin-bottom:4px; }
+.badge-popup-desc { font-size:14px; color:#64748b; margin-bottom:16px; }
+.badge-popup-btn {
+    padding:10px 32px; background:linear-gradient(135deg,#6366f1,#8b5cf6);
+    color:white; border:none; border-radius:12px;
+    font-size:16px; font-weight:700; cursor:pointer;
+    box-shadow:0 4px 12px rgba(99,102,241,0.3);
+}
+</style>
+
+<script>
+function previewBadge(icon, color, name, desc) {
+    const overlay = document.createElement('div');
+    overlay.className = 'badge-overlay';
+    overlay.innerHTML = `
+        <div class="badge-popup">
+            <div class="badge-popup-sparkle">✨</div>
+            <div class="badge-popup-icon" style="color:${color}">
+                <i class="fas ${icon}"></i>
+            </div>
+            <div class="badge-popup-title">Badge Unlocked!</div>
+            <div class="badge-popup-name">${name}</div>
+            <div class="badge-popup-desc">${desc}</div>
+            <button class="badge-popup-btn" onclick="this.closest('.badge-overlay').remove()">OK!</button>
+        </div>`;
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+}
+
+function showBadgeAnimation(badges) {
+    const lang = document.documentElement.lang || 'en';
+    let idx = 0;
+    function showNext() {
+        if (idx >= badges.length) return;
+        const b = badges[idx];
+        const name = lang === 'ja' ? b.name_ja : b.name_en;
+        const desc = lang === 'ja' ? b.description_ja : b.description_en;
+        const overlay = document.createElement('div');
+        overlay.className = 'badge-overlay';
+        overlay.innerHTML = `
+            <div class="badge-popup">
+                <div class="badge-popup-sparkle">✨</div>
+                <div class="badge-popup-icon" style="color:${b.color}">
+                    <i class="fas ${b.icon}"></i>
+                </div>
+                <div class="badge-popup-title">Badge Unlocked!</div>
+                <div class="badge-popup-name">${name}</div>
+                <div class="badge-popup-desc">${desc}</div>
+                <button class="badge-popup-btn" onclick="this.closest('.badge-overlay').remove()">OK!</button>
+            </div>`;
+        document.body.appendChild(overlay);
+        const dismiss = () => { if (overlay.parentNode) overlay.remove(); idx++; showNext(); };
+        setTimeout(dismiss, 5000);
+        overlay.querySelector('.badge-popup-btn').addEventListener('click', dismiss);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) dismiss(); });
+    }
+    showNext();
+}
+</script>

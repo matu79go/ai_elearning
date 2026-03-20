@@ -2,28 +2,19 @@
 
 ## Next: 次にやること
 
-### 1. match問題の再インポート（Science以外の教科）
-- [ ] Year 7 Maths, English, History 等のmatch問題をMC変換
-- [ ] `--reimport-quiz` で一括実行
+### 1. 動画アップロード（Google Drive）
+- [x] Year 7 完了（292件/約30GB、153件は動画なしスキップ）
+- [ ] Year 4 全594件
 
-### 2. セクション画面のラベル文言を翻訳辞書に移行
-- [ ] section.html のハードコード文言（"What you'll learn", "Key Words", "Watch out!" 等）を `{{ t.xxx }}` に置換
-- [ ] en.json / ja.json に追加
-
-### 3. Year 8-11 の段階的インポート
-- [ ] 1000 req/hour 制限のため分割実行
+### 2. 教材インポート（Oak API）— 追加Year
+- [ ] Year 8-11 の段階的インポート
 - [ ] 進捗管理: `docs/oak_import_progress.md`
-- [ ] インポート時にsequences APIからsort_orderも自動取得する仕組み
 
 ---
 
 ## Backlog
 
 ### 学習機能
-- [ ] 学習セッションのDB記録（開始・完了・スコア）— モデル定義済み、記録ロジック未実装
-- [ ] 回答履歴のDB記録 — モデル定義済み、記録ロジック未実装
-- [ ] レベル自動更新（ポイントに応じてlevelを自動計算）
-- [ ] ストリーク（連続学習日数）自動計算
 - [ ] 苦手分野検知 → 追加問題の自動生成
 
 ### 問題生成・品質
@@ -34,8 +25,7 @@
   - 生成プロンプトの調整が必要
 
 ### バッジ
-- [ ] バッジ獲得条件の自動判定
-- [ ] バッジ獲得時のアニメーション・通知
+- [ ] Speed Star / Overcomer 等の追加バッジタイプ
 
 ### 管理画面
 - [ ] 問題の個別編集・削除UI
@@ -45,26 +35,57 @@
 - [ ] 週次レポートメール
 
 ### 動画配信
-- [ ] Oak動画をGoogle Driveにキャッシュして配信（OGL v3.0で許可済み）
-  - 現状: Oak APIからリアルタイムプロキシ（77MB/レッスン、シーク未対応）
-  - 案: バッチでDL → Google Driveアップ → DBにファイルID保存 → 直リンク配信
-  - 全教科だと数百GBになるため段階的に
+- [ ] Year 8-11 の動画もGoogle Driveにアップロード（段階的に）
 
 ### インフラ・デプロイ
-- [ ] さくらVPSへのデプロイ設定
-- [ ] 本番用docker-compose（phpMyAdmin除外）
-- [ ] HTTPS / ドメイン設定
-- [ ] バックアップ戦略
+- [x] 本番用docker-compose（`docker-compose.prod.yml`）作成済み
+  - gunicorn (2 workers)、MySQL localhost限定、port 80、phpMyAdmin無し
+  - `.env.prod.example` テンプレートも用意済み
+  - `requirements.txt` に gunicorn 追加済み
+- [ ] さくらVPSへのデプロイ
+  - VPSにDocker + Docker Compose インストール
+  - ファイル一式アップロード（SFTP or git clone）
+  - `.env.prod` 作成（パスワード・APIキー設定）
+  - `credentials/` にGoogle Driveトークン配置
+  - `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build`
+- [ ] HTTPS / ドメイン設定（nginx or Caddy リバースプロキシ）
+- [ ] バックアップ戦略（MySQL定期dump等）
 
 ### その他
 - [ ] PDF教材アップロード + テキスト抽出 + 自動チャンク化
 - [ ] プロフィール画像のカスタムアップロード（自分の好きな画像に設定）
-- [ ] 効果音・アニメーション強化
-- [ ] 親同士の共同管理（caretaker招待フロー）
 
 ---
 
 ## 完了済み
+
+### 2026-03-19 完了
+- [x] Year 4 全7教科インポート完了（100ユニット、8,366問題）
+- [x] 本番用docker-compose（`docker-compose.prod.yml`）+ `.env.prod.example` + gunicorn追加
+- [x] 効果音（Web Audio API: confirm/correct/wrong/fanfare/sparkle/levelUp）
+- [x] Confetti紙吹雪アニメーション（クイズ完了70%以上、バッジ獲得時、結果画面）
+- [x] 画像型選択肢（Oak問題）の表示対応 + 真っ白画面バグ修正
+- [x] Year 7 動画Google Driveアップロード完了（292件/約30GB）
+
+### 2026-03-18 完了
+- [x] Oak動画をGoogle Driveにキャッシュして配信（OAuth2 + iframe embed方式）
+  - `batch/upload_videos_gdrive.py` バッチアップロード、Year 7 全507件処理中
+- [x] セクション画面のラベル文言を翻訳辞書に移行（section.html → `{{ t.child.section_xxx }}`）
+- [x] レベル自動更新（100ptごとにレベルアップ、クイズ採点時に自動計算）
+- [x] ストリーク（連続学習日数）自動計算（last_study_dateベース）
+- [x] 学習セッションのDB記録（クイズ採点時にLearningSession自動作成）
+- [x] 回答履歴のDB記録（クイズ採点時にAnswerHistory自動記録）
+- [x] admin child_header: Level/Streak編集モーダル追加、Level進捗バー表示
+- [x] admin child_header: ポイント編集時にレベル自動連動
+- [x] 親同士の共同管理（caretaker招待フロー）— child_invitesテーブル、招待コード生成+受理
+- [x] admin dashboard: Quick ActionsのLearning Progress → Badge Managementに変更
+- [x] admin dashboard: Accept Inviteセクション追加
+- [x] バッジ獲得条件の自動判定（クイズ採点時に自動チェック・付与）
+- [x] バッジ獲得時のアニメーション（共通コンポーネント化: components/badge_animation.html）
+- [x] admin バッジ管理画面（/admin/badges — 追加・削除・一覧・プレビュー）
+- [x] 子供ダッシュボードのバッジ表示を動的化（獲得済み/未獲得）
+- [x] admin child_detail にバッジセクション追加（プレビュー付き）
+- [x] バッジマスターデータ: ×2段階（streak 2-1024日, answers 10-5120問, points 100-51200pt）
 
 ### 2026-03-17 完了
 - [x] Oak動画プロキシ動作確認（ストリーミング配信OK、Cloudflare 403対策）

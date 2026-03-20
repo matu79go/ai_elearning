@@ -2,6 +2,26 @@
 {% block title %}{{ t.admin.dashboard_title }}{% endblock %}
 {% block content %}
 
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div style="margin-bottom: 1rem;">
+    {% for category, msg in messages %}
+    <div style="padding:10px 16px; border-radius:10px; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px;
+        {{ 'background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0;' if category == 'success' else 'background:#fef2f2; color:#991b1b; border:1px solid #fecaca;' }}">
+        <i class="fas {{ 'fa-check-circle' if category == 'success' else 'fa-exclamation-circle' }}"></i>
+        {% if msg.startswith('invite_accepted:') %}
+            {{ t.admin.invite_accepted }} — {{ msg.split(':')[1] }}
+        {% elif msg.startswith('invite_code:') %}
+            {{ t.admin.invite_generated }}
+        {% else %}
+            {{ t.admin[msg] if t.admin[msg] is defined else msg }}
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
 <!-- Stat Cards -->
 <div class="stat-grid">
     <div class="stat-card">
@@ -69,6 +89,28 @@
     </div>
 </div>
 
+<!-- Accept Invite -->
+<div class="section-card" style="margin-bottom: 1.5rem;">
+    <div class="section-header">
+        <div class="section-title">
+            <i class="fas fa-envelope-open-text"></i>
+            {{ t.admin.accept_invite }}
+        </div>
+    </div>
+    <div class="section-body">
+        <p style="font-size:13px; color:#64748b; margin-bottom:10px;">{{ t.admin.accept_invite_desc }}</p>
+        <form method="POST" action="{{ lang_url('/admin/accept-invite') }}" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <input type="text" name="invite_code" placeholder="{{ t.admin.invite_code_placeholder }}" maxlength="6"
+                   style="padding:10px 14px; border:1px solid #d1d5db; border-radius:8px; font-size:16px; font-weight:700; letter-spacing:2px; text-transform:uppercase; width:140px; outline:none; text-align:center;"
+                   onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='#d1d5db'">
+            <button type="submit"
+                    style="padding:10px 20px; background:#6366f1; color:white; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer;">
+                <i class="fas fa-link" style="margin-right:4px;"></i>{{ t.admin.accept_invite }}
+            </button>
+        </form>
+    </div>
+</div>
+
 <!-- Quick Actions -->
 <div class="section-card" style="margin-bottom: 1.5rem;">
     <div class="section-header">
@@ -93,12 +135,12 @@
                 <h3>{{ t.admin.menu_materials }}</h3>
                 <p>{{ t.admin.menu_materials_desc }}</p>
             </a>
-            <a href="{{ lang_url('/admin/children') }}" class="menu-card">
-                <div class="menu-card-icon" style="background: #dbeafe; color: #2563eb;">
-                    <i class="fas fa-chart-bar"></i>
+            <a href="{{ lang_url('/admin/badges') }}" class="menu-card">
+                <div class="menu-card-icon" style="background: #fef3c7; color: #d97706;">
+                    <i class="fas fa-award"></i>
                 </div>
-                <h3>{{ t.admin.menu_progress }}</h3>
-                <p>{{ t.admin.menu_progress_desc }}</p>
+                <h3>{{ t.admin.menu_badges }}</h3>
+                <p>{{ t.admin.menu_badges_desc }}</p>
             </a>
         </div>
     </div>

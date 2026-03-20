@@ -334,11 +334,23 @@ const questions = [
 ];
 
 // Clean up blank placeholders in question text and options
+// Some options have image objects instead of text strings — normalize them
 const blankRe = new RegExp('\\{\\{\\s*\\}\\}', 'g');
 questions.forEach(q => {
     q.text = q.text.replace(blankRe, '______');
     if (q.options) {
-        q.options.forEach(opt => { opt.text = opt.text.replace(blankRe, '______'); });
+        q.options.forEach(opt => {
+            if (typeof opt.text === 'object' && opt.text !== null) {
+                // Image-based option: convert to img tag
+                opt.imageUrl = opt.text.url || '';
+                opt.imageAlt = opt.text.alt || '';
+                opt.text = '';
+            } else if (typeof opt.text === 'string') {
+                opt.text = opt.text.replace(blankRe, '______');
+            } else {
+                opt.text = String(opt.text || '');
+            }
+        });
     }
 });
 
@@ -410,9 +422,12 @@ function renderOpen(q, ans, choicesEl, expArea, actionsEl) {
     if (q.type === 'multiple_choice' && q.options) {
         choicesEl.innerHTML = q.options.map(opt => {
             const sel = ans && ans.answer === opt.label ? ' selected' : '';
+            const content = opt.imageUrl
+                ? `<img src="${opt.imageUrl}" alt="${opt.imageAlt || ''}" style="max-width:100%; max-height:120px; border-radius:8px;">`
+                : `<span>${opt.text}</span>`;
             return `<div class="choice-btn${sel}" onclick="selectOption('${opt.label}', '${opt.originalLabel || opt.label}')">
                 <span class="choice-label">${opt.label}</span>
-                <span>${opt.text}</span>
+                ${content}
             </div>`;
         }).join('');
     } else {
@@ -451,12 +466,15 @@ function renderLocked(q, ans, choicesEl, expArea, actionsEl) {
         return;
     }
     if (q.type === 'multiple_choice' && q.options) {
-        choicesEl.innerHTML = q.options.map(opt =>
-            `<div class="choice-btn${opt.label === ans.answer ? ' locked' : ' disabled'}">
+        choicesEl.innerHTML = q.options.map(opt => {
+            const content = opt.imageUrl
+                ? `<img src="${opt.imageUrl}" alt="${opt.imageAlt || ''}" style="max-width:100%; max-height:120px; border-radius:8px;">`
+                : `<span>${opt.text}</span>`;
+            return `<div class="choice-btn${opt.label === ans.answer ? ' locked' : ' disabled'}">
                 <span class="choice-label">${opt.label}</span>
-                <span>${opt.text}</span>
-            </div>`
-        ).join('');
+                ${content}
+            </div>`;
+        }).join('');
     } else {
         choicesEl.innerHTML = `<div class="fr-locked">${ans.answer}</div>`;
     }
@@ -482,7 +500,7 @@ function renderChecked(q, ans, choicesEl, expArea, actionsEl) {
                 const isCorrect = r.correct_answer && r.correct_answer.startsWith(origLabel + ')');
                 return `<div class="choice-btn${isCorrect ? ' correct' : ' disabled'}">
                     <span class="choice-label">${opt.label}</span>
-                    <span>${opt.text}</span>
+                    ${opt.imageUrl ? `<img src="${opt.imageUrl}" alt="${opt.imageAlt || ''}" style="max-width:100%; max-height:120px; border-radius:8px;">` : `<span>${opt.text}</span>`}
                 </div>`;
             }).join('');
         } else {
@@ -583,6 +601,7 @@ function confirmAnswer() {
     const ans = answers[currentIdx];
     if (!ans || !ans.answer) return;
     ans.locked = true;
+    SFX.confirm();
     render();
 
     // Auto-advance to next unlocked question
@@ -664,6 +683,26 @@ function checkAnswers() {
 
         checkResults = data;
 
+        // Sound effects & confetti based on score
+        const answeredCount = totalQ - skippedIds.length;
+        const correctCount = data.total_correct - skippedIds.length;
+        const scorePct = answeredCount > 0 ? Math.round(correctCount / answeredCount * 100) : 100;
+        if (scorePct >= 70) {
+            SFX.fanfare();
+            // Confetti burst
+            if (typeof confetti === 'function') {
+                confetti({ particleCount: scorePct === 100 ? 200 : 100, spread: 70, origin: { y: 0.6 } });
+                if (scorePct === 100) {
+                    setTimeout(() => confetti({ particleCount: 100, angle: 60, spread: 55, origin: { x: 0 } }), 300);
+                    setTimeout(() => confetti({ particleCount: 100, angle: 120, spread: 55, origin: { x: 1 } }), 300);
+                }
+            }
+        } else if (scorePct >= 40) {
+            SFX.correct();
+        } else {
+            SFX.wrong();
+        }
+
         // Show score banner (count only non-skipped)
         const answered = totalQ - skippedIds.length;
         const answeredCorrect = data.total_correct - skippedIds.length;
@@ -687,6 +726,16 @@ function checkAnswers() {
         const badge = document.getElementById('pointsBadge');
         if (badge && data.total_points > 0) {
             badge.textContent = parseInt(badge.textContent) + data.total_points;
+        }
+
+        // Badge unlock animation
+        if (data.new_badges && data.new_badges.length > 0) {
+            SFX.sparkle();
+            if (typeof confetti === 'function') {
+                setTimeout(() => confetti({ particleCount: 150, spread: 90, origin: { y: 0.5 },
+                    colors: ['#fbbf24', '#f59e0b', '#6366f1', '#8b5cf6'] }), 200);
+            }
+            showBadgeAnimation(data.new_badges);
         }
 
         currentIdx = 0;
@@ -834,4 +883,5 @@ document.querySelector('.study-back')?.addEventListener('click', function(e) {
 // ---- Init ----
 render();
 </script>
+{% include "components/badge_animation.html" %}
 {% endblock %}

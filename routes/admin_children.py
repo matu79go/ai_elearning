@@ -4,7 +4,7 @@ from flask_login import login_required, current_user
 from sqlalchemy import func, case
 from models import db
 from models.child import Child
-from models.parent import Parent, ParentChild
+from models.parent import Parent, ParentChild, ChildInvite
 from models.material import (Material, MaterialChunk, Question, QuestionMastery,
                              LearningSession, AnswerHistory, PointHistory)
 from routes import dual_route
@@ -242,10 +242,48 @@ def admin_children_detail(child_id):
             'attempts': r.attempts or 0,
         })
 
+    # 紐づいている保護者一覧
+    parent_links = db.session.query(ParentChild, Parent).join(
+        Parent, Parent.parent_id == ParentChild.parent_id,
+    ).filter(ParentChild.child_id == child_id).all()
+
+    # 有効な招待コード
+    from datetime import datetime as dt
+    active_invite = ChildInvite.query.filter_by(
+        child_id=child_id, used_by=None,
+    ).filter(ChildInvite.expires_at > dt.utcnow()).first()
+
+    # バッジ情報
+    from models.badge import Badge, ChildBadge
+    child_badges = ChildBadge.query.filter_by(child_id=child_id).all()
+    earned_ids = {cb.badge_id for cb in child_badges}
+    earned_map = {cb.badge_id: cb.earned_at for cb in child_badges}
+    all_badges = Badge.query.order_by(Badge.condition_type, Badge.condition_value).all()
+
+    # 週間進捗
+    from routes.child_dashboard import _get_weekly_progress, _get_monthly_progress
+    week_offset = request.args.get('week', 0, type=int)
+    weekly = _get_weekly_progress(child_id, week_offset)
+
+    # 月間進捗
+    from datetime import date as date_type
+    view_year = request.args.get('year', date_type.today().year, type=int)
+    view_month = request.args.get('month', date_type.today().month, type=int)
+    monthly = _get_monthly_progress(child_id, view_year, view_month)
+
+    # 教科の和集合
+    all_activity_subjects = sorted(set(weekly['subjects'] + monthly['subjects']))
+
     return render_template('admin/child_detail.html',
                            child=child, subjects=subjects,
                            total_questions=total_questions,
-                           total_mastered=total_mastered)
+                           total_mastered=total_mastered,
+                           parent_links=parent_links,
+                           active_invite=active_invite,
+                           all_badges=all_badges, earned_ids=earned_ids,
+                           earned_map=earned_map,
+                           weekly=weekly, monthly=monthly,
+                           all_activity_subjects=all_activity_subjects)
 
 
 # ---- セクション別問題管理ページ ----
@@ -298,12 +336,17 @@ def admin_children_section(child_id, chunk_id):
     total_mastered = QuestionMastery.query.filter_by(
         child_id=child_id, mastered=True).count()
 
+    video_url = None
+    if chunk.video_drive_id:
+        video_url = f'https://drive.google.com/file/d/{chunk.video_drive_id}/preview'
+
     return render_template('admin/child_section.html',
                            child=child, chunk=chunk, material=material,
                            questions=q_list, full_questions=full_questions,
                            mastered_count=mastered_count,
                            total_questions=total_questions,
-                           total_mastered=total_mastered)
+                           total_mastered=total_mastered,
+                           video_url=video_url)
 
 
 # ---- ポイント編集 ----
@@ -335,8 +378,131 @@ def admin_children_points(child_id):
         db.session.add(history)
 
     child.total_points = new_points
+    child.level = new_points // 100 + 1  # レベル自動連動
     db.session.commit()
     flash('points_adjusted', 'success')
+    return redirect(_lang_url(f'/admin/children/{child_id}'))
+
+
+# ---- レベル編集 ----
+@dual_route(admin_children_bp, '/admin/children/<int:child_id>/level', methods=['POST'])
+@login_required
+@parent_required
+def admin_children_level(child_id):
+    child = _verify_parent_owns_child(child_id)
+    if not child:
+        return redirect(_lang_url('/admin/children'))
+
+    try:
+        new_level = int(request.form.get('level', 1))
+    except (ValueError, TypeError):
+        new_level = 1
+    if new_level < 1:
+        new_level = 1
+
+    child.level = new_level
+    db.session.commit()
+    flash('level_adjusted', 'success')
+    return redirect(_lang_url(f'/admin/children/{child_id}'))
+
+
+# ---- ストリーク編集 ----
+@dual_route(admin_children_bp, '/admin/children/<int:child_id>/streak', methods=['POST'])
+@login_required
+@parent_required
+def admin_children_streak(child_id):
+    child = _verify_parent_owns_child(child_id)
+    if not child:
+        return redirect(_lang_url('/admin/children'))
+
+    try:
+        new_streak = int(request.form.get('streak', 0))
+    except (ValueError, TypeError):
+        new_streak = 0
+    if new_streak < 0:
+        new_streak = 0
+
+    child.streak_count = new_streak
+    db.session.commit()
+    flash('streak_adjusted', 'success')
+    return redirect(_lang_url(f'/admin/children/{child_id}'))
+
+
+# ---- 1日の目標設定 ----
+@dual_route(admin_children_bp, '/admin/children/<int:child_id>/daily-goal', methods=['POST'])
+@login_required
+@parent_required
+def admin_children_daily_goal(child_id):
+    child = _verify_parent_owns_child(child_id)
+    if not child:
+        return redirect(_lang_url('/admin/children'))
+
+    try:
+        new_goal = int(request.form.get('daily_goal', 10))
+    except (ValueError, TypeError):
+        new_goal = 10
+    if new_goal < 1:
+        new_goal = 1
+    if new_goal > 100:
+        new_goal = 100
+
+    child.daily_goal = new_goal
+    db.session.commit()
+    flash('daily_goal_adjusted', 'success')
+    return redirect(_lang_url(f'/admin/children/{child_id}'))
+
+
+# ---- バッジ取り消し ----
+@dual_route(admin_children_bp, '/admin/children/<int:child_id>/badges/<int:badge_id>/revoke', methods=['POST'])
+@login_required
+@parent_required
+def admin_children_badge_revoke(child_id, badge_id):
+    child = _verify_parent_owns_child(child_id)
+    if not child:
+        return redirect(_lang_url('/admin/children'))
+
+    from models.badge import ChildBadge
+    ChildBadge.query.filter_by(child_id=child_id, badge_id=badge_id).delete()
+    db.session.commit()
+    flash('badge_revoked', 'success')
+    return redirect(_lang_url(f'/admin/children/{child_id}'))
+
+
+# ---- バッジ手動付与 ----
+@dual_route(admin_children_bp, '/admin/children/<int:child_id>/badges/<int:badge_id>/grant', methods=['POST'])
+@login_required
+@parent_required
+def admin_children_badge_grant(child_id, badge_id):
+    child = _verify_parent_owns_child(child_id)
+    if not child:
+        return redirect(_lang_url('/admin/children'))
+
+    from models.badge import Badge, ChildBadge
+    badge = Badge.query.get(badge_id)
+    if not badge:
+        return redirect(_lang_url(f'/admin/children/{child_id}'))
+
+    existing = ChildBadge.query.filter_by(child_id=child_id, badge_id=badge_id).first()
+    if not existing:
+        db.session.add(ChildBadge(child_id=child_id, badge_id=badge_id))
+        db.session.commit()
+    flash('badge_granted', 'success')
+    return redirect(_lang_url(f'/admin/children/{child_id}'))
+
+
+# ---- バッジ全リセット ----
+@dual_route(admin_children_bp, '/admin/children/<int:child_id>/badges/reset-all', methods=['POST'])
+@login_required
+@parent_required
+def admin_children_badge_reset_all(child_id):
+    child = _verify_parent_owns_child(child_id)
+    if not child:
+        return redirect(_lang_url('/admin/children'))
+
+    from models.badge import ChildBadge
+    count = ChildBadge.query.filter_by(child_id=child_id).delete()
+    db.session.commit()
+    flash(f'badges_reset:{count}', 'success')
     return redirect(_lang_url(f'/admin/children/{child_id}'))
 
 
@@ -380,3 +546,86 @@ def admin_children_reset(child_id):
     flash(f'questions_reset:{reset_count}', 'success')
     redirect_url = f'/admin/children/{child_id}/section/{chunk_id}' if chunk_id else f'/admin/children/{child_id}'
     return redirect(_lang_url(redirect_url))
+
+
+# ---- 招待コード生成 ----
+@dual_route(admin_children_bp, '/admin/children/<int:child_id>/invite', methods=['POST'])
+@login_required
+@parent_required
+def admin_children_invite(child_id):
+    child = _verify_parent_owns_child(child_id)
+    if not child:
+        return redirect(_lang_url('/admin/children'))
+
+    import secrets
+    from datetime import datetime, timedelta
+
+    # 既存の未使用コードがあれば再利用
+    existing = ChildInvite.query.filter_by(
+        child_id=child_id, used_by=None,
+    ).filter(ChildInvite.expires_at > datetime.utcnow()).first()
+
+    if existing:
+        flash(f'invite_code:{existing.invite_code}', 'success')
+    else:
+        alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+        code = ''.join(secrets.choice(alphabet) for _ in range(6))
+        invite = ChildInvite(
+            invite_code=code,
+            child_id=child_id,
+            created_by=current_user.parent_id,
+            expires_at=datetime.utcnow() + timedelta(hours=48),
+        )
+        db.session.add(invite)
+        db.session.commit()
+        flash(f'invite_code:{code}', 'success')
+
+    return redirect(_lang_url(f'/admin/children/{child_id}'))
+
+
+# ---- 招待コード受理 ----
+@dual_route(admin_children_bp, '/admin/accept-invite', methods=['POST'])
+@login_required
+@parent_required
+def admin_accept_invite():
+    from datetime import datetime
+
+    code = request.form.get('invite_code', '').strip().upper()
+    if not code:
+        flash('invite_invalid', 'error')
+        return redirect(_lang_url('/admin/dashboard'))
+
+    invite = ChildInvite.query.filter_by(
+        invite_code=code, used_by=None,
+    ).filter(ChildInvite.expires_at > datetime.utcnow()).first()
+
+    if not invite:
+        flash('invite_invalid', 'error')
+        return redirect(_lang_url('/admin/dashboard'))
+
+    # 既にリンク済みかチェック
+    existing_link = ParentChild.query.filter_by(
+        parent_id=current_user.parent_id,
+        child_id=invite.child_id,
+    ).first()
+
+    if existing_link:
+        flash('invite_already_linked', 'error')
+        return redirect(_lang_url('/admin/dashboard'))
+
+    # リンク作成
+    link = ParentChild(
+        parent_id=current_user.parent_id,
+        child_id=invite.child_id,
+        role='caretaker',
+    )
+    db.session.add(link)
+
+    # 招待を使用済みに
+    invite.used_by = current_user.parent_id
+    invite.used_at = datetime.utcnow()
+    db.session.commit()
+
+    child = Child.query.get(invite.child_id)
+    flash(f'invite_accepted:{child.display_name}', 'success')
+    return redirect(_lang_url('/admin/dashboard'))

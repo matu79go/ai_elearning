@@ -143,9 +143,14 @@ def admin_materials_chunk_detail(material_id, chunk_id):
         material_id=material_id
     ).order_by(MaterialChunk.sort_order).all()
 
+    video_url = None
+    if chunk.video_drive_id:
+        video_url = f'https://drive.google.com/file/d/{chunk.video_drive_id}/preview'
+
     return render_template('admin/material_chunk_detail.html',
                            material=material, chunk=chunk,
-                           questions=questions, all_chunks=all_chunks)
+                           questions=questions, all_chunks=all_chunks,
+                           video_url=video_url)
 
 
 @dual_route(admin_materials_bp, '/admin/materials/<int:material_id>/chunks/<int:chunk_id>/generate', methods=['POST'])

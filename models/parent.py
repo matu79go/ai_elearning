@@ -48,6 +48,18 @@ class Parent(db.Model):
         )
 
 
+class ChildInvite(db.Model):
+    __tablename__ = 'child_invites'
+    id = db.Column(db.Integer, primary_key=True)
+    invite_code = db.Column(db.String(10), unique=True, nullable=False)
+    child_id = db.Column(db.Integer, db.ForeignKey('children.child_id'), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('parents.parent_id'), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used_by = db.Column(db.Integer, db.ForeignKey('parents.parent_id'))
+    used_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+
+
 class ParentChild(db.Model):
     __tablename__ = 'parent_children'
     id = db.Column(db.Integer, primary_key=True)

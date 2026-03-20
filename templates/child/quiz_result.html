@@ -229,6 +229,25 @@
 
 {% block scripts %}
 <script>
+// Celebration on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const mastered = {{ mastered }}, total = {{ total }};
+    const pct = total > 0 ? Math.round(mastered / total * 100) : 0;
+    if (pct === 100) {
+        SFX.fanfare();
+        if (typeof confetti === 'function') {
+            confetti({ particleCount: 200, spread: 70, origin: { y: 0.6 } });
+            setTimeout(() => confetti({ particleCount: 100, angle: 60, spread: 55, origin: { x: 0 } }), 400);
+            setTimeout(() => confetti({ particleCount: 100, angle: 120, spread: 55, origin: { x: 1 } }), 400);
+        }
+    } else if (pct >= 70) {
+        SFX.correct();
+        if (typeof confetti === 'function') {
+            confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
+        }
+    }
+});
+
 function toggleDetail(item) {
     const detail = item.querySelector('.result-detail');
     const isOpen = detail.classList.contains('open');

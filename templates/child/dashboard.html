@@ -104,6 +104,94 @@
     }
 
 
+    /* Daily Goal Card */
+    .daily-goal-card {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0.75rem 1rem; background: #fef3c7; border-radius: 14px;
+        margin-bottom: 6px;
+    }
+    .daily-goal-card.goal-done { background: #d1fae5; }
+    .goal-left { display: flex; align-items: center; gap: 10px; }
+    .goal-icon { font-size: 24px; }
+    .goal-title { font-size: 12px; font-weight: 700; color: #92400e; }
+    .goal-done .goal-title { color: #047857; }
+    .goal-status { font-size: 13px; font-weight: 600; color: #b45309; }
+    .goal-done .goal-status { color: #059669; }
+    .goal-right { text-align: right; }
+    .goal-count { font-size: 22px; font-weight: 800; color: #1e293b; }
+    .goal-slash { font-size: 16px; font-weight: 400; color: #94a3b8; margin: 0 2px; }
+    .goal-bar { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-bottom: 0.75rem; }
+    .goal-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #fbbf24, #f59e0b); transition: width 0.5s; }
+    .goal-bar-fill.complete { background: linear-gradient(90deg, #10b981, #059669); }
+
+    /* Subject Filter Pills */
+    .subject-pills {
+        display: flex; gap: 6px; flex-wrap: wrap;
+        margin-bottom: 0.75rem;
+    }
+    .subject-pill {
+        padding: 4px 12px; border-radius: 20px;
+        font-size: 11px; font-weight: 600;
+        background: #f1f5f9; color: #64748b;
+        border: 1.5px solid transparent; cursor: pointer;
+        transition: all 0.2s; white-space: nowrap;
+    }
+    .subject-pill:hover { background: #e2e8f0; }
+    .subject-pill.active {
+        background: #eef2ff; color: #6366f1;
+        border-color: #6366f1;
+    }
+
+    /* Week Navigation */
+    .week-nav {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 0.75rem;
+    }
+    .week-nav-btn {
+        font-size: 11px; font-weight: 600; color: #6366f1;
+        text-decoration: none; display: flex; align-items: center; gap: 4px;
+        padding: 4px 8px; border-radius: 6px; transition: background 0.2s;
+    }
+    .week-nav-btn:hover { background: #eef2ff; }
+    .week-nav-btn.disabled { color: #94a3b8; pointer-events: none; }
+    .week-nav-label { font-size: 12px; font-weight: 600; color: #64748b; }
+
+    /* Bar Chart */
+    .bar-chart {
+        display: flex; gap: 6px; align-items: flex-end;
+        height: 140px; padding: 0 4px;
+    }
+    .bar-col {
+        flex: 1; display: flex; flex-direction: column;
+        align-items: center; height: 100%; min-width: 0;
+    }
+    .bar-value {
+        font-size: 10px; font-weight: 700; color: #64748b;
+        margin-bottom: 4px; height: 14px;
+    }
+    .bar-track {
+        flex: 1; width: 100%; max-width: 36px;
+        background: #f1f5f9; border-radius: 6px;
+        display: flex; flex-direction: column; justify-content: flex-end;
+        overflow: hidden;
+    }
+    .bar-fill {
+        width: 100%; border-radius: 6px;
+        background: linear-gradient(180deg, #818cf8, #6366f1);
+        transition: height 0.5s ease; min-height: 0;
+    }
+    .bar-fill.bar-today { background: linear-gradient(180deg, #fbbf24, #f59e0b); }
+    .bar-col.today .bar-label { color: #f59e0b; font-weight: 800; }
+    .bar-label { font-size: 11px; font-weight: 600; color: #64748b; margin-top: 6px; }
+    .bar-date { font-size: 9px; color: #94a3b8; }
+    .bar-pt { font-size: 9px; font-weight: 600; color: #f59e0b; white-space: nowrap; }
+
+    @media (max-width: 480px) {
+        .bar-chart { height: 120px; gap: 4px; }
+        .bar-track { max-width: 28px; }
+        .goal-count { font-size: 18px; }
+    }
+
 </style>
 {% endblock %}
 
@@ -117,6 +205,136 @@
 
 {% block main_content %}
 <div class="content-card">
+
+    <!-- Today's Goal -->
+    {% set goal_pct = ((today_count / daily_goal * 100) | round | int) if daily_goal > 0 else 0 %}
+    {% set goal_reached = today_count >= daily_goal %}
+    <div class="daily-goal-card {{ 'goal-done' if goal_reached }}">
+        <div class="goal-left">
+            <div class="goal-icon">{{ '🎉' if goal_reached else '🎯' }}</div>
+            <div>
+                <div class="goal-title">{{ t.child.today_goal }}</div>
+                <div class="goal-status">
+                    {% if goal_reached %}
+                    {{ t.child.today_goal_done }}
+                    {% else %}
+                    {{ t.child.today_goal_remaining | replace('{n}', (daily_goal - today_count) | string) }}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="goal-right">
+            <span class="goal-count">{{ today_count }}<span class="goal-slash">/</span>{{ daily_goal }}</span>
+        </div>
+    </div>
+    <div class="goal-bar">
+        <div class="goal-bar-fill {{ 'complete' if goal_reached }}" style="width: {{ [goal_pct, 100] | min }}%"></div>
+    </div>
+
+    <!-- Weekly Progress Bar Chart -->
+    {% set day_names = [t.child.day_mon, t.child.day_tue, t.child.day_wed, t.child.day_thu, t.child.day_fri, t.child.day_sat, t.child.day_sun] %}
+    <div class="section-label" style="margin-top: 1.25rem;">
+        {{ t.child.weekly_progress }}
+        <span id="childWeekTotal" style="font-size:12px; color:#94a3b8; font-weight:400;">{{ weekly.week_total }} {{ t.child.questions_answered }}</span>
+    </div>
+
+    <!-- Subject Filter Pills -->
+    {% if weekly.subjects %}
+    <div class="subject-pills" id="childSubjectPills">
+        <button class="subject-pill active" data-subject="all">{{ t.child.filter_all }}</button>
+        {% for subj in weekly.subjects %}
+        {% set cfg = SUBJ.get(subj, {'emoji': '📚'}) %}
+        <button class="subject-pill" data-subject="{{ subj }}">{{ cfg.emoji }} {{ subj }}</button>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="week-nav">
+        <a href="{{ lang_url('/child/dashboard?week=' ~ (weekly.week_offset - 1)) }}" class="week-nav-btn">
+            <i class="fas fa-chevron-left"></i> {{ t.child.prev_week }}
+        </a>
+        <span class="week-nav-label">
+            {{ weekly.monday.strftime('%m/%d') }} - {{ weekly.sunday.strftime('%m/%d') }}
+        </span>
+        {% if weekly.week_offset < 0 %}
+        <a href="{{ lang_url('/child/dashboard?week=' ~ (weekly.week_offset + 1)) }}" class="week-nav-btn">
+            {{ t.child.next_week }} <i class="fas fa-chevron-right"></i>
+        </a>
+        {% else %}
+        <span class="week-nav-btn disabled">{{ t.child.this_week }}</span>
+        {% endif %}
+    </div>
+
+    <div class="bar-chart" id="childBarChart">
+        {% for day in weekly.days %}
+        {% set is_today = day.date == today_date %}
+        <div class="bar-col {{ 'today' if is_today }}"
+             data-total="{{ day.total }}" data-correct="{{ day.correct }}"
+             data-by-subject='{{ day.by_subject | tojson }}'>
+            <div class="bar-value">{{ day.total if day.total > 0 else '' }}</div>
+            <div class="bar-track">
+                <div class="bar-fill {{ 'bar-today' if is_today }}" style="height: 0%"></div>
+            </div>
+            <div class="bar-label">{{ day_names[day.day_idx] }}</div>
+            <div class="bar-date">{{ day.date.strftime('%-d') }}</div>
+            <div class="bar-pt"></div>
+        </div>
+        {% endfor %}
+    </div>
+    <script>
+    (function() {
+        const chart = document.getElementById('childBarChart');
+        const totalSpan = document.getElementById('childWeekTotal');
+        const answeredLabel = '{{ t.child.questions_answered }}';
+        const cols = chart.querySelectorAll('.bar-col');
+
+        const ptUnit = '{{ t.child.pt_unit|default("pt") }}';
+
+        function updateChart(subject) {
+            let maxVal = 0;
+            const values = [], corrects = [];
+            cols.forEach(col => {
+                let val, cor;
+                if (subject === 'all') {
+                    val = parseInt(col.dataset.total) || 0;
+                    cor = parseInt(col.dataset.correct) || 0;
+                } else {
+                    const bySubj = JSON.parse(col.dataset.bySubject);
+                    val = bySubj[subject] ? bySubj[subject].total : 0;
+                    cor = bySubj[subject] ? bySubj[subject].correct : 0;
+                }
+                values.push(val);
+                corrects.push(cor);
+                if (val > maxVal) maxVal = val;
+            });
+
+            let weekSum = 0;
+            cols.forEach((col, i) => {
+                const val = values[i];
+                const cor = corrects[i];
+                weekSum += val;
+                col.querySelector('.bar-value').textContent = val > 0 ? val : '';
+                const pct = maxVal > 0 ? Math.round(val / maxVal * 100) : 0;
+                col.querySelector('.bar-fill').style.height = pct + '%';
+                col.querySelector('.bar-pt').textContent = cor > 0 ? cor + ptUnit : '';
+            });
+            totalSpan.textContent = weekSum + ' ' + answeredLabel;
+        }
+
+        // Initial render
+        updateChart('all');
+
+        // Pill click handlers
+        const pills = document.querySelectorAll('#childSubjectPills .subject-pill');
+        pills.forEach(pill => {
+            pill.addEventListener('click', function() {
+                pills.forEach(p => p.classList.remove('active'));
+                this.classList.add('active');
+                updateChart(this.dataset.subject);
+            });
+        });
+    })();
+    </script>
 
     <!-- Continue / Start Playing (subjects with progress or published questions) -->
     {% set active_subjects = subjects_data | selectattr('total', 'gt', 0) | list %}
@@ -175,33 +393,18 @@
 
     <!-- Badges -->
     <div class="section-label">
-        {{ t.child.menu_badges }}
+        {{ t.child.menu_badges }} <span style="font-size:12px; color:#94a3b8; font-weight:400;">({{ earned_ids|length }}/{{ all_badges|length }})</span>
     </div>
     <div class="badges-grid">
+        {% for badge in all_badges %}
+        {% set earned = badge.badge_id in earned_ids %}
         <div class="badge-item">
-            <div class="badge-circle" style="background: linear-gradient(135deg, #fbbf24, #f59e0b);">🏆</div>
-            <div class="badge-name">{{ t.child.badge_first }}</div>
+            <div class="badge-circle {{ '' if earned else 'locked' }}" {% if earned %}style="background: linear-gradient(135deg, {{ badge.color }}, {{ badge.color }}cc);"{% endif %}>
+                <i class="fas {{ badge.icon }}" style="font-size:24px; {% if earned %}color:white;{% endif %}"></i>
+            </div>
+            <div class="badge-name">{% if t.lang_code == 'ja' %}{{ badge.name_ja }}{% else %}{{ badge.name_en }}{% endif %}</div>
         </div>
-        <div class="badge-item">
-            <div class="badge-circle locked">🔥</div>
-            <div class="badge-name">{{ t.child.badge_streak }}</div>
-        </div>
-        <div class="badge-item">
-            <div class="badge-circle locked">💪</div>
-            <div class="badge-name">{{ t.child.badge_effort }}</div>
-        </div>
-        <div class="badge-item">
-            <div class="badge-circle locked">⭐</div>
-            <div class="badge-name">{{ t.child.badge_points }}</div>
-        </div>
-        <div class="badge-item">
-            <div class="badge-circle locked">⚡</div>
-            <div class="badge-name">{{ t.child.badge_speed }}</div>
-        </div>
-        <div class="badge-item">
-            <div class="badge-circle locked">🧠</div>
-            <div class="badge-name">{{ t.child.badge_weakness }}</div>
-        </div>
+        {% endfor %}
     </div>
 
 </div>

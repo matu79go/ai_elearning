@@ -13,6 +13,7 @@ class Child(db.Model):
     level = db.Column(db.Integer, default=1)
     streak_count = db.Column(db.Integer, default=0)
     last_study_date = db.Column(db.Date)
+    daily_goal = db.Column(db.Integer, default=10, nullable=False)
     created_by = db.Column(db.Integer, db.ForeignKey('parents.parent_id'))
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
