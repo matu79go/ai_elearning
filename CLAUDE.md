@@ -81,11 +81,38 @@ ai_elearning/
 
 ## 本番環境（さくらVPS）
 
-※ 詳細は `docs/deployment.md` に記載予定
+※ 詳細は `docs/deployment.md` を参照
+
+| 項目 | 値 |
+|------|-----|
+| IP | 153.126.192.71 |
+| ドメイン | ai-elearning.net |
+| SSH | `ssh -i ~/.ssh/github_matu79go ubuntu@153.126.192.71` |
+| アプリパス | `/home/ubuntu/ai_elearning` |
+| ブランチ | `feature/child-ui-prototype` |
+
+### デプロイ手順
+
+ユーザーが「デプロイして」と言ったら以下を実行する:
 
 ```bash
-# デプロイ（git経由）
-ssh -i ~/.ssh/sakura_key ubuntu@<VPS_IP> "cd ~/ai_elearning && git pull && sudo docker-compose restart app"
+# 1. commit（未commitの変更がある場合）
+git add <変更ファイル>
+git commit -m "コミットメッセージ"
+
+# 2. push
+git push origin feature/child-ui-prototype
+
+# 3. VPSでpull & 再ビルド
+ssh -i ~/.ssh/github_matu79go ubuntu@153.126.192.71 \
+  "cd ~/ai_elearning && git pull origin feature/child-ui-prototype && sudo docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build"
+```
+
+### 本番DB操作
+
+```bash
+ssh -i ~/.ssh/github_matu79go ubuntu@153.126.192.71 \
+  "sudo docker exec elearn_mysql mysql -uroot -pEL3arn_Pr0d_2026! elearning -e 'SQL文'"
 ```
 
 ---
@@ -95,4 +122,4 @@ ssh -i ~/.ssh/sakura_key ubuntu@<VPS_IP> "cd ~/ai_elearning && git pull && sudo 
 - `docs/requirements.md` — 要件定義
 - `docs/design.md` — システム設計
 - `docs/database.md` — DB設計
-- `docs/deployment.md` — デプロイ手順（予定）
+- `docs/deployment.md` — デプロイ手順・VPS設定
