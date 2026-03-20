@@ -337,8 +337,13 @@ def admin_children_section(child_id, chunk_id):
         child_id=child_id, mastered=True).count()
 
     video_url = None
-    if chunk.video_drive_id:
-        video_url = f'https://drive.google.com/file/d/{chunk.video_drive_id}/preview'
+    video_type = None
+    if chunk.video_youtube_id:
+        video_url = f'https://www.youtube-nocookie.com/embed/{chunk.video_youtube_id}'
+        video_type = 'youtube'
+    elif chunk.video_drive_id:
+        video_url = f'/child/drive-video/{chunk_id}'
+        video_type = 'gdrive'
 
     return render_template('admin/child_section.html',
                            child=child, chunk=chunk, material=material,
@@ -346,7 +351,7 @@ def admin_children_section(child_id, chunk_id):
                            mastered_count=mastered_count,
                            total_questions=total_questions,
                            total_mastered=total_mastered,
-                           video_url=video_url)
+                           video_url=video_url, video_type=video_type)
 
 
 # ---- ポイント編集 ----

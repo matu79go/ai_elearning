@@ -35,6 +35,7 @@ class MaterialChunk(db.Model):
     page_end = db.Column(db.Integer)
     sort_order = db.Column(db.Integer, nullable=False, default=0)
     video_drive_id = db.Column(db.String(100))
+    video_youtube_id = db.Column(db.String(20))
     video_status = db.Column(db.String(10), nullable=False, default='none')
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 

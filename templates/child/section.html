@@ -249,14 +249,24 @@
     {% endif %}
 
     <!-- Video Player -->
-    {% if video_url %}
-    {# Google Drive キャッシュ済み — iframe embed #}
+    {% if video_url and video_type == 'youtube' %}
+    {# YouTube — iframe embed #}
     <div class="learn-card" id="videoCard">
         <div class="card-label purple"><i class="fas fa-video"></i> {{ t.child.section_lesson_video }}</div>
         <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:10px;">
             <iframe src="{{ video_url }}" style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;"
                     allow="autoplay; encrypted-media" allowfullscreen></iframe>
         </div>
+    </div>
+    {% elif video_url and video_type == 'gdrive' %}
+    {# Google Drive — video タグで直接再生 #}
+    <div class="learn-card" id="videoCard">
+        <div class="card-label purple"><i class="fas fa-video"></i> {{ t.child.section_lesson_video }}</div>
+        <video controls preload="metadata"
+               style="width:100%; border-radius:10px; background:#000;"
+               controlsList="nodownload">
+            <source src="{{ video_url }}" type="video/mp4">
+        </video>
     </div>
     {% else %}
     {# 未キャッシュ — Oak APIで可用性チェック後に表示 #}

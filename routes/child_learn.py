@@ -163,16 +163,22 @@ def child_section(chunk_id):
         subject=material.subject, year_group=material.year_group, status='published',
     ).order_by(Material.sort_order, Material.material_id).all()
 
-    # 動画URL: Google Driveキャッシュ済みなら直リンク、なければプロキシ経由
+    # 動画URL: YouTube優先、なければDriveプロキシ
     video_url = None
-    if chunk.video_drive_id:
-        video_url = f'https://drive.google.com/file/d/{chunk.video_drive_id}/preview'
+    video_type = None
+    if chunk.video_youtube_id:
+        video_url = f'https://www.youtube-nocookie.com/embed/{chunk.video_youtube_id}'
+        video_type = 'youtube'
+    elif chunk.video_drive_id:
+        video_url = f'/child/drive-video/{chunk.chunk_id}'
+        video_type = 'gdrive'
 
     return render_template('child/section.html',
                            chunk=chunk, material=material, parsed=parsed,
                            total_questions=len(questions), mastered_count=mastered_count,
                            all_chunks=all_chunks, chunk_progress=chunk_progress,
-                           sibling_units=sibling_units, video_url=video_url)
+                           sibling_units=sibling_units,
+                           video_url=video_url, video_type=video_type)
 
 
 # ---- クイズ画面 ----
@@ -751,17 +757,98 @@ def _get_lesson_slug(chunk):
     return slug
 
 
+def _get_drive_creds():
+    """Google Drive OAuth認証情報を取得（キャッシュ付き）"""
+    from google.oauth2.credentials import Credentials as OAuthCredentials
+    from google.auth.transport.requests import Request as GRequest
+
+    creds_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                              'credentials', 'gdrive_token.json')
+    if not os.path.exists(creds_path):
+        return None
+
+    creds = OAuthCredentials.from_authorized_user_file(
+        creds_path, ['https://www.googleapis.com/auth/drive.file'])
+    if creds.expired and creds.refresh_token:
+        creds.refresh(GRequest())
+        with open(creds_path, 'w') as f:
+            f.write(creds.to_json())
+    return creds
+
+
+@dual_route(child_learn_bp, '/child/drive-video/<int:chunk_id>')
+@login_required
+def child_drive_video(chunk_id):
+    """Google Drive動画をRange Request対応でプロキシ配信（HTTP直接）"""
+    chunk = MaterialChunk.query.get_or_404(chunk_id)
+    if not chunk.video_drive_id:
+        abort(404)
+
+    creds = _get_drive_creds()
+    if not creds:
+        abort(500)
+
+    file_id = chunk.video_drive_id
+    api_url = f'https://www.googleapis.com/drive/v3/files/{file_id}?alt=media'
+
+    # まずファイルサイズ取得（HEADリクエスト相当）
+    import urllib.request as urlreq
+    size_req = urlreq.Request(
+        f'https://www.googleapis.com/drive/v3/files/{file_id}?fields=size',
+        headers={'Authorization': f'Bearer {creds.token}'},
+    )
+    with urlreq.urlopen(size_req, timeout=10) as resp:
+        file_size = int(json.loads(resp.read()).get('size', 0))
+
+    if file_size == 0:
+        abort(404)
+
+    # Range Request パース
+    range_header = request.headers.get('Range')
+    CHUNK_SIZE = 2 * 1024 * 1024  # 2MB
+
+    if range_header:
+        range_match = range_header.replace('bytes=', '').split('-')
+        start = int(range_match[0]) if range_match[0] else 0
+        end = int(range_match[1]) if range_match[1] else min(start + CHUNK_SIZE - 1, file_size - 1)
+    else:
+        start = 0
+        end = min(CHUNK_SIZE - 1, file_size - 1)
+
+    end = min(end, file_size - 1)
+
+    # Google Drive APIから該当バイト範囲を取得
+    dl_req = urlreq.Request(api_url, headers={
+        'Authorization': f'Bearer {creds.token}',
+        'Range': f'bytes={start}-{end}',
+    })
+
+    with urlreq.urlopen(dl_req, timeout=30) as resp:
+        data = resp.read()
+
+    return Response(
+        data,
+        status=206,
+        headers={
+            'Content-Type': 'video/mp4',
+            'Content-Range': f'bytes {start}-{start + len(data) - 1}/{file_size}',
+            'Content-Length': str(len(data)),
+            'Accept-Ranges': 'bytes',
+            'Cache-Control': 'public, max-age=86400',
+        },
+    )
+
+
 @dual_route(child_learn_bp, '/child/oak-video/<int:chunk_id>')
 @login_required
 def child_oak_video(chunk_id):
-    """Oak 動画配信 — Google Driveキャッシュ優先、フォールバックでOak APIプロキシ"""
-    from flask import redirect
+    """Oak 動画配信 — Google Driveプロキシ優先、フォールバックでOak APIプロキシ"""
     chunk = MaterialChunk.query.get_or_404(chunk_id)
 
-    # Google Drive にキャッシュ済みならリダイレクト（シーク対応・高速）
+    # Google Drive にキャッシュ済みならDriveプロキシへリダイレクト
     if chunk.video_drive_id:
-        drive_url = f'https://drive.google.com/uc?export=download&id={chunk.video_drive_id}'
-        return redirect(drive_url)
+        from flask import redirect
+        return redirect(request.url.replace('/oak-video/', '/drive-video/'))
 
     # フォールバック: Oak API からストリーミングプロキシ
     lesson_slug = _get_lesson_slug(chunk)
