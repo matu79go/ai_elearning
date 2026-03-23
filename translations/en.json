@@ -3,6 +3,9 @@
     "lang_switch": "日本語",
     "lang_code": "en",
 
+    "pwa_install": "Install App",
+    "pwa_dismiss": "Not now",
+
     "top": {
         "title": "AI e-Learning - Welcome!",
         "heading": "AI e-Learning",

@@ -231,11 +231,55 @@
     {% endblock %}
     {% block body %}{% endblock %}
     {% block scripts %}{% endblock %}
+    <!-- PWA Install Banner (Android Chrome) -->
+    <div id="pwa-install-banner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9999;
+        background:linear-gradient(135deg,#667eea,#764ba2); color:white; padding:14px 20px;
+        box-shadow:0 -4px 20px rgba(0,0,0,0.2); font-family:'Inter',sans-serif;">
+        <div style="max-width:960px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <img src="/static/images/favicon.png" alt="" style="width:36px; height:36px; border-radius:8px;">
+                <span style="font-weight:600; font-size:15px;">{{ t.pwa_install }}</span>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button id="pwa-dismiss" style="background:transparent; border:1px solid rgba(255,255,255,0.4);
+                    color:white; padding:6px 14px; border-radius:20px; font-size:13px; cursor:pointer;">{{ t.pwa_dismiss }}</button>
+                <button id="pwa-install-btn" style="background:white; border:none; color:#667eea;
+                    padding:6px 18px; border-radius:20px; font-weight:600; font-size:13px; cursor:pointer;">Install</button>
+            </div>
+        </div>
+    </div>
     <script>
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js', { scope: '/' })
             .catch(function(err) { console.log('SW registration failed:', err); });
     }
+    (function() {
+        var deferredPrompt = null;
+        var banner = document.getElementById('pwa-install-banner');
+        var dismissed = localStorage.getItem('pwa-install-dismissed');
+        var isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+        if (dismissed || isStandalone) return;
+
+        window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            deferredPrompt = e;
+            banner.style.display = 'block';
+        });
+
+        document.getElementById('pwa-install-btn').addEventListener('click', function() {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then(function() {
+                deferredPrompt = null;
+                banner.style.display = 'none';
+            });
+        });
+
+        document.getElementById('pwa-dismiss').addEventListener('click', function() {
+            banner.style.display = 'none';
+            localStorage.setItem('pwa-install-dismissed', '1');
+        });
+    })();
     </script>
 </body>
 </html>
