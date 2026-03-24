@@ -5,7 +5,7 @@
         <div class="sidebar-avatar">{{ my_avatar }}</div>
         <div>
             <div class="sidebar-name">{{ current_user.display_name }}</div>
-            <div class="sidebar-grade">Year {{ 7 }}</div>
+            <div class="sidebar-grade">Year {{ current_user.grade or '?' }}</div>
         </div>
     </a>
 

@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import Blueprint, render_template, request, redirect, flash
+from flask import Blueprint, render_template, request, redirect, flash, jsonify
 from flask_login import login_required, current_user
 from sqlalchemy import func, case
 from models import db
@@ -112,7 +112,7 @@ def admin_children_add():
     pin_confirm = request.form.get('pin_confirm', '')
 
     errors = []
-    if not display_name or not pin:
+    if not display_name or not pin or not grade:
         errors.append('required_fields')
     if pin != pin_confirm:
         errors.append('pin_mismatch')
@@ -143,6 +143,65 @@ def admin_children_add():
 
     flash('child_added', 'success')
     return redirect(_lang_url('/admin/children'))
+
+
+@dual_route(admin_children_bp, '/admin/family-code', methods=['POST'])
+@login_required
+@parent_required
+def admin_family_code_update():
+    """Family Code を更新（重複チェック付き）"""
+    data = request.get_json() or {}
+    new_code = data.get('family_code', '').strip().upper()
+
+    if not new_code.isalnum():
+        return jsonify({'success': False, 'error': 'Letters and numbers only'}), 400
+
+    if len(new_code) < 5 or len(new_code) > 10:
+        return jsonify({'success': False, 'error': 'Code must be 5-10 characters'}), 400
+
+    if new_code == current_user.family_code:
+        return jsonify({'success': True, 'family_code': new_code})
+
+    existing = Parent.query.filter_by(family_code=new_code).first()
+    if existing:
+        return jsonify({'success': False, 'error': 'This code is already taken'}), 409
+
+    current_user.family_code = new_code
+    db.session.commit()
+    return jsonify({'success': True, 'family_code': new_code})
+
+
+@dual_route(admin_children_bp, '/admin/children/<int:child_id>/edit', methods=['POST'])
+@login_required
+@parent_required
+def admin_children_edit(child_id):
+    """子供情報を更新（JSON API）"""
+    child = _verify_parent_owns_child(child_id)
+    if not child:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+
+    data = request.get_json() or {}
+    display_name = data.get('display_name', '').strip()
+    grade = data.get('grade', '')
+    pin = data.get('pin', '').strip()
+    pin_confirm = data.get('pin_confirm', '').strip()
+
+    if not display_name:
+        return jsonify({'success': False, 'error': 'Name is required'}), 400
+    if not grade:
+        return jsonify({'success': False, 'error': 'Year is required'}), 400
+
+    if pin:
+        if len(pin) != 4 or not pin.isdigit():
+            return jsonify({'success': False, 'error': 'PIN must be 4 digits'}), 400
+        if pin != pin_confirm:
+            return jsonify({'success': False, 'error': 'PIN does not match'}), 400
+        child.set_pin(pin)
+
+    child.display_name = display_name
+    child.grade = int(grade)
+    db.session.commit()
+    return jsonify({'success': True})
 
 
 @dual_route(admin_children_bp, '/admin/children/<int:child_id>/delete', methods=['POST'])

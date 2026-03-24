@@ -159,10 +159,11 @@
             {% if q.question_type == 'multiple_choice' and q.options %}
             <div class="qa-options">
                 {% for opt in q.options %}
-                <div class="qa-option {{ 'qa-option-correct' if opt.label == q.correct_answer }}">
+                {% set correct_labels = q.correct_answer.split(',') if q.correct_answer else [] %}
+                <div class="qa-option {{ 'qa-option-correct' if opt.label in correct_labels }}">
                     <span class="qa-option-label">{{ opt.label }}</span>
                     <span>{{ opt.text }}</span>
-                    {% if opt.label == q.correct_answer %}
+                    {% if opt.label in correct_labels %}
                     <i class="fas fa-check" style="margin-left:auto; color:#059669;"></i>
                     {% endif %}
                 </div>

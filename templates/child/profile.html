@@ -130,7 +130,7 @@
     <div class="mobile-profile-stats">
         <div class="mobile-profile-avatar">{{ my_avatar }}</div>
         <div class="mobile-profile-name">{{ current_user.display_name }}</div>
-        <div class="mobile-profile-grade">Year {{ 7 }}</div>
+        <div class="mobile-profile-grade">Year {{ current_user.grade or '?' }}</div>
         <div class="mobile-stats-row">
             <div class="mobile-stat-box">
                 <div class="mobile-stat-val">{{ current_user.total_points }}</div>

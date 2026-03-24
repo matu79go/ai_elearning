@@ -279,7 +279,7 @@ def extract_quiz_questions(quiz_data, chunk_id):
         # --- multiple-choice ---
         if q_type == 'multiple-choice':
             options = []
-            correct_label = None
+            correct_labels = []
             labels = ['A', 'B', 'C', 'D', 'E', 'F']
 
             for i, a in enumerate(answers):
@@ -288,14 +288,14 @@ def extract_quiz_questions(quiz_data, chunk_id):
                 label = labels[i]
                 options.append({'label': label, 'text': a.get('content', '')})
                 if not a.get('distractor', True):
-                    correct_label = label
+                    correct_labels.append(label)
 
-            if options and correct_label:
+            if options and correct_labels:
                 questions.append(Question(
                     question_type='multiple_choice',
                     question_text=question_text,
                     options=options,
-                    correct_answer=correct_label,
+                    correct_answer=','.join(correct_labels),
                     difficulty='normal',
                     chunk_id=chunk_id,
                     source='oak',
@@ -389,7 +389,7 @@ def ks_label(key_stage):
 
 
 def import_unit(key_stage, subject_slug, subject_name, year, unit_slug, unit_title,
-                parent_id, dry_run=False):
+                parent_id, dry_run=False, sort_order=0):
     """1単元分をインポート"""
     ks = ks_label(key_stage)
     material_title = f'{ks} {subject_name} - {unit_title}'
@@ -437,6 +437,7 @@ def import_unit(key_stage, subject_slug, subject_name, year, unit_slug, unit_tit
         language='en',
         status='published',
         created_by=parent_id,
+        sort_order=sort_order,
     )
     db.session.add(material)
     db.session.flush()
@@ -535,6 +536,70 @@ def reimport_quiz_for_existing(subjects, target_years, key_stages):
     print(f'\n  Total added: {total_added} questions')
 
 
+def fix_multi_answer(subjects, target_years, key_stages):
+    """既存MC問題の correct_answer を Oak API から再取得して複数正解に修正"""
+    query = Material.query
+    if subjects:
+        query = query.filter(Material.subject.in_(subjects.values()))
+    if target_years:
+        query = query.filter(Material.year_group.in_(target_years))
+
+    materials = query.order_by(Material.year_group, Material.subject).all()
+    print(f'\nFix multi-answer mode: {len(materials)} materials')
+
+    total_fixed = 0
+    total_checked = 0
+    labels = ['A', 'B', 'C', 'D', 'E', 'F']
+
+    for mat in materials:
+        chunks = MaterialChunk.query.filter_by(material_id=mat.material_id)\
+            .order_by(MaterialChunk.sort_order).all()
+
+        for chunk in chunks:
+            lesson_slug = _get_lesson_slug(chunk)
+            quiz = get_lesson_quiz(lesson_slug)
+            if not quiz:
+                continue
+
+            # APIからMC問題の正解マップを構築: question_text → correct_labels
+            api_answers = {}
+            for section in ['starterQuiz', 'exitQuiz']:
+                for q_data in quiz.get(section, []):
+                    if q_data.get('questionType') != 'multiple-choice':
+                        continue
+                    q_text = q_data.get('question', '').replace('{{}}', '[___]')
+                    answers = q_data.get('answers', [])
+                    correct = []
+                    for i, a in enumerate(answers):
+                        if i >= len(labels):
+                            break
+                        if not a.get('distractor', True):
+                            correct.append(labels[i])
+                    if correct:
+                        api_answers[q_text] = ','.join(correct)
+
+            # DB上のMC問題とマッチングして更新
+            db_questions = Question.query.filter_by(
+                chunk_id=chunk.chunk_id, question_type='multiple_choice'
+            ).all()
+
+            for q in db_questions:
+                total_checked += 1
+                new_answer = api_answers.get(q.question_text)
+                if new_answer and new_answer != q.correct_answer:
+                    old = q.correct_answer
+                    q.correct_answer = new_answer
+                    total_fixed += 1
+                    if ',' in new_answer:
+                        print(f'  MULTI: [{old}]->[{new_answer}] {q.question_text[:60]}')
+                    else:
+                        print(f'  FIX:   [{old}]->[{new_answer}] {q.question_text[:60]}')
+
+        db.session.commit()
+
+    print(f'\nChecked {total_checked} MC questions, fixed {total_fixed}')
+
+
 def import_subject(key_stage, subject_slug, subject_name, target_years,
                    parent_id, dry_run=False):
     """1教科分をインポート（指定学年のみ）"""
@@ -555,7 +620,42 @@ def import_subject(key_stage, subject_slug, subject_name, target_years,
     for i, (year, unit_slug, unit_title) in enumerate(units):
         print(f'\n  [{i+1}/{len(units)}] Year {year}: {unit_title}')
         import_unit(key_stage, subject_slug, subject_name, year,
-                    unit_slug, unit_title, parent_id, dry_run=dry_run)
+                    unit_slug, unit_title, parent_id, dry_run=dry_run,
+                    sort_order=i + 1)
+
+
+def fix_sort_order(subjects, target_years, key_stages):
+    """既存マテリアルの sort_order を Oak API のカリキュラム順で更新"""
+    total_fixed = 0
+    for ks in key_stages:
+        ks_years = target_years if target_years else KS_YEARS.get(ks, [])
+        for slug, name in subjects.items():
+            units = get_units(ks, slug, ks_years)
+            if not units:
+                continue
+            print(f'\n{ks_label(ks)} {name}: {len(units)} units')
+
+            for i, (year, unit_slug, unit_title) in enumerate(units):
+                order = i + 1
+                # タイトルで既存マテリアルを検索
+                pattern = f'%{unit_title}%'
+                mat = Material.query.filter(
+                    Material.subject == name,
+                    Material.year_group == year,
+                    Material.title.like(pattern),
+                ).first()
+                if mat:
+                    if mat.sort_order != order:
+                        print(f'  [{order}] {mat.title} (was {mat.sort_order})')
+                        mat.sort_order = order
+                        total_fixed += 1
+                    else:
+                        print(f'  [{order}] {mat.title} (OK)')
+                else:
+                    print(f'  [{order}] NOT FOUND: {unit_title}')
+
+    db.session.commit()
+    print(f'\nFixed {total_fixed} material sort orders')
 
 
 def main():
@@ -590,6 +690,10 @@ Examples:
                         help='Test API calls without writing to DB')
     parser.add_argument('--reimport-quiz', action='store_true',
                         help='Re-import quiz questions for existing materials (match→MC conversion)')
+    parser.add_argument('--fix-sort-order', action='store_true',
+                        help='Fix material sort_order from Oak API curriculum order')
+    parser.add_argument('--fix-multi-answer', action='store_true',
+                        help='Fix MC questions with multiple correct answers from Oak API')
     parser.add_argument('--list-subjects', action='store_true',
                         help='List available subject slugs and exit')
     args = parser.parse_args()
@@ -664,6 +768,14 @@ Examples:
         if args.years:
             print(f'Years: {args.years}')
         print(f'Rate limit: {REQUEST_INTERVAL}s/request (API: 1000 req/hour)')
+
+        if args.fix_sort_order:
+            fix_sort_order(subjects, args.years or [], key_stages)
+            return
+
+        if args.fix_multi_answer:
+            fix_multi_answer(subjects, args.years or [], key_stages)
+            return
 
         if args.reimport_quiz:
             # 既存マテリアルのチャンクに対してquizだけ再取得

@@ -60,6 +60,17 @@
             <div class="stat-value">{{ stats.total_points }}</div>
         </div>
     </div>
+    {% if llm_stats %}
+    <div class="stat-card">
+        <div class="stat-icon" style="background: #fef3c7; color: #d97706;">
+            <i class="fas fa-robot"></i>
+        </div>
+        <div class="stat-info">
+            <div class="stat-label">AI Usage (today)</div>
+            <div class="stat-value">{{ llm_stats.global_daily }} / {{ llm_stats.global_daily_limit }}</div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Children Overview -->

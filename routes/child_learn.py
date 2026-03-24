@@ -15,12 +15,22 @@ import urllib.error
 
 child_learn_bp = Blueprint('child_learn', __name__)
 
-YEAR_GROUP = 7  # 当面 Year 7 固定
-
-
 def _is_child():
     """子供ユーザーかチェック"""
     return hasattr(current_user, 'child_id')
+
+
+def _year_group():
+    """ログイン中の子供の学年を返す（未設定なら7）"""
+    return getattr(current_user, 'grade', None) or 7
+
+
+# 教科の表示順
+SUBJECT_ORDER = [
+    'Science', 'Maths', 'English', 'History', 'Geography',
+    'Computing', 'Spanish', 'French', 'German',
+]
+_SUBJ_ORDER_MAP = {s: i for i, s in enumerate(SUBJECT_ORDER)}
 
 
 # ---- 教科選択 ----
@@ -34,10 +44,11 @@ def child_subjects():
         Material.subject,
         func.count(Material.material_id).label('unit_count'),
     ).filter_by(
-        year_group=YEAR_GROUP,
+        year_group=_year_group(),
         status='published',
-    ).group_by(Material.subject).order_by(Material.subject).all()
+    ).group_by(Material.subject).all()
 
+    subjects = sorted(subjects, key=lambda s: _SUBJ_ORDER_MAP.get(s[0], 999))
     return render_template('child/subjects.html', subjects=subjects)
 
 
@@ -48,7 +59,7 @@ def child_units(subject):
     if not _is_child():
         abort(403)
     materials = Material.query.filter_by(
-        subject=subject, year_group=YEAR_GROUP, status='published',
+        subject=subject, year_group=_year_group(), status='published',
     ).order_by(Material.sort_order, Material.title).all()
 
     # 各単元のマスタリー進捗を計算（チャンク別も含む）
@@ -97,9 +108,10 @@ def child_units(subject):
         Material.subject,
         func.count(Material.material_id).label('unit_count'),
     ).filter_by(
-        year_group=YEAR_GROUP,
+        year_group=_year_group(),
         status='published',
-    ).group_by(Material.subject).order_by(Material.subject).all()
+    ).group_by(Material.subject).all()
+    all_subjects = sorted(all_subjects, key=lambda s: _SUBJ_ORDER_MAP.get(s[0], 999))
 
     return render_template('child/units.html',
                            subject=subject, units_data=units_data,
@@ -235,10 +247,12 @@ def child_quiz_check(chunk_id):
         if not question or question.chunk_id != chunk_id:
             continue
         if question.question_type == 'multiple_choice' and question.options:
-            correct_label = (question.correct_answer or '').strip()
-            correct_text = next(
-                (opt['text'] for opt in question.options if opt['label'] == correct_label), '')
-            display_answer = f"{correct_label}) {correct_text}" if correct_text else correct_label
+            correct_labels = [l.strip() for l in (question.correct_answer or '').split(',')]
+            parts = []
+            for cl in correct_labels:
+                ct = next((opt['text'] for opt in question.options if opt['label'] == cl), '')
+                parts.append(f"{cl}) {ct}" if ct else cl)
+            display_answer = ', '.join(parts)
         else:
             display_answer = (question.correct_answer or '').strip()
             if not display_answer:
@@ -261,7 +275,10 @@ def child_quiz_check(chunk_id):
         # 採点
         is_correct = False
         if question.question_type == 'multiple_choice':
-            is_correct = (user_answer.upper() == question.correct_answer.upper())
+            # 複数正解対応: ソートして比較
+            user_labels = sorted(user_answer.upper().split(','))
+            correct_labels = sorted(question.correct_answer.upper().split(','))
+            is_correct = (user_labels == correct_labels)
         elif question.question_type == 'free_response':
             is_correct = _grade_free_response(
                 user_answer, question.correct_answer, question.reference_answer)
@@ -292,11 +309,12 @@ def child_quiz_check(chunk_id):
 
         # 表示用の正解: MCは正解ラベル+テキスト、FRはreference_answer
         if question.question_type == 'multiple_choice' and question.options:
-            correct_label = (question.correct_answer or '').strip()
-            correct_text = next(
-                (opt['text'] for opt in question.options if opt['label'] == correct_label),
-                '')
-            display_answer = f"{correct_label}) {correct_text}" if correct_text else correct_label
+            correct_labels = [l.strip() for l in (question.correct_answer or '').split(',')]
+            parts = []
+            for cl in correct_labels:
+                ct = next((opt['text'] for opt in question.options if opt['label'] == cl), '')
+                parts.append(f"{cl}) {ct}" if ct else cl)
+            display_answer = ', '.join(parts)
         else:
             display_answer = (question.correct_answer or '').strip()
             if not display_answer:
@@ -442,6 +460,12 @@ Q1: [explanation]
 Q2: [explanation]"""
 
     try:
+        from services.rate_limiter import llm_limiter
+        limit_check = llm_limiter.check_and_record(
+            getattr(current_user, 'child_id', 0))
+        if limit_check is not True:
+            return  # レート超過 → 解説スキップ
+
         from openai import OpenAI
         client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
 
@@ -478,17 +502,53 @@ def child_hint(question_id):
     if not _is_child():
         return jsonify({'error': 'forbidden'}), 403
 
+    from services.rate_limiter import llm_limiter
+
     question = Question.query.get_or_404(question_id)
     data = request.get_json() or {}
     user_message = data.get('message', '')
 
-    # レベル1: 固定ヒント
+    # レベル1: 固定ヒント（未生成ならLLMで自動生成してDB保存）
     if not user_message:
         if not question.hint:
+            # レートリミットチェック（LLM呼び出しが必要な場合のみ）
+            limit_check = llm_limiter.check_and_record(current_user.child_id)
+            if limit_check is not True:
+                return jsonify({'hint': limit_check, 'type': 'rate_limited'})
+            try:
+                from services.llm import _call_llm
+                import os
+                model = os.environ.get('LLM_MODEL_SCORING', 'gemini-2.0-flash')
+
+                hint_prompt = f"""You are a friendly tutor for a primary/secondary school student.
+Generate a helpful hint for this question. Do NOT reveal the answer.
+Give a nudge that helps the student think in the right direction.
+Keep it to 1-2 sentences, simple English.
+
+Question: {question.question_text}
+Correct answer: {question.correct_answer}
+
+Hint:"""
+                generated_hint = _call_llm(hint_prompt, model=model)
+                if generated_hint:
+                    generated_hint = generated_hint.strip()
+                    question.hint = generated_hint
+                    db.session.commit()
+                    return jsonify({'hint': generated_hint, 'type': 'fixed'})
+            except Exception:
+                pass
             return jsonify({'hint': 'Think carefully about what you learned in this section!', 'type': 'fixed'})
         return jsonify({'hint': question.hint, 'type': 'fixed'})
 
-    # レベル2: AIチャット
+    # レベル2: AIチャット — レートリミット + チャット回数制限
+    chat_check = llm_limiter.check_hint_chat(current_user.child_id, question_id)
+    if chat_check is not True:
+        return jsonify({'hint': chat_check, 'type': 'rate_limited'})
+
+    limit_check = llm_limiter.check_and_record(current_user.child_id)
+    if limit_check is not True:
+        return jsonify({'hint': limit_check, 'type': 'rate_limited'})
+
     try:
         from services.llm import _call_llm
         import os
@@ -576,6 +636,12 @@ def _grade_free_response(user_answer, correct_answer, reference_answer):
 def _llm_grade(user_answer, reference_answer):
     """GPT-5 Nano で模範解答との一致率を 0-100 で返す。失敗時は None。"""
     try:
+        from services.rate_limiter import llm_limiter
+        limit_check = llm_limiter.check_and_record(
+            getattr(current_user, 'child_id', 0))
+        if limit_check is not True:
+            return None  # レート超過 → fuzzyフォールバック
+
         import os
         from openai import OpenAI
 

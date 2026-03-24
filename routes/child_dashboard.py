@@ -6,7 +6,24 @@ from models.material import Material, MaterialChunk, Question, QuestionMastery, 
 
 child_dashboard_bp = Blueprint('child_dashboard', __name__)
 
-YEAR_GROUP = 7
+# 教科の表示順（SUBJ辞書の定義順に合わせる）
+SUBJECT_ORDER = [
+    'Science', 'Maths', 'English', 'History', 'Geography',
+    'Computing', 'Spanish', 'French', 'German',
+]
+
+
+def _sort_subjects(subjects_dict):
+    """教科をカリキュラム順にソートしたOrderedDictを返す"""
+    from collections import OrderedDict
+    order_map = {s: i for i, s in enumerate(SUBJECT_ORDER)}
+    sorted_keys = sorted(subjects_dict.keys(), key=lambda s: order_map.get(s, 999))
+    return OrderedDict((k, subjects_dict[k]) for k in sorted_keys)
+
+
+def _year_group():
+    """ログイン中の子供の学年を返す（未設定なら7）"""
+    return getattr(current_user, 'grade', None) or 7
 
 
 def _get_weekly_progress(child_id, week_offset=0):
@@ -149,7 +166,7 @@ def child_dashboard():
         Material.subject,
         func.count(Material.material_id).label('unit_count'),
     ).filter_by(
-        year_group=YEAR_GROUP,
+        year_group=_year_group(),
     ).group_by(Material.subject).order_by(Material.subject).all()
 
     subjects_data = []
@@ -159,7 +176,7 @@ def child_dashboard():
             Material, Question.material_id == Material.material_id
         ).filter(
             Material.subject == subj,
-            Material.year_group == YEAR_GROUP,
+            Material.year_group == _year_group(),
             Material.status == 'published',
         ).scalar() or 0
 
@@ -171,7 +188,7 @@ def child_dashboard():
                 Material, Question.material_id == Material.material_id
             ).filter(
                 Material.subject == subj,
-                Material.year_group == YEAR_GROUP,
+                Material.year_group == _year_group(),
                 Material.status == 'published',
                 QuestionMastery.child_id == current_user.child_id,
                 QuestionMastery.mastered == True,
@@ -191,7 +208,7 @@ def child_dashboard():
                 Material, Question.material_id == Material.material_id
             ).filter(
                 Material.subject == subj,
-                Material.year_group == YEAR_GROUP,
+                Material.year_group == _year_group(),
                 QuestionMastery.child_id == current_user.child_id,
             ).scalar()
 
@@ -274,11 +291,11 @@ def child_profile():
         QuestionMastery.child_id == current_user.child_id,
     )).filter(
         Material.status == 'published',
-        Material.year_group == YEAR_GROUP,
+        Material.year_group == _year_group(),
     ).group_by(
         Material.subject, Material.material_id, MaterialChunk.chunk_id,
     ).order_by(
-        Material.subject, Material.title, MaterialChunk.sort_order,
+        Material.subject, Material.sort_order, Material.title, MaterialChunk.sort_order,
     ).all()
 
     # 階層構造に組み立て
@@ -315,7 +332,7 @@ def child_profile():
         })
 
     return render_template('child/profile.html',
-                           subjects=subjects,
+                           subjects=_sort_subjects(subjects),
                            total_all=total_all,
                            mastered_all=mastered_all)
 
@@ -347,7 +364,7 @@ def child_profile_avatar():
 def _find_next_section(subject, child_id):
     """教科内で最初の未完了セクションを返す"""
     materials = Material.query.filter_by(
-        subject=subject, year_group=YEAR_GROUP, status='published'
+        subject=subject, year_group=_year_group(), status='published'
     ).order_by(Material.sort_order, Material.title).all()
 
     for m in materials:
@@ -367,8 +384,9 @@ def _find_next_section(subject, child_id):
             if mastered < total:
                 return {
                     'chunk_id': chunk.chunk_id,
+                    'material_id': m.material_id,
                     'title': chunk.title,
-                    'unit_title': m.title.replace(f'KS3 {subject} - ', ''),
+                    'unit_title': m.title.replace(f'KS3 {subject} - ', '').replace(f'KS2 {subject} - ', ''),
                     'mastered': mastered,
                     'total': total,
                 }

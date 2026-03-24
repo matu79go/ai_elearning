@@ -51,7 +51,7 @@
 {% block main_content %}
 <div class="content-card">
     <div class="content-card-title">{{ t.child.nav_subjects }}</div>
-    <div class="content-card-subtitle">Year {{ 7 }}</div>
+    <div class="content-card-subtitle">Year {{ current_user.grade or '?' }}</div>
 
     <div class="subject-grid">
         {% for subject, unit_count in subjects %}

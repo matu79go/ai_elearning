@@ -1,36 +1,95 @@
-{# 子供カード（教科別進捗バー付き）
+{# 子供カード（教科別進捗バー付き + 編集機能）
    使用側で item = { child: Child, stats: { subjects: [...], total, mastered, pct } } を渡す
    link_url: カードのリンク先（省略時はchild detail）
 #}
 {% set child = item.child %}
 {% set stats = item.stats %}
-<a href="{{ link_url or lang_url('/admin/children/' ~ child.child_id) }}" class="child-card-link">
-    <div class="cc-top">
-        <div class="cc-avatar">{{ child.display_name[0] }}</div>
-        <div class="cc-info">
-            <div class="cc-name">{{ child.display_name }}</div>
-            <div class="cc-meta">
-                <span><i class="fas fa-star" style="color: #f59e0b;"></i> {{ child.total_points }}</span>
-                <span>Lv.{{ child.level }}</span>
-                <span><i class="fas fa-fire" style="color: #ef4444;"></i> {{ child.streak_count }}d</span>
+<div class="child-card-wrapper" id="childCard{{ child.child_id }}">
+    <!-- 表示モード -->
+    <div class="child-card-display" id="childDisplay{{ child.child_id }}">
+        <a href="{{ link_url or lang_url('/admin/children/' ~ child.child_id) }}" class="child-card-link">
+            <div class="cc-top">
+                <div class="cc-avatar">{{ child.display_name[0] }}</div>
+                <div class="cc-info">
+                    <div class="cc-name">{{ child.display_name }}</div>
+                    <div class="cc-meta">
+                        <span>Year {{ child.grade or '?' }}</span>
+                        <span><i class="fas fa-star" style="color: #f59e0b;"></i> {{ child.total_points }}</span>
+                        <span>Lv.{{ child.level }}</span>
+                        <span><i class="fas fa-fire" style="color: #ef4444;"></i> {{ child.streak_count }}d</span>
+                    </div>
+                </div>
+                <div class="cc-overall">
+                    <div class="cc-overall-pct">{{ stats.pct }}%</div>
+                    <div class="cc-overall-label">{{ stats.mastered }}/{{ stats.total }}</div>
+                </div>
             </div>
-        </div>
-        <div class="cc-overall">
-            <div class="cc-overall-pct">{{ stats.pct }}%</div>
-            <div class="cc-overall-label">{{ stats.mastered }}/{{ stats.total }}</div>
+            <div class="cc-subjects">
+                {% for s in stats.subjects %}
+                <div class="cc-subj">
+                    <div class="cc-subj-header">
+                        <span class="cc-subj-name">{{ s.name }}</span>
+                        <span class="cc-subj-count">{{ s.mastered }}/{{ s.total }} ({{ s.pct }}%)</span>
+                    </div>
+                    <div class="cc-subj-bar">
+                        <div class="cc-subj-fill" style="width: {{ s.pct }}%"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </a>
+        <div class="cc-actions">
+            <button onclick="event.stopPropagation(); showEditChild({{ child.child_id }})" class="cc-edit-btn" title="{{ t.admin.edit or 'Edit' }}">
+                <i class="fas fa-pen"></i>
+            </button>
+            <form method="POST" action="{{ lang_url('/admin/children/' ~ child.child_id ~ '/delete') }}"
+                  onsubmit="return confirm('{{ t.admin.confirm_delete_child or 'Delete this child?' }}')" style="display:inline;">
+                <button type="submit" class="cc-delete-btn" title="{{ t.admin.delete or 'Delete' }}">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </form>
         </div>
     </div>
-    <div class="cc-subjects">
-        {% for s in stats.subjects %}
-        <div class="cc-subj">
-            <div class="cc-subj-header">
-                <span class="cc-subj-name">{{ s.name }}</span>
-                <span class="cc-subj-count">{{ s.mastered }}/{{ s.total }} ({{ s.pct }}%)</span>
-            </div>
-            <div class="cc-subj-bar">
-                <div class="cc-subj-fill" style="width: {{ s.pct }}%"></div>
-            </div>
+
+    <!-- 編集モード -->
+    <div class="child-card-edit section-card" id="childEdit{{ child.child_id }}" style="display: none;">
+        <div class="section-body">
+            <form onsubmit="return saveChild(event, {{ child.child_id }})" class="add-form-grid">
+                <div class="form-group">
+                    <label>{{ t.admin.child_name }}</label>
+                    <input type="text" name="display_name" value="{{ child.display_name }}" required class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>{{ t.admin.child_grade }}</label>
+                    <select name="grade" class="form-input" required>
+                        <option value="" disabled>{{ t.admin.child_grade_none }}</option>
+                        {% for g in range(1, 10) %}
+                        <option value="{{ g }}" {{ 'selected' if child.grade == g }}>
+                            {{ t.admin['grade_elem_' ~ g] if g <= 6 else t.admin['grade_mid_' ~ (g - 6)] }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>{{ t.admin.child_pin }} <span style="font-weight:400; color:#94a3b8;">({{ t.admin.child_pin_change_hint or 'leave blank to keep current' }})</span></label>
+                    <input type="password" name="pin" maxlength="4" pattern="[0-9]{4}" inputmode="numeric"
+                           placeholder="****" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>{{ t.admin.child_pin_confirm }}</label>
+                    <input type="password" name="pin_confirm" maxlength="4" pattern="[0-9]{4}" inputmode="numeric"
+                           placeholder="****" class="form-input">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-save">
+                        <i class="fas fa-check" style="margin-right: 4px;"></i>{{ t.admin.save }}
+                    </button>
+                    <button type="button" onclick="cancelEditChild({{ child.child_id }})" class="btn-cancel">
+                        {{ t.admin.cancel }}
+                    </button>
+                </div>
+                <div id="childEditError{{ child.child_id }}" style="grid-column: 1/-1; color: #ef4444; font-size: 13px; display: none;"></div>
+            </form>
         </div>
-        {% endfor %}
     </div>
-</a>
+</div>

@@ -28,8 +28,19 @@
         font-size: 10px; font-weight: 700; letter-spacing: 0;
     }
     .q-type-mc { background: #dbeafe; color: #1d4ed8; }
+    .q-type-multi { background: #fef3c7; color: #92400e; }
     .q-type-fr { background: #fce7f3; color: #be185d; }
     .q-type-mastered { background: #d1fae5; color: #065f46; }
+
+    /* Multi-select checkbox indicator */
+    .choice-check {
+        width: 20px; height: 20px; border-radius: 4px;
+        border: 2px solid #cbd5e1; display: flex;
+        align-items: center; justify-content: center;
+        font-size: 11px; color: transparent; flex-shrink: 0;
+        transition: all 0.2s;
+    }
+    .choice-btn.selected .choice-check { border-color: #6366f1; background: #6366f1; color: white; }
 
     .q-text {
         font-size: 18px; font-weight: 600; color: #1e293b;
@@ -75,13 +86,24 @@
     .choice-btn.wrong { border-color: #ef4444; background: #fee2e2; pointer-events: none; animation: shake 0.4s ease; }
     .choice-btn.wrong .choice-label { background: #ef4444; color: white; }
 
+    /* Mastered banner */
+    .mastered-banner {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 14px; margin-bottom: 1rem;
+        background: linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%);
+        border: 1px solid #a7f3d0; border-radius: 12px;
+        font-size: 13px; color: #065f46; line-height: 1.4;
+    }
+    .mastered-banner i { font-size: 18px; color: #10b981; flex-shrink: 0; }
+    .mastered-banner strong { font-weight: 700; }
+
     /* Skip */
     .skip-btn {
-        padding: 10px 20px; background: #f1f5f9; color: #64748b;
-        border: 2px solid #e2e8f0; border-radius: 10px;
+        padding: 10px 20px; background: #d1fae5; color: #065f46;
+        border: 2px solid #a7f3d0; border-radius: 10px;
         font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;
     }
-    .skip-btn:hover { border-color: #94a3b8; color: #475569; }
+    .skip-btn:hover { background: #a7f3d0; border-color: #6ee7b7; color: #064e3b; }
 
     .skipped-msg {
         padding: 20px; text-align: center; font-size: 15px; font-weight: 600;
@@ -328,6 +350,7 @@ const questions = [
         type: "{{ q.question_type }}",
         text: {{ q.question_text|tojson }},
         options: {{ q.options|tojson if q.options else '[]' }},
+        multiAnswer: {{ 'true' if q.correct_answer and ',' in q.correct_answer else 'false' }},
         mastered: {{ 'true' if mastery_map.get(q.question_id) and mastery_map[q.question_id].mastered else 'false' }},
     },
     {% endfor %}
@@ -388,8 +411,9 @@ function render() {
     const ans = answers[currentIdx];
 
     // Header
+    const mcLabel = q.multiAnswer ? 'Select All That Apply' : 'Multiple Choice';
     const typeBadge = q.type === 'multiple_choice'
-        ? '<span class="q-type-badge q-type-mc">Multiple Choice</span>'
+        ? `<span class="q-type-badge ${q.multiAnswer ? 'q-type-multi' : 'q-type-mc'}">${mcLabel}</span>`
         : '<span class="q-type-badge q-type-fr">Free Response</span>';
     const masteredBadge = q.mastered
         ? '<span class="q-type-badge q-type-mastered"><i class="fas fa-check"></i> Mastered</span>'
@@ -398,6 +422,12 @@ function render() {
         `{{ t.child.question_label }} ${currentIdx + 1} / ${totalQ} ${typeBadge} ${masteredBadge}`;
     document.getElementById('qText').textContent = q.text;
     renderMath(document.getElementById('qText'));
+    const oldHint = document.getElementById('multiHint');
+    if (oldHint) oldHint.remove();
+    if (q.multiAnswer) {
+        document.getElementById('qText').insertAdjacentHTML('afterend',
+            '<div id="multiHint" style="font-size:13px; color:#92400e; font-weight:600; margin-top:4px; margin-bottom:8px;"><i class="fas fa-check-double" style="margin-right:4px;"></i>{{ t.child.select_all_that_apply or "Select all that apply" }}</div>');
+    }
 
     const choicesEl = document.getElementById('choices');
     const expArea = document.getElementById('explanationArea');
@@ -420,27 +450,52 @@ function render() {
 // State: answering (open)
 function renderOpen(q, ans, choicesEl, expArea, actionsEl) {
     if (q.type === 'multiple_choice' && q.options) {
-        choicesEl.innerHTML = q.options.map(opt => {
-            const sel = ans && ans.answer === opt.label ? ' selected' : '';
-            const content = opt.imageUrl
-                ? `<img src="${opt.imageUrl}" alt="${opt.imageAlt || ''}" style="max-width:100%; max-height:120px; border-radius:8px;">`
-                : `<span>${opt.text}</span>`;
-            return `<div class="choice-btn${sel}" onclick="selectOption('${opt.label}', '${opt.originalLabel || opt.label}')">
-                <span class="choice-label">${opt.label}</span>
-                ${content}
-            </div>`;
-        }).join('');
+        if (q.multiAnswer) {
+            // Multi-select: checkbox style
+            const selected = (ans && ans.answer) ? ans.answer.split(',') : [];
+            choicesEl.innerHTML = q.options.map(opt => {
+                const sel = selected.includes(opt.label) ? ' selected' : '';
+                const content = opt.imageUrl
+                    ? `<img src="${opt.imageUrl}" alt="${opt.imageAlt || ''}" style="max-width:100%; max-height:120px; border-radius:8px;">`
+                    : `<span>${opt.text}</span>`;
+                return `<div class="choice-btn${sel}" onclick="toggleOption('${opt.label}', '${opt.originalLabel || opt.label}')">
+                    <span class="choice-check"><i class="fas fa-check"></i></span>
+                    <span class="choice-label">${opt.label}</span>
+                    ${content}
+                </div>`;
+            }).join('');
+        } else {
+            // Single select
+            choicesEl.innerHTML = q.options.map(opt => {
+                const sel = ans && ans.answer === opt.label ? ' selected' : '';
+                const content = opt.imageUrl
+                    ? `<img src="${opt.imageUrl}" alt="${opt.imageAlt || ''}" style="max-width:100%; max-height:120px; border-radius:8px;">`
+                    : `<span>${opt.text}</span>`;
+                return `<div class="choice-btn${sel}" onclick="selectOption('${opt.label}', '${opt.originalLabel || opt.label}')">
+                    <span class="choice-label">${opt.label}</span>
+                    ${content}
+                </div>`;
+            }).join('');
+        }
     } else {
         const val = ans ? ans.answer : '';
         choicesEl.innerHTML = `<textarea class="fr-input" id="frInput"
             placeholder="Type your answer here..."
             oninput="onFrInput()">${val}</textarea>`;
     }
-    expArea.innerHTML = '';
+    if (q.mastered) {
+        expArea.innerHTML = `<div class="mastered-banner">
+            <i class="fas fa-check-circle"></i>
+            <div><strong>{{ t.child.mastered_banner_title or "Already mastered!" }}</strong><br>
+            {{ t.child.mastered_banner_desc or "You can skip this question or practise again. No points awarded for mastered questions." }}</div>
+        </div>`;
+    } else {
+        expArea.innerHTML = '';
+    }
 
     const hasAnswer = ans && ans.answer;
     const skipBtn = q.mastered
-        ? `<button class="skip-btn" onclick="skipAnswer()"><i class="fas fa-forward"></i> Skip</button>`
+        ? `<button class="skip-btn" onclick="skipAnswer()"><i class="fas fa-forward"></i> {{ t.child.skip_mastered or "Skip (mastered)" }}</button>`
         : '';
     actionsEl.innerHTML = `
         <button class="hint-btn" onclick="showHint()"><i class="fas fa-lightbulb"></i> Hint</button>
@@ -497,7 +552,8 @@ function renderChecked(q, ans, choicesEl, expArea, actionsEl) {
         if (q.type === 'multiple_choice' && q.options) {
             choicesEl.innerHTML = q.options.map(opt => {
                 const origLabel = opt.originalLabel || opt.label;
-                const isCorrect = r.correct_answer && r.correct_answer.startsWith(origLabel + ')');
+                const correctOrigLabels = (r.correct_answer || '').split(', ').map(s => s.split(')')[0].trim());
+                const isCorrect = correctOrigLabels.includes(origLabel);
                 return `<div class="choice-btn${isCorrect ? ' correct' : ' disabled'}">
                     <span class="choice-label">${opt.label}</span>
                     ${opt.imageUrl ? `<img src="${opt.imageUrl}" alt="${opt.imageAlt || ''}" style="max-width:100%; max-height:120px; border-radius:8px;">` : `<span>${opt.text}</span>`}
@@ -522,12 +578,17 @@ function renderChecked(q, ans, choicesEl, expArea, actionsEl) {
     }
 
     if (q.type === 'multiple_choice' && q.options) {
+        const userLabels = (ans.answer || '').split(',');
+        // Extract correct original labels from correct_answer display string
+        const correctOrigLabels = (r.correct_answer || '').split(', ').map(s => s.split(')')[0].trim());
         choicesEl.innerHTML = q.options.map(opt => {
             let cls = 'choice-btn';
             const origLabel = opt.originalLabel || opt.label;
-            if (opt.label === ans.answer && r.correct) cls += ' correct';
-            else if (opt.label === ans.answer && !r.correct) cls += ' wrong';
-            else if (origLabel === r.correct_answer) cls += ' correct';
+            const wasSelected = userLabels.includes(opt.label);
+            const isCorrect = correctOrigLabels.includes(origLabel);
+            if (wasSelected && isCorrect) cls += ' correct';
+            else if (wasSelected && !isCorrect) cls += ' wrong';
+            else if (!wasSelected && isCorrect) cls += ' correct';
             else cls += ' disabled';
             return `<div class="${cls}">
                 <span class="choice-label">${opt.label}</span>
@@ -567,6 +628,28 @@ function selectOption(label, originalLabel) {
     if (checkResults) return;
     if (answers[currentIdx] && answers[currentIdx].locked) return;
     answers[currentIdx] = { answer: label, originalLabel: originalLabel, locked: false };
+    render();
+}
+
+function toggleOption(label, originalLabel) {
+    if (checkResults) return;
+    if (answers[currentIdx] && answers[currentIdx].locked) return;
+    const cur = answers[currentIdx];
+    let selected = (cur && cur.answer) ? cur.answer.split(',') : [];
+    let originals = (cur && cur.originalLabels) ? cur.originalLabels.split(',') : [];
+    const idx = selected.indexOf(label);
+    if (idx >= 0) {
+        selected.splice(idx, 1);
+        originals.splice(idx, 1);
+    } else {
+        selected.push(label);
+        originals.push(originalLabel);
+    }
+    if (selected.length > 0) {
+        answers[currentIdx] = { answer: selected.join(','), originalLabels: originals.join(','), locked: false };
+    } else {
+        delete answers[currentIdx];
+    }
     render();
 }
 
@@ -654,7 +737,7 @@ function checkAnswers() {
         } else {
             answeredPayload.push({
                 question_id: q.id,
-                answer: answers[i].originalLabel || answers[i].answer,
+                answer: answers[i].originalLabels || answers[i].originalLabel || answers[i].answer,
             });
         }
     });

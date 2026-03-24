@@ -346,7 +346,7 @@
         {% for sd in active_subjects %}
         {% set cfg = SUBJ.get(sd.name, {'emoji': '📚', 'bg': '#f1f5f9', 'color': '#64748b'}) %}
         {% if sd.next_section %}
-        <a href="{{ lang_url('/child/section/' ~ sd.next_section.chunk_id) }}" class="subject-card">
+        <a href="{{ lang_url('/child/subjects/' ~ sd.name) }}?unit={{ sd.next_section.material_id }}&focus={{ sd.next_section.chunk_id }}{% if sd.mastered > 0 %}&resume=1{% endif %}" class="subject-card">
         {% else %}
         <a href="{{ lang_url('/child/subjects/' ~ sd.name) }}" class="subject-card">
         {% endif %}

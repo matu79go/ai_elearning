@@ -22,12 +22,29 @@
             <div style="font-size: 11px; color: #94a3b8;">{{ t.admin.family_code_desc }}</div>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
-            <code id="familyCode" style="font-size: 22px; font-weight: 800; letter-spacing: 4px; color: #6366f1; background: #eef2ff; padding: 8px 16px; border-radius: 10px;">
-                {{ current_user.family_code }}
-            </code>
-            <button onclick="copyCode()" class="copy-btn" id="copyBtn" title="{{ t.admin.copy }}">
-                <i class="fas fa-copy"></i>
-            </button>
+            <div id="familyCodeDisplay" style="display: flex; align-items: center; gap: 8px;">
+                <code id="familyCode" style="font-size: 22px; font-weight: 800; letter-spacing: 4px; color: #6366f1; background: #eef2ff; padding: 8px 16px; border-radius: 10px;">
+                    {{ current_user.family_code }}
+                </code>
+                <button onclick="copyCode()" class="copy-btn" id="copyBtn" title="{{ t.admin.copy }}">
+                    <i class="fas fa-copy"></i>
+                </button>
+                <button onclick="showEditCode()" class="copy-btn" title="{{ t.admin.family_code_edit or 'Edit' }}" style="color: #64748b;">
+                    <i class="fas fa-pen"></i>
+                </button>
+            </div>
+            <form id="familyCodeEdit" style="display: none; align-items: center; gap: 8px;" onsubmit="return saveCode(event)">
+                <input type="text" id="familyCodeInput" name="family_code" value="{{ current_user.family_code }}"
+                       maxlength="10" style="font-size: 20px; font-weight: 800; letter-spacing: 4px; color: #6366f1; background: #eef2ff; padding: 8px 16px; border-radius: 10px; border: 2px solid #6366f1; width: 160px; text-align: center; text-transform: uppercase;"
+                       pattern="[A-Za-z0-9]{5,10}" required>
+                <button type="submit" class="copy-btn" style="color: #22c55e;" title="{{ t.admin.save or 'Save' }}">
+                    <i class="fas fa-check"></i>
+                </button>
+                <button type="button" onclick="cancelEditCode()" class="copy-btn" style="color: #ef4444;" title="{{ t.admin.cancel or 'Cancel' }}">
+                    <i class="fas fa-times"></i>
+                </button>
+                <span id="familyCodeError" style="color: #ef4444; font-size: 12px; display: none;"></span>
+            </form>
         </div>
     </div>
 </div>
@@ -62,8 +79,8 @@
             </div>
             <div class="form-group">
                 <label>{{ t.admin.child_grade }}</label>
-                <select name="grade" class="form-input">
-                    <option value="">{{ t.admin.child_grade_none }}</option>
+                <select name="grade" class="form-input" required>
+                    <option value="" disabled selected>{{ t.admin.child_grade_none }}</option>
                     <option value="1">{{ t.admin.grade_elem_1 }}</option>
                     <option value="2">{{ t.admin.grade_elem_2 }}</option>
                     <option value="3">{{ t.admin.grade_elem_3 }}</option>
@@ -233,6 +250,28 @@
 
     {% include "admin/components/child_card_css.html" %}
 
+    .child-card-wrapper { position: relative; }
+    .child-card-display { position: relative; }
+    .cc-actions {
+        position: absolute;
+        top: 12px; right: 12px;
+        display: flex; gap: 4px;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    .child-card-display:hover .cc-actions { opacity: 1; }
+    .cc-edit-btn, .cc-delete-btn {
+        width: 32px; height: 32px;
+        display: flex; align-items: center; justify-content: center;
+        border: 1px solid #e2e8f0; border-radius: 6px;
+        background: white; color: #64748b;
+        cursor: pointer; font-size: 12px;
+        transition: all 0.2s;
+    }
+    .cc-edit-btn:hover { background: #eef2ff; color: #6366f1; border-color: #c7d2fe; }
+    .cc-delete-btn:hover { background: #fef2f2; color: #ef4444; border-color: #fecaca; }
+    .child-card-edit { animation: slideDown 0.2s ease; }
+
     @media (max-width: 768px) {
         .add-form-grid {
             grid-template-columns: 1fr;
@@ -260,6 +299,94 @@ function copyCode() {
             btn.innerHTML = '<i class="fas fa-copy"></i>';
         }, 2000);
     });
+}
+function showEditCode() {
+    document.getElementById('familyCodeDisplay').style.display = 'none';
+    document.getElementById('familyCodeEdit').style.display = 'flex';
+    const input = document.getElementById('familyCodeInput');
+    input.focus();
+    input.select();
+}
+function cancelEditCode() {
+    document.getElementById('familyCodeEdit').style.display = 'none';
+    document.getElementById('familyCodeDisplay').style.display = 'flex';
+    document.getElementById('familyCodeError').style.display = 'none';
+    document.getElementById('familyCodeInput').value = document.getElementById('familyCode').textContent.trim();
+}
+function saveCode(e) {
+    e.preventDefault();
+    const input = document.getElementById('familyCodeInput');
+    const code = input.value.trim().toUpperCase();
+    const errEl = document.getElementById('familyCodeError');
+    if (!/^[A-Za-z0-9]+$/.test(code)) {
+        errEl.textContent = '{{ t.admin.family_code_too_short or "Code must be 5-10 alphanumeric characters" }}';
+        errEl.style.display = 'inline';
+        return false;
+    }
+    if (code.length < 5 || code.length > 10) {
+        errEl.textContent = '{{ t.admin.family_code_too_short or "Code must be 5-10 alphanumeric characters" }}';
+        errEl.style.display = 'inline';
+        return false;
+    }
+    fetch('{{ lang_url("/admin/family-code") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({family_code: code})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('familyCode').textContent = data.family_code;
+            cancelEditCode();
+        } else {
+            errEl.textContent = data.error;
+            errEl.style.display = 'inline';
+        }
+    })
+    .catch(() => {
+        errEl.textContent = 'Error';
+        errEl.style.display = 'inline';
+    });
+    return false;
+}
+function showEditChild(childId) {
+    document.getElementById('childDisplay' + childId).style.display = 'none';
+    document.getElementById('childEdit' + childId).style.display = 'block';
+}
+function cancelEditChild(childId) {
+    document.getElementById('childEdit' + childId).style.display = 'none';
+    document.getElementById('childDisplay' + childId).style.display = 'block';
+    document.getElementById('childEditError' + childId).style.display = 'none';
+}
+function saveChild(e, childId) {
+    e.preventDefault();
+    const form = e.target;
+    const errEl = document.getElementById('childEditError' + childId);
+    const data = {
+        display_name: form.display_name.value.trim(),
+        grade: form.grade.value,
+        pin: form.pin.value,
+        pin_confirm: form.pin_confirm.value,
+    };
+    fetch(`{{ lang_url('/admin/children') }}/${childId}/edit`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            location.reload();
+        } else {
+            errEl.textContent = res.error;
+            errEl.style.display = 'block';
+        }
+    })
+    .catch(() => {
+        errEl.textContent = 'Error';
+        errEl.style.display = 'block';
+    });
+    return false;
 }
 </script>
 {% endblock %}

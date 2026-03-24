@@ -88,6 +88,29 @@
     .smf-amber { background: #f59e0b; }
     .smf-indigo { background: #6366f1; }
     .section-pct { font-size: 10px; font-weight: 700; color: #94a3b8; width: 28px; text-align: right; }
+
+    /* Focus highlight for "continue here" */
+    .section-link.focus-here {
+        background: linear-gradient(90deg, #eef2ff, #f5f3ff);
+        border: 2px solid #6366f1;
+        border-radius: 12px;
+        padding: 10px 12px;
+        position: relative;
+    }
+    .section-link.focus-here .section-num {
+        background: #6366f1; color: white;
+        animation: pulse-num 2s ease infinite;
+    }
+    .focus-badge {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 2px 8px; background: #6366f1; color: white;
+        border-radius: 6px; font-size: 10px; font-weight: 700;
+        margin-left: 8px; white-space: nowrap;
+    }
+    @keyframes pulse-num {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); }
+        50% { box-shadow: 0 0 0 6px rgba(99,102,241,0); }
+    }
 </style>
 {% endblock %}
 
@@ -157,7 +180,7 @@
                 {% for chunk in m.chunks.all() %}
                 {% set cp = ud.chunk_progress.get(chunk.chunk_id, {'total': 0, 'mastered': 0}) %}
                 {% set cpct = (cp.mastered / cp.total * 100)|int if cp.total > 0 else 0 %}
-                <a href="{{ lang_url('/child/section/' ~ chunk.chunk_id) }}" class="section-link">
+                <a href="{{ lang_url('/child/section/' ~ chunk.chunk_id) }}" class="section-link" data-chunk-id="{{ chunk.chunk_id }}">
                     <span class="section-num">{{ loop.index }}</span>
                     <span class="section-link-text">{{ chunk.title }}</span>
                     <div class="section-progress">
@@ -175,15 +198,35 @@
 </div>
 
 <script>
-// Auto-open unit from ?unit= parameter
+// Auto-open unit and highlight focus chunk
 (function() {
     const params = new URLSearchParams(window.location.search);
     const unitId = params.get('unit');
+    const focusChunkId = params.get('focus');
+
     if (unitId) {
         const card = document.querySelector(`.unit-card[data-unit-id="${unitId}"]`);
         if (card) {
             card.classList.add('open');
-            setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+
+            if (focusChunkId) {
+                const link = card.querySelector(`.section-link[data-chunk-id="${focusChunkId}"]`);
+                if (link) {
+                    link.classList.add('focus-here');
+                    const isResume = params.get('resume') === '1';
+                    const textEl = link.querySelector('.section-link-text');
+                    if (textEl) {
+                        const label = isResume
+                            ? '{{ t.child.continue_here or "Continue here" }}'
+                            : '{{ t.child.start_here or "Start here" }}';
+                        textEl.insertAdjacentHTML('afterend',
+                            `<span class="focus-badge"><i class="fas fa-play" style="font-size:8px;"></i> ${label}</span>`);
+                    }
+                    setTimeout(() => link.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
+                }
+            } else {
+                setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+            }
         }
     }
 })();

@@ -57,5 +57,10 @@ def admin_dashboard():
         'total_points': total_points,
     }
 
+    # LLMレートリミット統計
+    from services.rate_limiter import llm_limiter
+    llm_stats = llm_limiter.get_stats()
+
     return render_template('admin/dashboard.html',
-                           children_data=children_data, stats=stats)
+                           children_data=children_data, stats=stats,
+                           llm_stats=llm_stats)
