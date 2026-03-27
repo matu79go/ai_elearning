@@ -594,13 +594,45 @@ def child_quiz_result(chunk_id):
     total = len(questions)
     mastered = sum(1 for m in mastery_map.values() if m.mastered)
 
+    # Prev/Next chunk navigation
+    all_chunks = MaterialChunk.query.filter_by(material_id=chunk.material_id)\
+        .order_by(MaterialChunk.sort_order).all()
+    prev_chunk = None
+    next_chunk = None
+    for i, c in enumerate(all_chunks):
+        if c.chunk_id == chunk_id:
+            if i > 0:
+                prev_chunk = all_chunks[i - 1]
+            if i < len(all_chunks) - 1:
+                next_chunk = all_chunks[i + 1]
+            break
+
+    # Incorrect question IDs for retry
+    incorrect_ids = [q.question_id for q in questions
+                     if not (mastery_map.get(q.question_id) and mastery_map[q.question_id].mastered)]
+
     return render_template('child/quiz_result.html',
                            chunk=chunk, material=material,
                            questions=questions, mastery_map=mastery_map,
-                           total=total, mastered=mastered)
+                           total=total, mastered=mastered,
+                           prev_chunk=prev_chunk, next_chunk=next_chunk,
+                           incorrect_ids=incorrect_ids)
 
 
 # ---- ヘルパー関数 ----
+
+def _normalize_number(s):
+    """数値表記を正規化: スペース・カンマ除去、末尾.0除去など。"""
+    import re
+    t = re.sub(r'[\s,\u00a0\u2009]', '', s.strip())  # spaces, commas, nbsp, thin space
+    # Try to parse as number for canonical form
+    try:
+        n = float(t)
+        if n == int(n):
+            return str(int(n))
+        return str(n)
+    except ValueError:
+        return t
 
 def _grade_free_response(user_answer, correct_answer, reference_answer):
     """自由回答の採点。LLM → spaCyフォールバック。"""
@@ -615,10 +647,18 @@ def _grade_free_response(user_answer, correct_answer, reference_answer):
     if correct and user == correct.lower():
         return True
 
+    # 1b) 数値の正規化比較 (スペース・カンマ等の表記揺れ対応)
+    if correct and _normalize_number(user) == _normalize_number(correct.lower()):
+        return True
+
     # 2) reference_answer にカンマ区切りの代替回答がある場合、各候補と一致チェック
     if ref and ',' in ref and len(ref) < 200:
         alternatives = [alt.strip().lower() for alt in ref.split(',')]
         if user in alternatives:
+            return True
+        # 数値正規化で再チェック
+        user_norm = _normalize_number(user)
+        if any(_normalize_number(alt) == user_norm for alt in alternatives):
             return True
 
     # 3) LLM で模範解答との一致率を判定

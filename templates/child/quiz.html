@@ -14,7 +14,6 @@
     @media (min-width: 768px) {
         .question-card {
             padding: 2.5rem 2rem;
-            max-height: calc(100vh - 160px);
         }
     }
 
@@ -44,16 +43,16 @@
 
     .q-text {
         font-size: 18px; font-weight: 600; color: #1e293b;
-        line-height: 1.6; margin-bottom: 1.5rem; flex-shrink: 0;
+        line-height: 1.5; margin-bottom: 1rem;
     }
     @media (min-width: 768px) { .q-text { font-size: 20px; } }
 
     /* Choices */
-    .choices { display: flex; flex-direction: column; gap: 0.75rem; flex: 1; overflow-y: auto; min-height: 0; }
+    .choices { display: flex; flex-direction: column; gap: 0.5rem; }
 
     .choice-btn {
-        display: flex; align-items: center; gap: 12px;
-        padding: 14px 16px; background: #f8fafc;
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 14px; background: #f8fafc;
         border: 2px solid #e2e8f0; border-radius: 14px;
         cursor: pointer; transition: all 0.2s;
         font-size: 15px; color: #334155; text-align: left;
@@ -85,6 +84,10 @@
     .choice-btn.correct .choice-label { background: #10b981; color: white; }
     .choice-btn.wrong { border-color: #ef4444; background: #fee2e2; pointer-events: none; animation: shake 0.4s ease; }
     .choice-btn.wrong .choice-label { background: #ef4444; color: white; }
+    /* Correct but not selected by user (missed) */
+    .choice-btn.missed { border-color: #f59e0b; background: #fef3c7; pointer-events: none; }
+    .choice-btn.missed .choice-label { background: #f59e0b; color: white; }
+    .missed-tag { font-size: 11px; color: #92400e; font-weight: 700; margin-left: auto; white-space: nowrap; }
 
     /* Mastered banner */
     .mastered-banner {
@@ -377,6 +380,28 @@ questions.forEach(q => {
     }
 });
 
+// Disambiguate duplicate option texts by appending a number suffix
+questions.forEach(q => {
+    if (q.options && q.options.length > 1) {
+        const textCount = {};
+        q.options.forEach(opt => {
+            const key = (opt.text || '').trim().toLowerCase();
+            textCount[key] = (textCount[key] || 0) + 1;
+        });
+        const hasDupes = Object.values(textCount).some(c => c > 1);
+        if (hasDupes) {
+            const seen = {};
+            q.options.forEach(opt => {
+                const key = (opt.text || '').trim().toLowerCase();
+                if (textCount[key] > 1) {
+                    seen[key] = (seen[key] || 0) + 1;
+                    opt.text = opt.text.trim() + ' (' + seen[key] + ')';
+                }
+            });
+        }
+    }
+});
+
 // Shuffle multiple-choice options (Fisher-Yates) while preserving original labels for grading
 const LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 questions.forEach(q => {
@@ -396,9 +421,46 @@ questions.forEach(q => {
     }
 });
 
+// Retry mode: filter to only incorrect questions
+const urlParams = new URLSearchParams(window.location.search);
+const retryIds = urlParams.get('retry');
+if (retryIds) {
+    const retrySet = new Set(retryIds.split(',').map(Number));
+    const filtered = questions.filter(q => retrySet.has(q.id));
+    if (filtered.length > 0) {
+        questions.length = 0;
+        filtered.forEach(q => questions.push(q));
+    }
+}
+
 const totalQ = questions.length;
 const chunkId = {{ chunk.chunk_id }};
 const langPrefix = '{{ "/ja" if lang == "ja" else "" }}';
+
+// Rebuild navigation if in retry mode
+if (retryIds) {
+    const navList = document.getElementById('qNavList');
+    if (navList) {
+        navList.innerHTML = questions.map((q, i) => `
+            <div class="sidebar-nav-item ${i === 0 ? 'active' : ''}" id="qnav-${i}" onclick="jumpTo(${i})">
+                <span class="sidebar-nav-num">${i + 1}</span>
+                <span class="sidebar-nav-text">${q.text.substring(0, 40).replace(/</g, '&lt;')}${q.text.length > 40 ? '...' : ''}</span>
+                <span class="sidebar-nav-status" id="qstatus-${i}"></span>
+            </div>`).join('');
+    }
+    const mobileNav = document.getElementById('mobileQNav');
+    if (mobileNav) {
+        mobileNav.innerHTML = questions.map((q, i) => `
+            <div class="mobile-q-pill ${i === 0 ? 'active' : ''}" id="mqnav-${i}" onclick="jumpTo(${i})">
+                ${i + 1}
+            </div>`).join('');
+    }
+    // Update remaining count
+    const sideRemaining = document.getElementById('sideRemaining');
+    if (sideRemaining) sideRemaining.textContent = questions.length;
+    const accProgress = document.getElementById('accProgress');
+    if (accProgress) accProgress.textContent = '0/' + questions.length;
+}
 
 // ---- State ----
 let currentIdx = 0;
@@ -521,11 +583,12 @@ function renderLocked(q, ans, choicesEl, expArea, actionsEl) {
         return;
     }
     if (q.type === 'multiple_choice' && q.options) {
+        const selectedLabels = (ans.answer || '').split(',');
         choicesEl.innerHTML = q.options.map(opt => {
             const content = opt.imageUrl
                 ? `<img src="${opt.imageUrl}" alt="${opt.imageAlt || ''}" style="max-width:100%; max-height:120px; border-radius:8px;">`
                 : `<span>${opt.text}</span>`;
-            return `<div class="choice-btn${opt.label === ans.answer ? ' locked' : ' disabled'}">
+            return `<div class="choice-btn${selectedLabels.includes(opt.label) ? ' locked' : ' disabled'}">
                 <span class="choice-label">${opt.label}</span>
                 ${content}
             </div>`;
@@ -586,13 +649,18 @@ function renderChecked(q, ans, choicesEl, expArea, actionsEl) {
             const origLabel = opt.originalLabel || opt.label;
             const wasSelected = userLabels.includes(opt.label);
             const isCorrect = correctOrigLabels.includes(origLabel);
+            let extra = '';
             if (wasSelected && isCorrect) cls += ' correct';
             else if (wasSelected && !isCorrect) cls += ' wrong';
-            else if (!wasSelected && isCorrect) cls += ' correct';
+            else if (!wasSelected && isCorrect) {
+                cls += ' missed';
+                extra = '<span class="missed-tag"><i class="fas fa-exclamation-circle"></i> {{ t.child.missed_answer or "Missed" }}</span>';
+            }
             else cls += ' disabled';
             return `<div class="${cls}">
                 <span class="choice-label">${opt.label}</span>
                 <span>${opt.text}</span>
+                ${extra}
             </div>`;
         }).join('');
     } else {

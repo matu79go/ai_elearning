@@ -103,6 +103,20 @@
     }
 
     .btn-secondary:hover { border-color: #6366f1; }
+
+    .btn-nav {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 10px 24px; background: white; color: #475569;
+        border: 2px solid #e2e8f0; border-radius: 10px;
+        font-size: 14px; font-weight: 700; text-decoration: none;
+        transition: all 0.2s;
+    }
+    .btn-nav:hover { border-color: #6366f1; color: #6366f1; }
+
+    .nav-row {
+        display: flex; justify-content: space-between; gap: 0.75rem;
+        margin-top: 0.5rem; flex-wrap: wrap;
+    }
 </style>
 {% endblock %}
 
@@ -213,14 +227,29 @@
     </div>
 
     <div class="action-btns">
-        {% if mastered < total %}
-        <a href="{{ lang_url('/child/quiz/' ~ chunk.chunk_id) }}" class="btn-primary">
-            <i class="fas fa-redo"></i> Try Again
+        {% if mastered < total and incorrect_ids %}
+        <a href="{{ lang_url('/child/quiz/' ~ chunk.chunk_id) }}?retry={{ incorrect_ids|join(',') }}" class="btn-primary">
+            <i class="fas fa-redo"></i> {{ t.child.retry_incorrect or "Retry Incorrect" }} ({{ incorrect_ids|length }})
         </a>
         {% endif %}
         <a href="{{ lang_url('/child/subjects/' ~ material.subject) }}" class="btn-secondary">
             {{ t.child.back }} {{ material.subject }}
         </a>
+    </div>
+
+    <div class="nav-row">
+        {% if prev_chunk %}
+        <a href="{{ lang_url('/child/section/' ~ prev_chunk.chunk_id) }}" class="btn-nav">
+            <i class="fas fa-arrow-left"></i> {{ t.child.prev_chunk or "Previous Lesson" }}
+        </a>
+        {% else %}
+        <div></div>
+        {% endif %}
+        {% if next_chunk %}
+        <a href="{{ lang_url('/child/section/' ~ next_chunk.chunk_id) }}" class="btn-nav">
+            {{ t.child.next_chunk or "Next Lesson" }} <i class="fas fa-arrow-right"></i>
+        </a>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
