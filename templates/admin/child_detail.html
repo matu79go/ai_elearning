@@ -85,6 +85,9 @@
             {% endfor %}
         </div>
 
+        <!-- Stacked bar legend (shown in All mode) -->
+        <div id="adminBarLegend" style="display:flex; flex-wrap:wrap; gap:8px 16px; margin-top:8px; justify-content:center;"></div>
+
         <!-- Daily Goal Setting -->
         <div style="display:flex; align-items:center; gap:12px; margin-top:1rem; padding-top:1rem; border-top:1px solid #f1f5f9;">
             <span style="font-size:13px; font-weight:600; color:#374151;">
@@ -445,6 +448,16 @@
         background: linear-gradient(180deg, #818cf8, #6366f1);
         transition: height 0.5s ease;
     }
+    /* Stacked bar segments */
+    .admin-bar-stack {
+        width: 100%; display: flex; flex-direction: column-reverse;
+    }
+    .admin-bar-seg {
+        width: 100%; transition: height 0.5s ease; min-height: 0;
+    }
+    .admin-bar-seg:first-child { border-radius: 0 0 6px 6px; }
+    .admin-bar-seg:last-child { border-radius: 6px 6px 0 0; }
+    .admin-bar-seg:only-child { border-radius: 6px; }
     .admin-bar-day { font-size: 12px; font-weight: 600; color: #374151; margin-top: 6px; }
     .admin-bar-date { font-size: 10px; color: #94a3b8; }
     .admin-bar-rate { font-size: 9px; font-weight: 600; margin-top: 2px; white-space: nowrap; color: #f59e0b; }
@@ -497,29 +510,57 @@ function toggleTree(el) {
     const monthRows = document.querySelectorAll('.monthly-row');
     const monthAnswered = document.getElementById('adminMonthAnswered');
     const monthDays = document.getElementById('adminMonthDays');
+    const legendEl = document.getElementById('adminBarLegend');
     const answeredLabel = '{{ t.admin.questions_answered }}';
     const studyDaysLabel = '{{ t.admin.study_days }}';
     const noDataText = '{{ t.admin.no_data }}';
     const ptUnit = '{{ t.admin.pt_unit }}';
 
-    function getVal(bySubject, subject, field) {
-        if (subject === 'all') return null; // use data-total/data-correct
-        const s = bySubject[subject];
-        return s ? s[field] : 0;
+    // Subject color palette
+    const SUBJECT_COLORS = {
+        'Maths':   '#6366f1',
+        'Science': '#10b981',
+        'English': '#f59e0b',
+        'Spanish': '#ef4444',
+        'History': '#8b5cf6',
+        'Geography': '#06b6d4',
+        'Computing': '#ec4899',
+        'Music':   '#14b8a6',
+        'Art':     '#f97316',
+        'PE':      '#64748b',
+    };
+    const FALLBACK_COLORS = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#14b8a6','#f97316','#64748b'];
+    let colorIdx = 0;
+    function getSubjectColor(subj) {
+        if (!SUBJECT_COLORS[subj]) {
+            SUBJECT_COLORS[subj] = FALLBACK_COLORS[colorIdx % FALLBACK_COLORS.length];
+            colorIdx++;
+        }
+        return SUBJECT_COLORS[subj];
     }
+
+    // Collect all subjects from data
+    const allSubjects = new Set();
+    cols.forEach(col => {
+        const bySubj = JSON.parse(col.dataset.bySubject);
+        Object.keys(bySubj).forEach(s => allSubjects.add(s));
+    });
+    const subjectList = Array.from(allSubjects).sort();
 
     function ptHtml(pts) {
         return `<span style="padding:2px 8px; border-radius:4px; font-size:12px; font-weight:600; background:#fef3c7; color:#92400e;">${pts}${ptUnit}</span>`;
     }
 
     function update(subject) {
+        const isAll = subject === 'all';
+
         // --- Weekly bar chart ---
         let maxVal = 0;
-        const values = [], corrects = [];
+        const values = [], corrects = [], perSubjectData = [];
         cols.forEach(col => {
             const bySubj = JSON.parse(col.dataset.bySubject);
             let total, correct;
-            if (subject === 'all') {
+            if (isAll) {
                 total = parseInt(col.dataset.total) || 0;
                 correct = parseInt(col.dataset.correct) || 0;
             } else {
@@ -529,6 +570,7 @@ function toggleTree(el) {
             }
             values.push(total);
             corrects.push(correct);
+            perSubjectData.push(bySubj);
             if (total > maxVal) maxVal = total;
         });
 
@@ -538,8 +580,27 @@ function toggleTree(el) {
             const cor = corrects[i];
             weekSum += val;
             col.querySelector('.admin-bar-value').textContent = val > 0 ? val : '';
-            const pct = maxVal > 0 ? Math.round(val / maxVal * 100) : 0;
-            col.querySelector('.admin-bar-fill').style.height = pct + '%';
+
+            const track = col.querySelector('.admin-bar-track');
+            const totalPct = maxVal > 0 ? (val / maxVal * 100) : 0;
+
+            if (isAll && val > 0) {
+                // Stacked bar: each subject gets a segment
+                let html = '<div class="admin-bar-stack" style="height:' + totalPct + '%">';
+                subjectList.forEach(subj => {
+                    const sd = perSubjectData[i][subj];
+                    if (!sd || !sd.total) return;
+                    const segPct = (sd.total / val * 100);
+                    const color = getSubjectColor(subj);
+                    html += `<div class="admin-bar-seg" style="height:${segPct}%; background:${color};" title="${subj}: ${sd.total}"></div>`;
+                });
+                html += '</div>';
+                track.innerHTML = html;
+            } else {
+                // Single subject: single fill bar
+                track.innerHTML = '<div class="admin-bar-fill" style="height:' + totalPct + '%"></div>';
+            }
+
             const rateEl = col.querySelector('.admin-bar-rate');
             if (cor > 0) {
                 rateEl.textContent = cor + ptUnit;
@@ -548,6 +609,18 @@ function toggleTree(el) {
             }
         });
         weekTotalSpan.textContent = weekSum + ' ' + answeredLabel;
+
+        // Legend
+        if (isAll && subjectList.length > 1) {
+            legendEl.innerHTML = subjectList.map(subj => {
+                const color = getSubjectColor(subj);
+                return `<span style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:#475569;">
+                    <span style="width:10px; height:10px; border-radius:3px; background:${color}; flex-shrink:0;"></span>${subj}</span>`;
+            }).join('');
+            legendEl.style.display = 'flex';
+        } else {
+            legendEl.style.display = 'none';
+        }
 
         // --- Monthly table ---
         let mTotal = 0, mDays = 0;
