@@ -185,6 +185,16 @@
     .bar-label { font-size: 11px; font-weight: 600; color: #64748b; margin-top: 6px; }
     .bar-date { font-size: 9px; color: #94a3b8; }
     .bar-pt { font-size: 9px; font-weight: 600; color: #f59e0b; white-space: nowrap; }
+    /* Stacked bar segments */
+    .bar-stack {
+        width: 100%; display: flex; flex-direction: column-reverse;
+    }
+    .bar-seg {
+        width: 100%; transition: height 0.5s ease; min-height: 0;
+    }
+    .bar-seg:first-child { border-radius: 0 0 6px 6px; }
+    .bar-seg:last-child { border-radius: 6px 6px 0 0; }
+    .bar-seg:only-child { border-radius: 6px; }
 
     @media (max-width: 480px) {
         .bar-chart { height: 120px; gap: 4px; }
@@ -281,6 +291,7 @@
         </div>
         {% endfor %}
     </div>
+    <div id="childBarLegend" style="display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:8px; justify-content:center;"></div>
     <script>
     (function() {
         const chart = document.getElementById('childBarChart');
@@ -289,22 +300,43 @@
         const cols = chart.querySelectorAll('.bar-col');
 
         const ptUnit = '{{ t.child.pt_unit|default("pt") }}';
+        const legendEl = document.getElementById('childBarLegend');
+
+        const SUBJECT_COLORS = {
+            'Maths':'#6366f1','Science':'#10b981','English':'#f59e0b','Spanish':'#ef4444',
+            'History':'#8b5cf6','Geography':'#06b6d4','Computing':'#ec4899',
+            'Music':'#14b8a6','Art':'#f97316','PE':'#64748b',
+        };
+        const FALLBACK = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#14b8a6','#f97316','#64748b'];
+        let cIdx = 0;
+        function sColor(s) {
+            if (!SUBJECT_COLORS[s]) { SUBJECT_COLORS[s] = FALLBACK[cIdx++ % FALLBACK.length]; }
+            return SUBJECT_COLORS[s];
+        }
+
+        const allSubjects = new Set();
+        cols.forEach(col => {
+            Object.keys(JSON.parse(col.dataset.bySubject)).forEach(s => allSubjects.add(s));
+        });
+        const subjectList = Array.from(allSubjects).sort();
 
         function updateChart(subject) {
+            const isAll = subject === 'all';
             let maxVal = 0;
-            const values = [], corrects = [];
+            const values = [], corrects = [], perSubj = [];
             cols.forEach(col => {
+                const bySubj = JSON.parse(col.dataset.bySubject);
                 let val, cor;
-                if (subject === 'all') {
+                if (isAll) {
                     val = parseInt(col.dataset.total) || 0;
                     cor = parseInt(col.dataset.correct) || 0;
                 } else {
-                    const bySubj = JSON.parse(col.dataset.bySubject);
                     val = bySubj[subject] ? bySubj[subject].total : 0;
                     cor = bySubj[subject] ? bySubj[subject].correct : 0;
                 }
                 values.push(val);
                 corrects.push(cor);
+                perSubj.push(bySubj);
                 if (val > maxVal) maxVal = val;
             });
 
@@ -314,11 +346,37 @@
                 const cor = corrects[i];
                 weekSum += val;
                 col.querySelector('.bar-value').textContent = val > 0 ? val : '';
-                const pct = maxVal > 0 ? Math.round(val / maxVal * 100) : 0;
-                col.querySelector('.bar-fill').style.height = pct + '%';
+                const totalPct = maxVal > 0 ? (val / maxVal * 100) : 0;
+                const track = col.querySelector('.bar-track');
+                const isToday = col.classList.contains('today');
+
+                if (isAll && val > 0 && subjectList.length > 1) {
+                    let html = '<div class="bar-stack" style="height:' + totalPct + '%">';
+                    subjectList.forEach(subj => {
+                        const sd = perSubj[i][subj];
+                        if (!sd || !sd.total) return;
+                        const segPct = (sd.total / val * 100);
+                        html += `<div class="bar-seg" style="height:${segPct}%; background:${sColor(subj)};" title="${subj}: ${sd.total}"></div>`;
+                    });
+                    html += '</div>';
+                    track.innerHTML = html;
+                } else {
+                    const fillCls = isToday ? 'bar-fill bar-today' : 'bar-fill';
+                    track.innerHTML = `<div class="${fillCls}" style="height:${totalPct}%"></div>`;
+                }
                 col.querySelector('.bar-pt').textContent = cor > 0 ? cor + ptUnit : '';
             });
             totalSpan.textContent = weekSum + ' ' + answeredLabel;
+
+            if (isAll && subjectList.length > 1) {
+                legendEl.innerHTML = subjectList.map(s =>
+                    `<span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:600;color:#475569;">
+                        <span style="width:8px;height:8px;border-radius:2px;background:${sColor(s)};flex-shrink:0;"></span>${s}</span>`
+                ).join('');
+                legendEl.style.display = 'flex';
+            } else {
+                legendEl.style.display = 'none';
+            }
         }
 
         // Initial render
