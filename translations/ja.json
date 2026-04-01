@@ -154,7 +154,14 @@
         "demo_q2_exp": "12 × 8 = 96",
         "demo_q3": "太陽にいちばん近い惑星は？",
         "demo_q3_a": "金星", "demo_q3_b": "火星", "demo_q3_c": "水星", "demo_q3_d": "地球",
-        "demo_q3_exp": "水星は太陽にいちばん近い惑星です。"
+        "demo_q3_exp": "水星は太陽にいちばん近い惑星です。",
+
+        "loading_msg_1": "{name}、行くぞー！全力で決めよう！",
+        "loading_msg_2": "{name}、集中！君ならできる！",
+        "loading_msg_3": "{name}、トップを狙え！ベストを尽くそう！",
+        "loading_msg_4": "{name}、集中モードON！チャンピオンは努力する！",
+        "loading_msg_5": "{name}、もうすぐだ！準備しよう！",
+        "loading_msg_6": "SIUUU！{name}、学びを楽しもう！"
     },
 
     "admin": {

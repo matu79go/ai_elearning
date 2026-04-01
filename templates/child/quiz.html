@@ -291,6 +291,8 @@
 {% endblock %}
 
 {% block main_content %}
+{% include "components/loading_screen.html" %}
+
 <!-- Breadcrumb -->
 <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12px; margin-bottom:8px; color:rgba(255,255,255,0.6);">
     <a href="{{ lang_url('/child/subjects/' ~ material.subject ~ '?unit=' ~ material.material_id) }}" style="color:rgba(255,255,255,0.8); text-decoration:none;">{{ material.subject }}</a>
@@ -795,6 +797,7 @@ function checkAnswers() {
 
     const btn = document.querySelector('.check-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'Checking...'; }
+    LoadingScreen.show();
 
     // Separate skipped vs answered
     const answeredPayload = [];
@@ -833,6 +836,7 @@ function checkAnswers() {
         });
 
         checkResults = data;
+        LoadingScreen.hide();
 
         // Sound effects & confetti based on score
         const answeredCount = totalQ - skippedIds.length;
@@ -891,7 +895,8 @@ function checkAnswers() {
 
         currentIdx = 0;
         render();
-    });
+    })
+    .catch(function() { LoadingScreen.hide(); });
 }
 
 // ---- Navigation UI ----

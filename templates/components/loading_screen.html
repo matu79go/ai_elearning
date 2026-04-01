@@ -1,0 +1,129 @@
+<!-- Loading Screen Overlay -->
+<div id="loadingScreen" class="loading-overlay">
+    <div class="loading-content">
+        <img id="loadingGif" class="loading-gif" src="" alt="Loading...">
+        <p id="loadingMsg" class="loading-msg"></p>
+        <div class="loading-dots">
+            <span></span><span></span><span></span>
+        </div>
+    </div>
+</div>
+
+<style>
+.loading-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%);
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.5s ease;
+}
+.loading-overlay.fade-out {
+    opacity: 0; pointer-events: none;
+}
+.loading-overlay.hidden { display: none; }
+.loading-content {
+    text-align: center; padding: 2rem;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    animation: loadingBounceIn 0.5s ease;
+}
+@keyframes loadingBounceIn {
+    0% { transform: scale(0.7); opacity: 0; }
+    60% { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
+}
+.loading-gif {
+    width: 280px; height: 280px;
+    object-fit: contain; border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    background: rgba(255,255,255,0.1);
+}
+@media (min-width: 768px) {
+    .loading-gif { width: 360px; height: 360px; }
+}
+.loading-msg {
+    color: white; font-size: 20px; font-weight: 700;
+    margin-top: 1.5rem; line-height: 1.4;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    max-width: 360px; margin-left: auto; margin-right: auto;
+}
+@media (min-width: 768px) {
+    .loading-msg { font-size: 24px; max-width: 480px; }
+}
+.loading-dots {
+    display: flex; justify-content: center; gap: 8px; margin-top: 1.5rem;
+}
+.loading-dots span {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: rgba(255,255,255,0.6);
+    animation: loadingDot 1.2s ease-in-out infinite;
+}
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes loadingDot {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1.2); opacity: 1; }
+}
+</style>
+
+<script>
+// Global loading screen controller
+const LoadingScreen = (function() {
+    const LOADING_PATTERNS = [
+        { gif: '/static/images/loading/cristiano-ronaldo-1.gif.webp', msgKey: 'loading_msg_1' },
+        { gif: '/static/images/loading/cristiano-ronaldo-2.gif.webp', msgKey: 'loading_msg_2' },
+        { gif: '/static/images/loading/cristiano-ronaldo-3.gif.webp', msgKey: 'loading_msg_3' },
+        { gif: '/static/images/loading/cristiano-ronaldo-4.gif.webp', msgKey: 'loading_msg_4' },
+        { gif: '/static/images/loading/cristiano-ronaldo-5.gif.webp', msgKey: 'loading_msg_5' },
+        { gif: '/static/images/loading/cristiano-ronaldo-6.gif.webp', msgKey: 'loading_msg_6' },
+    ];
+
+    const MESSAGES = {
+        loading_msg_1: {{ (t.child.loading_msg_1 or "Let's GOOO, {name}! Time to crush it!")|tojson }},
+        loading_msg_2: {{ (t.child.loading_msg_2 or "You've got this, {name}! Stay focused!")|tojson }},
+        loading_msg_3: {{ (t.child.loading_msg_3 or "Shoot for the top, {name}! Give it your best!")|tojson }},
+        loading_msg_4: {{ (t.child.loading_msg_4 or "Focus mode ON, {name}! Champions work hard!")|tojson }},
+        loading_msg_5: {{ (t.child.loading_msg_5 or "Almost ready, {name}! Get prepared!")|tojson }},
+        loading_msg_6: {{ (t.child.loading_msg_6 or "SIUUU! Let's celebrate learning, {name}!")|tojson }},
+    };
+
+    const childName = {{ (current_user.display_name if current_user.is_authenticated else 'You')|tojson }};
+    let lastPatternIdx = -1;
+
+    function pickPattern() {
+        let idx;
+        do { idx = Math.floor(Math.random() * LOADING_PATTERNS.length); } while (idx === lastPatternIdx && LOADING_PATTERNS.length > 1);
+        lastPatternIdx = idx;
+        return LOADING_PATTERNS[idx];
+    }
+
+    function applyPattern() {
+        const pattern = pickPattern();
+        const msg = MESSAGES[pattern.msgKey].replace('{name}', childName);
+        document.getElementById('loadingGif').src = pattern.gif;
+        document.getElementById('loadingMsg').textContent = msg;
+    }
+
+    /** Show loading screen. Auto-hides after minDuration ms (default 5000). */
+    function show(minDuration) {
+        const overlay = document.getElementById('loadingScreen');
+        applyPattern();
+        overlay.classList.remove('hidden', 'fade-out');
+        overlay.style.opacity = '1';
+        if (minDuration) {
+            setTimeout(function() { hide(); }, minDuration);
+        }
+    }
+
+    /** Hide loading screen with fade-out. */
+    function hide() {
+        const overlay = document.getElementById('loadingScreen');
+        if (!overlay || overlay.classList.contains('hidden')) return;
+        overlay.classList.add('fade-out');
+        setTimeout(function() { overlay.classList.add('hidden'); }, 500);
+    }
+
+    return { show: show, hide: hide };
+})();
+
+// Initial show on page load (quiz start)
+LoadingScreen.show(5000);
+</script>

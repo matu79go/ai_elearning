@@ -154,7 +154,14 @@
         "demo_q2_exp": "12 × 8 = 96",
         "demo_q3": "Which planet is closest to the Sun?",
         "demo_q3_a": "Venus", "demo_q3_b": "Mars", "demo_q3_c": "Mercury", "demo_q3_d": "Earth",
-        "demo_q3_exp": "Mercury is the closest planet to the Sun."
+        "demo_q3_exp": "Mercury is the closest planet to the Sun.",
+
+        "loading_msg_1": "Let's GOOO, {name}! Time to crush it!",
+        "loading_msg_2": "You've got this, {name}! Stay focused!",
+        "loading_msg_3": "Shoot for the top, {name}! Give it your best!",
+        "loading_msg_4": "Focus mode ON, {name}! Champions work hard!",
+        "loading_msg_5": "Almost ready, {name}! Get prepared!",
+        "loading_msg_6": "SIUUU! Let's celebrate learning, {name}!"
     },
 
     "admin": {
