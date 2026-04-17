@@ -76,6 +76,81 @@
     }
 
     .quiz-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(99,102,241,0.4); }
+    .quiz-btn.locked {
+        background: #e2e8f0; color: #94a3b8; cursor: not-allowed;
+        box-shadow: none; pointer-events: none;
+    }
+
+    .cta-card {
+        display: flex; align-items: center; gap: 14px;
+        padding: 16px 20px; margin-bottom: 10px;
+        border-radius: 16px; border: 2px solid transparent;
+        text-decoration: none; transition: all 0.2s;
+    }
+    .cta-card:hover { transform: translateY(-2px); }
+    .cta-card .icon-box {
+        width: 48px; height: 48px; border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 22px; flex-shrink: 0;
+    }
+    .cta-card .body { flex: 1; min-width: 0; text-align: left; }
+    .cta-card .title { font-size: 16px; font-weight: 800; margin-bottom: 2px; }
+    .cta-card .sub { font-size: 12px; opacity: 0.85; }
+    .cta-card .arrow { font-size: 18px; opacity: 0.6; flex-shrink: 0; }
+
+    .cta-drill {
+        background: linear-gradient(135deg, #fbbf24, #f97316);
+        color: white; box-shadow: 0 4px 16px rgba(245,158,11,0.35);
+    }
+    .cta-drill .icon-box { background: rgba(255,255,255,0.22); }
+
+    .cta-quiz-open {
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: white; box-shadow: 0 4px 16px rgba(99,102,241,0.35);
+    }
+    .cta-quiz-open .icon-box { background: rgba(255,255,255,0.22); }
+
+    .cta-quiz-locked {
+        background: #f1f5f9; color: #94a3b8; cursor: not-allowed; pointer-events: none;
+    }
+    .cta-quiz-locked .icon-box { background: #e2e8f0; }
+
+    .cta-sub-btn {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 8px 18px; border-radius: 999px;
+        background: #f1f5f9; color: #64748b;
+        font-size: 13px; font-weight: 700; text-decoration: none;
+    }
+    .cta-sub-btn:hover { background: #e2e8f0; }
+
+    /* YouTube multi-video thumbnails */
+    .yt-thumb-strip {
+        display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px;
+        scrollbar-width: thin;
+    }
+    .yt-thumb-strip::-webkit-scrollbar { height: 6px; }
+    .yt-thumb-strip::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    .yt-thumb {
+        flex-shrink: 0; width: 200px;
+        display: flex; flex-direction: column; gap: 4px;
+        padding: 6px; background: white;
+        border: 2px solid #e2e8f0; border-radius: 10px;
+        cursor: pointer; text-align: left; transition: all 0.15s;
+    }
+    .yt-thumb:hover { border-color: #6366f1; }
+    .yt-thumb.active { border-color: #6366f1; background: #eef2ff; box-shadow: 0 2px 8px rgba(99,102,241,0.2); }
+    .yt-thumb img {
+        width: 100%; aspect-ratio: 16/9; object-fit: cover;
+        border-radius: 6px; background: #f1f5f9;
+    }
+    .yt-thumb-placeholder {
+        width: 100%; aspect-ratio: 16/9; display: flex;
+        align-items: center; justify-content: center;
+        background: #f1f5f9; border-radius: 6px; color: #94a3b8;
+    }
+    .yt-thumb-body { padding: 2px 2px 4px; }
+    .yt-thumb-title { font-size: 12px; font-weight: 700; color: #1e293b; line-height: 1.3; margin-bottom: 3px; }
+    .yt-thumb-channel { font-size: 11px; color: #64748b; }
 
     .mastery-info {
         text-align: center; margin-top: 8px;
@@ -242,15 +317,48 @@
         <div class="progress-hero-bar">
             <div class="progress-fill" style="width: {{ mpct }}%"></div>
         </div>
+        {% if quiz_unlocked %}
         <a href="{{ lang_url('/child/quiz/' ~ chunk.chunk_id) }}" class="progress-quiz-link">
             <i class="fas fa-pen"></i> {% if mastered_count == total_questions %}{{ t.child.section_review }}{% else %}{{ t.child.section_quiz }}{% endif %}
         </a>
+        {% endif %}
     </div>
     {% endif %}
 
     <!-- Video Player -->
-    {% if video_url and video_type == 'youtube' %}
-    {# YouTube — iframe embed #}
+    {% if youtube_videos %}
+    {# YouTube: 複数候補 — メイン動画 + サムネで切替 #}
+    <div class="learn-card" id="videoCard">
+        <div class="card-label purple"><i class="fas fa-video"></i> {{ t.child.section_lesson_video }}</div>
+        <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:10px;">
+            <iframe id="ytPlayer" src="{{ video_url }}"
+                    style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;"
+                    allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        </div>
+        {% if youtube_videos|length > 1 %}
+        <div style="margin-top:10px; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">
+            {{ t.child.section_other_videos }} ({{ youtube_videos|length }})
+        </div>
+        <div class="yt-thumb-strip">
+            {% for v in youtube_videos %}
+            <button class="yt-thumb {{ 'active' if v.is_primary }}" data-vid="{{ v.video_id }}"
+                    data-title="{{ v.title|e }}" data-channel="{{ v.channel|e }}">
+                {% if v.thumbnail_url %}
+                <img src="{{ v.thumbnail_url }}" alt="{{ v.title|e }}">
+                {% else %}
+                <div class="yt-thumb-placeholder"><i class="fas fa-video"></i></div>
+                {% endif %}
+                <div class="yt-thumb-body">
+                    <div class="yt-thumb-title">{{ v.title[:60] }}{% if v.title|length > 60 %}...{% endif %}</div>
+                    <div class="yt-thumb-channel">{{ v.channel }}{% if v.duration_seconds %} • {{ (v.duration_seconds // 60) }}:{{ '%02d'|format(v.duration_seconds % 60) }}{% endif %}</div>
+                </div>
+            </button>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% elif video_url and video_type == 'youtube' %}
+    {# 旧互換: 単一 YouTube ID #}
     <div class="learn-card" id="videoCard">
         <div class="card-label purple"><i class="fas fa-video"></i> {{ t.child.section_lesson_video }}</div>
         <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:10px;">
@@ -361,12 +469,47 @@
     </div>
     {% endif %}
 
-    <!-- Quiz CTA -->
-    {% if total_questions > 0 %}
+    <!-- Learning path: Drill → Quiz -->
+    {% if total_questions > 0 or drill_count > 0 %}
     <div class="quiz-cta">
-        <a href="{{ lang_url('/child/quiz/' ~ chunk.chunk_id) }}" class="quiz-btn">
-            <i class="fas fa-pen"></i> {% if mastered_count == total_questions %}{{ t.child.section_review_quiz }}{% else %}{{ t.child.section_start_quiz }}{% endif %}
+        {% if drill_count > 0 and not drill_mastered %}
+        <!-- Step1: Drill (primary) → Step2: Quiz (locked) -->
+        <a href="{{ lang_url('/child/drill/' ~ chunk.chunk_id) }}" class="cta-card cta-drill">
+            <div class="icon-box"><i class="fas fa-bolt"></i></div>
+            <div class="body">
+                <div class="title">⚡ {{ t.child.drill_title }}</div>
+                <div class="sub">{{ t.child.drill_intro_rule.replace('{streak}', drill_streak_target|string) }}</div>
+            </div>
+            <div class="arrow"><i class="fas fa-chevron-right"></i></div>
         </a>
+        {% if total_questions > 0 %}
+        <div class="cta-card cta-quiz-locked">
+            <div class="icon-box"><i class="fas fa-lock"></i></div>
+            <div class="body">
+                <div class="title">{{ t.child.section_start_quiz }}</div>
+                <div class="sub">{{ t.child.drill_gate_msg }}</div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% elif total_questions > 0 %}
+        <!-- Drill clear済み or drillなし: Quiz primary -->
+        <a href="{{ lang_url('/child/quiz/' ~ chunk.chunk_id) }}" class="cta-card cta-quiz-open">
+            <div class="icon-box"><i class="fas fa-pen"></i></div>
+            <div class="body">
+                <div class="title">{% if mastered_count == total_questions %}{{ t.child.section_review_quiz }}{% else %}{{ t.child.section_start_quiz }}{% endif %}</div>
+                <div class="sub">{{ total_questions }} {{ t.child.questions_suffix or 'questions' }}</div>
+            </div>
+            <div class="arrow"><i class="fas fa-chevron-right"></i></div>
+        </a>
+        {% if drill_count > 0 %}
+        <div style="text-align:center; margin-top:8px;">
+            <a href="{{ lang_url('/child/drill/' ~ chunk.chunk_id) }}" class="cta-sub-btn">
+                <i class="fas fa-bolt"></i> {{ t.child.drill_title }}（{{ t.child.drill_again }}）
+            </a>
+        </div>
+        {% endif %}
+        {% endif %}
     </div>
     {% endif %}
 </div>
@@ -385,6 +528,22 @@
         .catch(() => {});
 })();
 {% endif %}
+
+// --- YouTube 複数動画切替 ---
+(function() {
+    const strip = document.querySelector('.yt-thumb-strip');
+    const player = document.getElementById('ytPlayer');
+    if (!strip || !player) return;
+    strip.querySelectorAll('.yt-thumb').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const vid = btn.dataset.vid;
+            if (!vid) return;
+            strip.querySelectorAll('.yt-thumb').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            player.src = 'https://www.youtube-nocookie.com/embed/' + vid + '?autoplay=1';
+        });
+    });
+})();
 
 // --- Text Tab Switcher ---
 function switchTextTab(tab) {

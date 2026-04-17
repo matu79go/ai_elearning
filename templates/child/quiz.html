@@ -30,6 +30,10 @@
     .q-type-multi { background: #fef3c7; color: #92400e; }
     .q-type-fr { background: #fce7f3; color: #be185d; }
     .q-type-mastered { background: #d1fae5; color: #065f46; }
+    .q-src-oak { background: #e0e7ff; color: #3730a3; }
+    .q-src-llm { background: #ede9fe; color: #6b21a8; }
+    .q-src-rule { background: #fef9c3; color: #854d0e; }
+    .q-src-manual { background: #f1f5f9; color: #475569; }
 
     /* Multi-select checkbox indicator */
     .choice-check {
@@ -353,6 +357,7 @@ const questions = [
     {
         id: {{ q.question_id }},
         type: "{{ q.question_type }}",
+        source: "{{ q.source }}",
         text: {{ q.question_text|tojson }},
         options: {{ q.options|tojson if q.options else '[]' }},
         multiAnswer: {{ 'true' if q.correct_answer and ',' in q.correct_answer else 'false' }},
@@ -482,8 +487,16 @@ function render() {
     const masteredBadge = q.mastered
         ? '<span class="q-type-badge q-type-mastered"><i class="fas fa-check"></i> Mastered</span>'
         : '';
+    const sourceMap = {
+        'oak':           { cls: 'q-src-oak',    label: 'Oak' },
+        'llm_generated': { cls: 'q-src-llm',    label: 'AI' },
+        'rule_based':    { cls: 'q-src-rule',   label: 'Rule' },
+        'manual':        { cls: 'q-src-manual', label: 'Manual' },
+    };
+    const srcInfo = sourceMap[q.source] || sourceMap['manual'];
+    const sourceBadge = `<span class="q-type-badge ${srcInfo.cls}" title="${q.source}">${srcInfo.label}</span>`;
     document.getElementById('qNumber').innerHTML =
-        `{{ t.child.question_label }} ${currentIdx + 1} / ${totalQ} ${typeBadge} ${masteredBadge}`;
+        `{{ t.child.question_label }} ${currentIdx + 1} / ${totalQ} ${typeBadge} ${sourceBadge} ${masteredBadge}`;
     document.getElementById('qText').textContent = q.text;
     renderMath(document.getElementById('qText'));
     const oldHint = document.getElementById('multiHint');

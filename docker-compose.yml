@@ -51,6 +51,7 @@ services:
       - OAK_API_KEY=${OAK_API_KEY}
       - LLM_MODEL_EXPLAIN=${LLM_MODEL_EXPLAIN}
       - GOOGLE_DRIVE_FOLDER_ID=${GOOGLE_DRIVE_FOLDER_ID}
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
       - TZ=Asia/Tokyo
     depends_on:
       db:

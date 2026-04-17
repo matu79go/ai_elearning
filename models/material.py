@@ -55,6 +55,8 @@ class Question(db.Model):
     hint = db.Column(db.Text)
     chunk_id = db.Column(db.Integer, db.ForeignKey('material_chunks.chunk_id'))
     source = db.Column(db.String(20), nullable=False, default='manual')
+    template_id = db.Column(db.String(100))
+    generated_payload = db.Column(db.JSON)
     difficulty = db.Column(db.String(10), nullable=False, default='normal')
     points_value = db.Column(db.Integer, nullable=False, default=10)
     created_at = db.Column(db.DateTime, server_default=db.func.now())

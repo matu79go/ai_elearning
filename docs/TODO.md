@@ -1,12 +1,88 @@
 # TODO
 
-## Next: 次にやること
+優先度の凡例:
+- 🔴 **P0**: 最優先（毎日回す、絶対やる）
+- 🟠 **P1**: 高優先（近日中）
+- 🟡 **P2**: 中優先（余裕できたら）
+- 🟢 **P3**: 低優先（将来）
 
-### 1. 教材インポート（Oak API）— 追加Year
+---
+
+## 🔴 P0 — 最優先
+
+### 🎥 YouTube動画マッピング（日次 ~100 chunk ずつ、quotaリセット待ち）
+
+**なぜ P0**: ユーザー視点で動画品質が最重要。Oak動画がつまらないので YouTube に置き換え中。無料枠消化ベースで日次継続。
+
+**運用コマンド**:
+```bash
+docker exec elearn_app python batch/find_youtube_videos.py --subject <科目> --year <学年> --resume
+```
+
+**quota**: YouTube Data API v3 = 10,000 units/日、search = 100 units → **99 chunks/日**。  
+**リセット**: 毎日 PST 0:00 = 日本時間 17:00（冬時間）。
+
+- [x] **2026-04-17** Y7 Science 82/96 完了 (残り14件 quota切れ)
+- [ ] **2026-04-18** Y7 Science 残り 14 chunk + Y7 Maths ~85 chunk
+- [ ] **2026-04-19** Y7 Maths 残り + Y7 Spanish ~70 chunk
+- [ ] **2026-04-20** Y7 English 63 + 余った枠
+- [ ] **2026-04-21** Y7 History 75
+- [ ] **2026-04-22** Y7 Geography 70
+- [ ] **2026-04-23** Y7 Computing 36 + 余りでY4 Maths開始
+- [ ] **2026-04-24** Y4 Maths 残り ~65
+- [ ] **2026-04-25** Y4 Science 90
+- 終わったら Y5/6/8-11 も同じ要領
+
+---
+
+## 🟠 P1 — 高優先
+
+### 小テスト Phase 3（運用開始後すぐ欲しい機能）
+- [ ] ダッシュボードにドリル履歴表示（今日の完了数、ストリーク等）
+- [ ] ドリル専用バッジ (Drill Master、3日連続ドリル達成 等)
+- [ ] 進捗可視化（chunk別ドリルクリア状況）
+
+### SRS 残件
+- [ ] `answer_history` に `next_review_at` 追加（Leitner box or SM-2 簡易版）
+- [ ] 選択肢の並び順を毎回シャッフル（quiz側、drill側は実装済）
+
+### LLM問題生成の残り展開
+- [x] Y7 Science / Spanish / English, Y4 Maths / Science 完了
+- [ ] Y7 Maths 残り 101 chunk (ルールベース外)
+- [ ] Y7 History / Geography / Computing
+- [ ] 他学年 (Y5/6, Y8-11) の Maths と Science
+
+---
+
+## 🟡 P2 — 中優先
+
+### マスタリー自動進級
+- [ ] chunk 内の全問題を一定回数/精度で正解したら「mastered」フラグ
+- [ ] mastered chunk はダッシュボードで完了表示、次chunkへの導線
+- [ ] unit全体完了で「レベルアップ」通知/バッジ
+- [ ] 「このチャンクは復習期」/「新規学習期」の状態遷移
+- **注**: SRS の next_review_at 機構と連動
+
+### カリキュラム予習機能
+- [ ] `user_curriculum` テーブル: 生徒 × (year_group, subject, unit)
+- [ ] Oak curriculum データと連動
+- [ ] 「次やるべき material」自動提示
+
+### 教材インポート（Oak API）— 追加Year
 - [ ] Year 8-11 の段階的インポート
 - [ ] 進捗管理: `docs/oak_import_progress.md`
 
-### 2. 動画アップロード（Google Drive）— 追加Year
+---
+
+## 🟢 P3 — 低優先 / 将来
+
+### PDF → 講義動画変換
+- [ ] PDF → テキスト抽出（PyMuPDF）
+- [ ] LLMで講義スクリプト生成
+- [ ] MVP: スライド（Marp/HTML）+ TTS音声
+- [ ] 将来: AI動画（Sora / Runway 等）— コスト・著作権見極めてから
+
+### 動画アップロード（Google Drive）— 追加Year
 - [ ] Year 8-11 の動画もGoogle Driveにアップロード（段階的に）
 
 ---
@@ -43,6 +119,50 @@
 ---
 
 ## 完了済み
+
+### 2026-04-17 完了
+
+#### ルールベース算数問題生成 (Y7 Math, material 276/277)
+- [x] `config/math_templates.yaml` テンプレDSL (変数レンジ、answer_expr、distractor、各種答え型: integer/fraction/mixed/algebraic_over_x)
+- [x] ast ベース安全式評価 (`services/math_generator.py`)
+- [x] ジェネレーター: Fraction対応、distractor生成、seed再現性
+- [x] 14テンプレ投入: 分数加減乗除/混合数/量の分数/代数分数(同分母/異分母x-2x/欠損値)/一次方程式 (chunks 2057-2061)
+- [x] 単体テスト 12件 PASS (`tests/test_math_generator.py`)
+- [x] `questions` スキーマ拡張: `template_id`, `generated_payload`, source enum に `rule_based` (migration: `sql/03_add_rule_based_questions.sql`)
+- [x] 既存の Oak imports を `source='manual'` → `source='oak'` にマイグレート (125問)
+- [x] `materialize_question` / `materialize_chunk_pool` — DB書き込みヘルパ
+- [x] admin chunk detail に 小テスト/Questionsタブ、問題作成(AI)/(ルール) chipボタン、ソースフィルタタブ
+- [x] Y7 Math chunks 2057-2061 に一括投入 (小テスト150問+最終テスト250問, `batch/bulk_generate_math.py`)
+
+#### 小テスト (ドリル) モード — Phase 1 + Phase 2
+- [x] 新テーブル3つ作成: `drill_questions`, `drill_sessions`, `drill_answer_history` (migration: `sql/04_add_drill_tables.sql`)
+- [x] モデル: `models/drill.py`
+- [x] config: `DRILL_STREAK_TO_MASTER=3`, `DRILL_COMPLETION_POINTS=5` (config.py、可変)
+- [x] 生成サービス: `services/drill_generator.py` (rule-based / LLM)
+- [x] admin: drill タブ、問題生成ダイアログ、削除機能
+- [x] child drill UI (`templates/child/drill.html`, `/child/drill/<chunk_id>`)
+  - 1問ずつ即時判定、ストリーク表示、不正解時は正解+解説
+  - イントロ画面で「Nストリークで完了、Xpt獲得」説明
+  - 完了画面: トロフィー + ポイント表示 + 「テストに挑戦」導線
+- [x] セクション画面CTA再設計: ドリル未達成時は最終テストをロック、達成後は解放
+- [x] ハードロック: `/child/quiz/<id>` 直URL でも drill 未達成ならdrillへリダイレクト
+- [x] `point_history.reason_type` に `drill_complete` 追加 (migration: `sql/05_add_drill_point_reason.sql`)
+- [x] PC/タブレット 2カラム構成 (サイドバーに streak進捗+セッション統計)
+
+#### SRS (A+B)
+- [x] 1テスト = 10問固定 (config可変: `QUIZ_QUESTIONS_PER_SESSION`)
+- [x] 当日回答済み問題は自動除外
+- [x] プール不足時は rule_based 自動生成で補充
+- [x] 3日ローテーション: 直近3日で誤答した rule_based template_id は別インスタンスで優先出題
+- [x] 「もう一度」ボタン: 全問リフレッシュ (retry=X,Y パラメータ廃止)
+- [x] クイズ結果画面: 直近セッションで出題された問題のみ表示 (全問ではない)
+
+#### LLMプロンプト改善 + 追加機能
+- [x] `generate_questions` シグネチャ刷新: subject/year_group/summary/oak_examples を受ける (決め打ち "KS3 science teacher, Year 7" を廃止)
+- [x] Oak問題を5件までサンプリングして参考スタイルに渡す (重複回避指示付き)
+- [x] admin: LLM/ルール生成ボタンを chip 化、位置を最適化 (フィルタタブ右)
+- [x] admin chunk detail: Content/小テスト/Questions の3タブ構成
+- [x] Y7 Science 全96 chunk に小テスト5+最終テスト10 を LLM 一括投入 (`batch/bulk_generate_llm.py`、resume/sleep対応)
 
 ### 2026-03-20 完了
 - [x] 週間/月間進捗ウィジェット（子供・親画面、教科別フィルター、バーチャート）

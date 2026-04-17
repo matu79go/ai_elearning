@@ -20,3 +20,13 @@ DATABASE_URL = f"mysql+mysqldb://{MYSQL_CONFIG['user']}:{MYSQL_CONFIG['password'
 
 # Flask設定
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
+
+# クイズ設定
+# 1セッションあたりの出題数。テストしたい時はここを直接変更
+QUIZ_QUESTIONS_PER_SESSION = 10
+
+# 小テスト (Drill) 設定
+# N連続正解で完了扱い。最初は3、慣れたら5等に調整
+DRILL_STREAK_TO_MASTER = 3
+# ドリル完了時に付与するポイント
+DRILL_COMPLETION_POINTS = 5

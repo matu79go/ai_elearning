@@ -1,0 +1,405 @@
+# Rule-based math question templates.
+#
+# Each template defines variables (with ranges/constraints), an answer expression,
+# and distractor expressions. The generator samples values, evaluates expressions
+# with Python Fraction support, and builds a 4-choice question.
+#
+# Variable schema:
+#   name: {type: int, min: N, max: N, max_expr: "expr", nonzero: true, distinct_from: [var], in: [list]}
+# max_expr / min_expr: evaluated after earlier variables are known (ast-safe).
+# compute: map of derived values computed after variables (same safe-eval).
+# answer_expr / distractor_exprs: evaluate to a Fraction (F is Fraction in scope).
+# answer_type: integer | fraction | mixed
+#   - integer: render as int (must be whole)
+#   - fraction: render as "a/b" (or integer if denominator is 1)
+#   - mixed: render as "w a/b" when improper, "a/b" when <1, integer when whole
+#
+# Template placeholders:
+#   {var} — plain value
+#   {var:signed} — signed with spaces: 3 -> " + 3", -3 -> " - 3"
+#   {var:frac} — fraction as "a/b"
+
+templates:
+  # ============================================================
+  # Material 276 - Operations on fractions
+  # ============================================================
+
+  # ---- chunk 2057: Adding and subtracting fractions ----
+  - id: frac_add_diff_denom
+    material_id: 276
+    chunk_id: 2057
+    topic: fraction_add
+    difficulty: 2
+    template_en: "Calculate: {a}/{b} + {c}/{d}"
+    template_ja: "計算しなさい: {a}/{b} + {c}/{d}"
+    variables:
+      b: {type: int, min: 2, max: 10}
+      d: {type: int, min: 2, max: 10, distinct_from: [b]}
+      a: {type: int, min: 1, max_expr: "b - 1"}
+      c: {type: int, min: 1, max_expr: "d - 1"}
+    answer_expr: "F(a, b) + F(c, d)"
+    answer_type: fraction
+    distractor_exprs:
+      - "F(a + c, b + d)"
+      - "F(a + c, b * d)"
+      - "F(a * d + b * c, b + d)"
+      - "F(a + c, max(b, d))"
+
+  - id: frac_sub_diff_denom
+    material_id: 276
+    chunk_id: 2057
+    topic: fraction_subtract
+    difficulty: 2
+    template_en: "Calculate: {a}/{b} - {c}/{d}"
+    template_ja: "計算しなさい: {a}/{b} - {c}/{d}"
+    variables:
+      b: {type: int, min: 2, max: 10}
+      d: {type: int, min: 2, max: 10, distinct_from: [b]}
+      a: {type: int, min: 2, max_expr: "b - 1"}
+      c: {type: int, min: 1, max_expr: "d - 1"}
+    # ensure positive result: a/b > c/d  <=>  a*d > b*c
+    constraint: "a * d > b * c"
+    answer_expr: "F(a, b) - F(c, d)"
+    answer_type: fraction
+    distractor_exprs:
+      - "F(a - c, b - d) if b != d else F(a - c, b)"
+      - "F(a - c, b * d)"
+      - "F(a * d - b * c, b + d)"
+
+  - id: frac_reciprocal_fraction
+    material_id: 276
+    chunk_id: 2057
+    topic: reciprocal
+    difficulty: 1
+    template_en: "What is the reciprocal of {a}/{b}?"
+    template_ja: "{a}/{b} の逆数は？"
+    variables:
+      b: {type: int, min: 2, max: 12}
+      a: {type: int, min: 1, max_expr: "b - 1"}
+    answer_expr: "F(b, a)"
+    answer_type: fraction
+    distractor_exprs:
+      - "F(a, b)"
+      - "F(-a, b)"
+      - "F(b + 1, a)"
+
+  - id: frac_reciprocal_integer
+    material_id: 276
+    chunk_id: 2057
+    topic: reciprocal
+    difficulty: 1
+    template_en: "What is the reciprocal of {n}?"
+    template_ja: "{n} の逆数は？"
+    variables:
+      n: {type: int, min: 2, max: 12}
+    answer_expr: "F(1, n)"
+    answer_type: fraction
+    distractor_exprs:
+      - "F(n, 1)"
+      - "F(1, n + 1)"
+      - "F(1, n - 1)"
+
+  # ---- chunk 2058: Multiplying and dividing fractions / mixed numbers ----
+  - id: frac_mul
+    material_id: 276
+    chunk_id: 2058
+    topic: fraction_multiply
+    difficulty: 2
+    template_en: "Calculate: {a}/{b} × {c}/{d}"
+    template_ja: "計算しなさい: {a}/{b} × {c}/{d}"
+    variables:
+      b: {type: int, min: 2, max: 10}
+      d: {type: int, min: 2, max: 10}
+      a: {type: int, min: 1, max_expr: "b - 1"}
+      c: {type: int, min: 1, max_expr: "d - 1"}
+    answer_expr: "F(a, b) * F(c, d)"
+    answer_type: fraction
+    distractor_exprs:
+      - "F(a + c, b + d)"
+      - "F(a * d, b * c)"
+      - "F(a * c + 1, b * d)"
+
+  - id: frac_div
+    material_id: 276
+    chunk_id: 2058
+    topic: fraction_divide
+    difficulty: 3
+    template_en: "Calculate: {a}/{b} ÷ {c}/{d}"
+    template_ja: "計算しなさい: {a}/{b} ÷ {c}/{d}"
+    variables:
+      b: {type: int, min: 2, max: 10}
+      d: {type: int, min: 2, max: 10}
+      a: {type: int, min: 1, max_expr: "b - 1"}
+      c: {type: int, min: 1, max_expr: "d - 1"}
+    answer_expr: "F(a, b) / F(c, d)"
+    answer_type: fraction
+    distractor_exprs:
+      - "F(a, b) * F(c, d)"
+      - "F(a * c, b * d)"
+      - "F(b * c, a * d)"
+
+  - id: int_div_frac
+    material_id: 276
+    chunk_id: 2058
+    topic: fraction_divide
+    difficulty: 2
+    template_en: "Calculate: {n} ÷ {a}/{b}"
+    template_ja: "計算しなさい: {n} ÷ {a}/{b}"
+    variables:
+      n: {type: int, min: 2, max: 10}
+      b: {type: int, min: 2, max: 8}
+      a: {type: int, min: 1, max_expr: "b - 1"}
+    answer_expr: "n / F(a, b)"
+    answer_type: mixed
+    distractor_exprs:
+      - "n * F(a, b)"
+      - "F(n * a, b)"
+      - "F(a, n * b)"
+
+  - id: mixed_mul
+    material_id: 276
+    chunk_id: 2058
+    topic: mixed_multiply
+    difficulty: 4
+    template_en: "Calculate: {w1} {a}/{b} × {w2} {c}/{d}"
+    template_ja: "計算しなさい: {w1} {a}/{b} × {w2} {c}/{d}"
+    variables:
+      w1: {type: int, min: 1, max: 4}
+      w2: {type: int, min: 1, max: 4}
+      b: {type: int, min: 2, max: 6}
+      d: {type: int, min: 2, max: 6}
+      a: {type: int, min: 1, max_expr: "b - 1"}
+      c: {type: int, min: 1, max_expr: "d - 1"}
+    answer_expr: "(w1 + F(a, b)) * (w2 + F(c, d))"
+    answer_type: mixed
+    distractor_exprs:
+      - "w1 * w2 + F(a * c, b * d)"
+      - "(w1 * w2) + F(a + c, b + d)"
+      - "(w1 + w2) * F(a * c, b * d)"
+
+  # ---- chunk 2059: Fractions of amounts ----
+  - id: fraction_of_amount
+    material_id: 276
+    chunk_id: 2059
+    topic: fraction_of
+    difficulty: 2
+    template_en: "Find {a}/{b} of {n}."
+    template_ja: "{n} の {a}/{b} を求めなさい。"
+    variables:
+      b: {type: int, in: [2, 3, 4, 5, 8, 10, 20]}
+      a: {type: int, min: 1, max_expr: "b - 1"}
+      k: {type: int, min: 2, max: 50}
+    compute:
+      n: "b * k"
+    constraint: "n <= 2000"
+    answer_expr: "F(n * a, b)"
+    answer_type: integer
+    distractor_exprs:
+      - "F(n, a * b)"
+      - "F(n + a, b)"
+      - "F(n * b, a)"
+
+  - id: fraction_of_money
+    material_id: 276
+    chunk_id: 2059
+    topic: fraction_of
+    difficulty: 2
+    template_en: "Find {a}/{b} of £{n}."
+    template_ja: "£{n} の {a}/{b} を求めなさい。"
+    variables:
+      b: {type: int, in: [2, 4, 5, 8, 10]}
+      a: {type: int, min: 1, max_expr: "b - 1"}
+      k: {type: int, min: 10, max: 500}
+    compute:
+      n: "b * k"
+    answer_expr: "F(n * a, b)"
+    answer_type: integer
+    distractor_exprs:
+      - "F(n, a * b)"
+      - "F(n + a, b)"
+      - "F(n, b) + a"
+
+  # ---- chunk 2060: Algebraic fractions (treat x symbolically via templates) ----
+  # Here we emit the symbolic form directly; answer is a fraction of integers.
+  - id: alg_frac_add_same_denom
+    material_id: 276
+    chunk_id: 2060
+    topic: algebraic_fraction
+    difficulty: 2
+    template_en: "Simplify: {a}/x + {c}/x"
+    template_ja: "簡約しなさい: {a}/x + {c}/x"
+    variables:
+      a: {type: int, min: 1, max: 9}
+      c: {type: int, min: 1, max: 9}
+    # Answer is (a+c)/x. We represent the numerator here; UI should render with /x suffix.
+    answer_expr: "F(a + c, 1)"
+    answer_type: integer
+    # Store x-denominator hint in template answer wrapping later
+    answer_wrap_en: "{value}/x"
+    answer_wrap_ja: "{value}/x"
+    distractor_exprs:
+      - "F(a * c, 1)"
+      - "F(a + c + 1, 1)"
+      - "F(abs(a - c), 1)"
+
+  - id: alg_frac_sub_same_denom
+    material_id: 276
+    chunk_id: 2060
+    topic: algebraic_fraction
+    difficulty: 2
+    template_en: "Simplify: {a}/x - {c}/x"
+    template_ja: "簡約しなさい: {a}/x - {c}/x"
+    variables:
+      a: {type: int, min: 3, max: 15}
+      c: {type: int, min: 1, max_expr: "a - 1"}
+    answer_expr: "F(a - c, 1)"
+    answer_type: algebraic_over_x
+    distractor_exprs:
+      - "F(a + c, 1)"
+      - "F(a - c, 2)"
+      - "F(a * c, 1)"
+
+  - id: alg_frac_add_x_2x
+    material_id: 276
+    chunk_id: 2060
+    topic: algebraic_fraction
+    difficulty: 3
+    template_en: "Simplify: {a}/x + {c}/(2x)"
+    template_ja: "簡約しなさい: {a}/x + {c}/(2x)"
+    variables:
+      a: {type: int, min: 1, max: 8}
+      c: {type: int, min: 1, max: 9}
+    # (2a + c) / (2x) — keep as Fraction(2a+c, 2); renderer handles d=1 (n/x) vs d=2 (n/(2x))
+    answer_expr: "F(2*a + c, 2)"
+    answer_type: algebraic_over_x
+    distractor_exprs:
+      - "F(a + c, 2)"
+      - "F(a + c, 1)"
+      - "F(2*a + c, 1)"
+
+  - id: alg_frac_sub_x_2x
+    material_id: 276
+    chunk_id: 2060
+    topic: algebraic_fraction
+    difficulty: 3
+    template_en: "Simplify: {a}/x - {c}/(2x)"
+    template_ja: "簡約しなさい: {a}/x - {c}/(2x)"
+    variables:
+      a: {type: int, min: 2, max: 9}
+      c: {type: int, min: 1, max: 9}
+    constraint: "2 * a > c"
+    answer_expr: "F(2*a - c, 2)"
+    answer_type: algebraic_over_x
+    distractor_exprs:
+      - "F(a - c, 2)"
+      - "F(2*a - c, 1)"
+      - "F(2*a + c, 2)"
+
+  - id: alg_frac_missing_denom
+    material_id: 276
+    chunk_id: 2060
+    topic: algebraic_fraction
+    difficulty: 3
+    template_en: "Find the missing value: {n}/{d} + 1/■ = {target_num}/{target_den}. What is ■?"
+    template_ja: "欠けている値を求めなさい: {n}/{d} + 1/■ = {target_num}/{target_den}。 ■ はいくつ？"
+    variables:
+      d: {type: int, min: 3, max: 8}
+      n: {type: int, min: 1, max_expr: "d - 1"}
+      missing: {type: int, min: 2, max: 9, distinct_from: [d]}
+    compute:
+      # target = n/d + 1/missing = (n*missing + d) / (d*missing)
+      target_num: "n * missing + d"
+      target_den: "d * missing"
+    answer_expr: "F(missing, 1)"
+    answer_type: integer
+    distractor_exprs:
+      - "F(missing + 1, 1)"
+      - "F(missing - 1, 1)"
+      - "F(d, 1)"
+      - "F(n + missing, 1)"
+
+  # ============================================================
+  # Material 277 - Solving Linear Equations (chunk 2061)
+  # ============================================================
+  - id: linear_ax_plus_b
+    material_id: 277
+    chunk_id: 2061
+    topic: linear_equation
+    difficulty: 2
+    template_en: "Solve for x:  {a}x {b:signed} = {c}"
+    template_ja: "x について解きなさい:  {a}x {b:signed} = {c}"
+    variables:
+      a: {type: int, min: 2, max: 9, nonzero: true}
+      x: {type: int, min: -10, max: 10, nonzero: true}
+      b: {type: int, min: -10, max: 10, nonzero: true}
+    compute:
+      c: "a * x + b"
+    answer_expr: "F(x)"
+    answer_type: integer
+    distractor_exprs:
+      - "F(x + 1)"
+      - "F(-x)"
+      - "F(c - b, a) + 1"
+      - "F(c + b, a)"
+
+  - id: linear_b_minus_ax
+    material_id: 277
+    chunk_id: 2061
+    topic: linear_equation
+    difficulty: 3
+    template_en: "Solve for x:  {b} - {a}x = {c}"
+    template_ja: "x について解きなさい:  {b} - {a}x = {c}"
+    variables:
+      a: {type: int, min: 2, max: 9}
+      x: {type: int, min: -8, max: 8, nonzero: true}
+      b: {type: int, min: 1, max: 20}
+    compute:
+      c: "b - a * x"
+    answer_expr: "F(x)"
+    answer_type: integer
+    distractor_exprs:
+      - "F(-x)"
+      - "F(x + 1)"
+      - "F(b - c, a) * -1"
+
+  - id: linear_x_over_a_minus_b
+    material_id: 277
+    chunk_id: 2061
+    topic: linear_equation
+    difficulty: 3
+    template_en: "Solve for x:  x/{a} - {b} = {c}"
+    template_ja: "x について解きなさい:  x/{a} - {b} = {c}"
+    variables:
+      a: {type: int, min: 2, max: 9}
+      k: {type: int, min: -10, max: 10, nonzero: true}
+      b: {type: int, min: 1, max: 10}
+    compute:
+      x: "a * k"
+      c: "k - b"
+    answer_expr: "F(x)"
+    answer_type: integer
+    distractor_exprs:
+      - "F(x) + a"
+      - "F(x, a)"
+      - "F(c + b)"
+      - "F(a * (c - b))"
+
+  - id: linear_x_plus_b_over_a
+    material_id: 277
+    chunk_id: 2061
+    topic: linear_equation
+    difficulty: 4
+    template_en: "Solve for x:  (x {b:signed}) / {a} = {c}"
+    template_ja: "x について解きなさい:  (x {b:signed}) / {a} = {c}"
+    variables:
+      a: {type: int, min: 2, max: 9}
+      c: {type: int, min: -8, max: 8, nonzero: true}
+      b: {type: int, min: -9, max: 9, nonzero: true}
+    compute:
+      x: "a * c - b"
+    answer_expr: "F(x)"
+    answer_type: integer
+    distractor_exprs:
+      - "F(x + b)"
+      - "F(c - b)"
+      - "F(a * c + b)"

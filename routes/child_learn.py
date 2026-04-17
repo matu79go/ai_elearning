@@ -10,8 +10,11 @@ from routes import dual_route
 from datetime import datetime, timedelta
 import json
 import os
+import random
 import urllib.request
 import urllib.error
+
+from config import QUIZ_QUESTIONS_PER_SESSION
 
 child_learn_bp = Blueprint('child_learn', __name__)
 
@@ -175,25 +178,184 @@ def child_section(chunk_id):
         subject=material.subject, year_group=material.year_group, status='published',
     ).order_by(Material.sort_order, Material.material_id).all()
 
-    # 動画URL: YouTube優先、なければDriveプロキシ
+    # 動画: chunk_youtube_videos 優先 (複数候補あり)、fallback で Oak Drive
+    from models.youtube_video import ChunkYoutubeVideo
+    youtube_videos = ChunkYoutubeVideo.query.filter_by(
+        chunk_id=chunk_id,
+    ).order_by(
+        ChunkYoutubeVideo.is_primary.desc(),
+        ChunkYoutubeVideo.rank_position,
+    ).all()
+
     video_url = None
     video_type = None
-    if chunk.video_youtube_id:
+    if youtube_videos:
+        primary = next((v for v in youtube_videos if v.is_primary), youtube_videos[0])
+        video_url = f'https://www.youtube-nocookie.com/embed/{primary.video_id}'
+        video_type = 'youtube'
+    elif chunk.video_youtube_id:  # legacy single-id fallback
         video_url = f'https://www.youtube-nocookie.com/embed/{chunk.video_youtube_id}'
         video_type = 'youtube'
     elif chunk.video_drive_id:
         video_url = f'/child/drive-video/{chunk.chunk_id}'
         video_type = 'gdrive'
 
+    # Drill (小テスト) — プール数 + この子が既にマスタリー達成しているか
+    from models.drill import DrillQuestion, DrillSession
+    from config import DRILL_STREAK_TO_MASTER
+    drill_count = DrillQuestion.query.filter_by(
+        chunk_id=chunk_id, status='published',
+    ).count()
+    drill_mastered = DrillSession.query.filter_by(
+        child_id=current_user.child_id,
+        chunk_id=chunk_id,
+        mastered=True,
+    ).first() is not None
+    # 小テストが用意されていないchunkはゲート対象外 (旧来と同じくquiz即開放)
+    quiz_unlocked = (drill_count == 0) or drill_mastered
+
     return render_template('child/section.html',
                            chunk=chunk, material=material, parsed=parsed,
                            total_questions=len(questions), mastered_count=mastered_count,
                            all_chunks=all_chunks, chunk_progress=chunk_progress,
                            sibling_units=sibling_units,
-                           video_url=video_url, video_type=video_type)
+                           video_url=video_url, video_type=video_type,
+                           drill_count=drill_count,
+                           drill_mastered=drill_mastered,
+                           quiz_unlocked=quiz_unlocked,
+                           drill_streak_target=DRILL_STREAK_TO_MASTER,
+                           youtube_videos=youtube_videos)
 
 
 # ---- クイズ画面 ----
+def _answered_today_qids(child_id, chunk_id):
+    """今日(ローカル0時以降)にこの子が答えた、このchunk内のquestion_idセット"""
+    today_start = datetime.combine(datetime.now().date(), datetime.min.time())
+    rows = db.session.query(AnswerHistory.question_id).join(
+        Question, AnswerHistory.question_id == Question.question_id,
+    ).filter(
+        AnswerHistory.child_id == child_id,
+        AnswerHistory.answered_at >= today_start,
+        Question.chunk_id == chunk_id,
+    ).distinct().all()
+    return {r[0] for r in rows}
+
+
+def _recent_wrong_templates(child_id, chunk_id, days=3):
+    """直近N日で誤答した rule_based の template_id セット"""
+    since = datetime.now() - timedelta(days=days)
+    rows = db.session.query(Question.template_id).join(
+        AnswerHistory, AnswerHistory.question_id == Question.question_id,
+    ).filter(
+        AnswerHistory.child_id == child_id,
+        AnswerHistory.answered_at >= since,
+        AnswerHistory.is_correct == False,  # noqa: E712
+        Question.chunk_id == chunk_id,
+        Question.template_id.isnot(None),
+    ).distinct().all()
+    return {r[0] for r in rows if r[0]}
+
+
+def _generate_rotation_priority(chunk_id, material_id, template_ids, max_n):
+    """3日ローテ対象 template_id ごとに、新インスタンスを1問ずつ生成。
+    生成したQuestionを返す（セッションにはcommit済み）。
+    """
+    if not template_ids or max_n <= 0:
+        return []
+    from services.math_generator import get_templates, materialize_question
+
+    templates = get_templates()
+    tids = list(template_ids)[:max_n]
+    out = []
+    for tid in tids:
+        if tid not in templates:
+            continue
+        try:
+            row = materialize_question(
+                template_id=tid, material_id=material_id, chunk_id=chunk_id,
+            )
+            out.append(row)
+        except Exception:
+            continue
+    if out:
+        db.session.commit()
+    return out
+
+
+def _refill_rule_based_if_short(chunk_id, needed):
+    """ルールベーステンプレがあり、出題可能な新鮮プールが不足なら自動補充"""
+    if needed <= 0:
+        return []
+    from services.math_generator import materialize_chunk_pool, templates_for_chunk
+    if not templates_for_chunk(chunk_id):
+        return []
+    try:
+        rows = materialize_chunk_pool(chunk_id=chunk_id, count=needed)
+        db.session.commit()
+        return rows
+    except Exception:
+        db.session.rollback()
+        return []
+
+
+def _pick_quiz_questions_for_child(child_id, chunk_id, material_id, limit):
+    """1セッション分のクイズ問題を返す。
+    A. 今日答えた問題はプールから除外
+    B. 直近3日で誤答したrule_based templateは、新インスタンスを生成して優先枠に入れる
+    不足時: rule_basedテンプレがあれば自動補充
+    """
+    excluded = _answered_today_qids(child_id, chunk_id)
+
+    # B: 3日以内の誤答テンプレに対して新インスタンスを先に作る
+    wrong_templates = _recent_wrong_templates(child_id, chunk_id)
+    max_priority = min(len(wrong_templates), limit // 2)
+    priority_rows = _generate_rotation_priority(
+        chunk_id, material_id, wrong_templates, max_priority,
+    )
+    priority_ids = {r.question_id for r in priority_rows}
+
+    remaining = limit - len(priority_rows)
+
+    # 残りをプールから
+    def _pool():
+        q = Question.query.filter(Question.chunk_id == chunk_id)
+        exclude_ids = excluded | priority_ids
+        if exclude_ids:
+            q = q.filter(~Question.question_id.in_(exclude_ids))
+        return q.all()
+
+    pool = _pool()
+
+    # 不足なら rule_based を自動補充
+    if len(pool) < remaining:
+        shortage = remaining - len(pool) + 5
+        _refill_rule_based_if_short(chunk_id, shortage)
+        pool = _pool()
+
+    # ミックス (rule_based と other 半々狙い)
+    rule = [q for q in pool if q.source == 'rule_based']
+    other = [q for q in pool if q.source != 'rule_based']
+    picks = list(priority_rows)
+    if remaining > 0:
+        if rule and other:
+            n_rule = min(remaining // 2, len(rule))
+            n_other = min(remaining - n_rule, len(other))
+            picks += random.sample(rule, n_rule) + random.sample(other, n_other)
+        elif rule:
+            picks += random.sample(rule, min(remaining, len(rule)))
+        else:
+            picks += random.sample(other, min(remaining, len(other)))
+
+    # まだ不足なら残り全部（優先とpicksを除外）
+    if len(picks) < limit:
+        taken = {q.question_id for q in picks}
+        leftover = [q for q in pool if q.question_id not in taken]
+        picks += random.sample(leftover, min(limit - len(picks), len(leftover)))
+
+    random.shuffle(picks)
+    return picks[:limit]
+
+
 @dual_route(child_learn_bp, '/child/quiz/<int:chunk_id>', methods=['GET'])
 @login_required
 def child_quiz(chunk_id):
@@ -201,16 +363,34 @@ def child_quiz(chunk_id):
         abort(403)
     chunk = MaterialChunk.query.get_or_404(chunk_id)
     material = Material.query.get(chunk.material_id)
-    questions = Question.query.filter_by(chunk_id=chunk_id).all()
 
-    # 各問題のマスタリー状態を取得
+    # ドリルが用意されているchunkは、ドリルマスタリー達成までquiz禁止
+    from models.drill import DrillQuestion, DrillSession
+    from flask import redirect
+    from app import lang_url
+    has_drill = DrillQuestion.query.filter_by(
+        chunk_id=chunk_id, status='published',
+    ).first() is not None
+    if has_drill:
+        drill_mastered = DrillSession.query.filter_by(
+            child_id=current_user.child_id, chunk_id=chunk_id, mastered=True,
+        ).first() is not None
+        if not drill_mastered:
+            return redirect(lang_url(f'/child/drill/{chunk_id}'))
+
+    questions = _pick_quiz_questions_for_child(
+        current_user.child_id, chunk_id, chunk.material_id, QUIZ_QUESTIONS_PER_SESSION,
+    )
+
+    # 各問題のマスタリー状態を取得（出題される問題だけ）
     mastery_map = {}
-    masteries = QuestionMastery.query.filter(
-        QuestionMastery.question_id.in_([q.question_id for q in questions]),
-        QuestionMastery.child_id == current_user.child_id,
-    ).all()
-    for m in masteries:
-        mastery_map[m.question_id] = m
+    if questions:
+        masteries = QuestionMastery.query.filter(
+            QuestionMastery.question_id.in_([q.question_id for q in questions]),
+            QuestionMastery.child_id == current_user.child_id,
+        ).all()
+        for m in masteries:
+            mastery_map[m.question_id] = m
 
     return render_template('child/quiz.html',
                            chunk=chunk, material=material,
@@ -581,7 +761,40 @@ def child_quiz_result(chunk_id):
         abort(403)
     chunk = MaterialChunk.query.get_or_404(chunk_id)
     material = Material.query.get(chunk.material_id)
-    questions = Question.query.filter_by(chunk_id=chunk_id).all()
+
+    # 直近セッションで「このchunk」に出題された問題だけを表示
+    latest_session = db.session.query(LearningSession).join(
+        AnswerHistory, AnswerHistory.session_id == LearningSession.session_id,
+    ).join(
+        Question, AnswerHistory.question_id == Question.question_id,
+    ).filter(
+        LearningSession.child_id == current_user.child_id,
+        Question.chunk_id == chunk_id,
+    ).order_by(LearningSession.session_id.desc()).first()
+
+    session_qids = []
+    if latest_session:
+        session_qids = [
+            r.question_id for r in db.session.query(AnswerHistory)
+                .join(Question, AnswerHistory.question_id == Question.question_id)
+                .filter(
+                    AnswerHistory.session_id == latest_session.session_id,
+                    Question.chunk_id == chunk_id,
+                )
+                .order_by(AnswerHistory.answer_id).all()
+        ]
+
+    if session_qids:
+        # 重複除去、順序保持
+        seen = set()
+        ordered_ids = [q for q in session_qids if not (q in seen or seen.add(q))]
+        questions = Question.query.filter(Question.question_id.in_(ordered_ids)).all()
+        # 表示順を answer_history の順に揃える
+        q_by_id = {q.question_id: q for q in questions}
+        questions = [q_by_id[qid] for qid in ordered_ids if qid in q_by_id]
+    else:
+        # フォールバック: セッションが見つからない時のみchunk全問
+        questions = Question.query.filter_by(chunk_id=chunk_id).all()
 
     mastery_map = {}
     masteries = QuestionMastery.query.filter(

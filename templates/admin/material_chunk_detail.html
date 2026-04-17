@@ -77,8 +77,14 @@
     <button class="tab-btn active" onclick="switchTab('contents')">
         <i class="fas fa-book-open"></i> Contents
     </button>
+    <button class="tab-btn" onclick="switchTab('drill')">
+        <i class="fas fa-bolt"></i> {{ t.admin.tab_drill }} ({{ drill_questions|length }})
+    </button>
     <button class="tab-btn" onclick="switchTab('questions')">
         <i class="fas fa-question-circle"></i> Questions ({{ questions|length }})
+    </button>
+    <button class="tab-btn" onclick="switchTab('youtube')">
+        <i class="fab fa-youtube"></i> {{ t.admin.tab_youtube }} ({{ youtube_videos|length }})
     </button>
 </div>
 
@@ -141,12 +147,170 @@
     {% endif %}
 </div>
 
+<!-- Tab: Drill (小テスト) -->
+<div id="tab-drill" style="display:none;">
+    <div style="background:#eef2ff; border-left:3px solid #6366f1; padding:12px 16px; margin-bottom:1rem; border-radius:6px;">
+        <div style="font-size:12px; font-weight:700; color:#4338ca; margin-bottom:4px;">
+            <i class="fas fa-info-circle"></i> {{ t.admin.tab_drill }}
+        </div>
+        <div style="font-size:13px; color:#3730a3; line-height:1.6;">
+            {{ t.admin.drill_description.replace('{streak}', drill_streak|string).replace('{points}', drill_points|string) }}
+        </div>
+    </div>
+
+    <div class="qa-toolbar">
+        <div style="font-size:13px; font-weight:700; color:#475569;">
+            {{ t.admin.drill_pool_label }} <span style="color:#94a3b8; font-weight:500;">({{ drill_questions|length }})</span>
+        </div>
+        <div class="qa-actions">
+            {% if rule_templates %}
+            <button class="gen-chip gen-chip-rule" onclick="document.getElementById('genDrillRuleOverlay').style.display='flex'">
+                <i class="fas fa-plus"></i> {{ t.admin.gen_rule_button }}
+            </button>
+            {% endif %}
+            <button class="gen-chip gen-chip-llm" onclick="document.getElementById('genDrillLlmOverlay').style.display='flex'">
+                <i class="fas fa-plus"></i> {{ t.admin.gen_llm_button }}
+            </button>
+        </div>
+    </div>
+
+    {% if drill_questions %}
+    <div class="qa-list">
+        {% for q in drill_questions %}
+        <div class="qa-item" data-source="{{ q.source }}">
+            <div class="qa-header">
+                <span class="qa-num">{{ loop.index }}</span>
+                <span class="qa-type qa-type-mc">MC</span>
+                <span class="qa-source">{{ q.source }}</span>
+                <form method="POST" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks/' ~ chunk.chunk_id ~ '/drill/' ~ q.drill_question_id ~ '/delete') }}"
+                      style="margin-left:auto;" onsubmit="return confirm('{{ t.admin.drill_delete_confirm }}');">
+                    <button type="submit" class="action-btn" style="padding:4px 10px; font-size:11px; color:#dc2626;">
+                        <i class="fas fa-trash"></i> {{ t.admin.drill_delete }}
+                    </button>
+                </form>
+            </div>
+            <div class="qa-question">{{ q.question_text }}</div>
+            {% if q.options %}
+            <div class="qa-options">
+                {% for opt in q.options %}
+                <div class="qa-option {{ 'qa-option-correct' if opt.label == q.correct_answer }}">
+                    <span class="qa-option-label">{{ opt.label }}</span>
+                    <span>{{ opt.text }}</span>
+                    {% if opt.label == q.correct_answer %}
+                    <i class="fas fa-check" style="margin-left:auto; color:#059669;"></i>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% if q.explanation %}
+            <div class="qa-explanation">
+                <i class="fas fa-lightbulb" style="color:#f59e0b;"></i>
+                {{ q.explanation }}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="section-card">
+        <div class="section-body" style="text-align:center; padding:2rem; color:#94a3b8;">
+            {{ t.admin.drill_pool_empty }}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if rule_templates %}
+    <div id="genDrillRuleOverlay" class="gen-overlay" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+        <div class="gen-dialog">
+            <h3 style="font-size:16px; font-weight:700; color:#1e293b; margin-bottom:1rem;">
+                <i class="fas fa-dice" style="color:#d97706; margin-right:6px;"></i> {{ t.admin.gen_rule_title }}: {{ chunk.title }}
+            </h3>
+            <form method="POST" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks/' ~ chunk.chunk_id ~ '/drill/generate-rule') }}">
+                <div class="form-group" style="margin-bottom:1rem;">
+                    <label class="form-label">{{ t.admin.gen_rule_count_label }}</label>
+                    <input type="number" name="count" class="form-input" value="10" min="1" max="50" required>
+                </div>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+                    <button type="submit" class="btn-save" style="background:#d97706;">
+                        <i class="fas fa-bolt" style="margin-right:4px;"></i> {{ t.admin.gen_rule_submit }}
+                    </button>
+                    <button type="button" class="btn-cancel" onclick="document.getElementById('genDrillRuleOverlay').style.display='none'">
+                        {{ t.admin.gen_cancel }}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <div id="genDrillLlmOverlay" class="gen-overlay" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+        <div class="gen-dialog">
+            <h3 style="font-size:16px; font-weight:700; color:#1e293b; margin-bottom:1rem;">
+                <i class="fas fa-robot" style="color:#6366f1; margin-right:6px;"></i> {{ t.admin.gen_llm_button }}: {{ chunk.title }}
+            </h3>
+            <form method="POST" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks/' ~ chunk.chunk_id ~ '/drill/generate-llm') }}">
+                <div class="gen-row">
+                    <div class="form-group">
+                        <label class="form-label">Count</label>
+                        <select name="count" class="form-input">
+                            <option value="3">3</option>
+                            <option value="5" selected>5</option>
+                            <option value="10">10</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Difficulty</label>
+                        <select name="difficulty" class="form-input">
+                            <option value="easy">Easy</option>
+                            <option value="normal" selected>Normal</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+                    <button type="submit" class="btn-save">
+                        <i class="fas fa-bolt" style="margin-right:4px;"></i> Generate
+                    </button>
+                    <button type="button" class="btn-cancel" onclick="document.getElementById('genDrillLlmOverlay').style.display='none'">
+                        {{ t.admin.gen_cancel }}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Tab: Questions -->
 <div id="tab-questions" style="display:none;">
     {% if questions %}
-    <div class="qa-list">
+    {% set src_counts = {
+        'all': questions|length,
+        'oak': questions|selectattr('source', 'equalto', 'oak')|list|length,
+        'llm_generated': questions|selectattr('source', 'equalto', 'llm_generated')|list|length,
+        'rule_based': questions|selectattr('source', 'equalto', 'rule_based')|list|length,
+    } %}
+    <div class="qa-toolbar">
+        <div class="qa-filter-tabs">
+            <button class="qa-filter-tab active" data-filter="all">{{ t.admin.qa_filter_all }} <span class="qa-filter-count">{{ src_counts['all'] }}</span></button>
+            <button class="qa-filter-tab" data-filter="oak">{{ t.admin.qa_filter_oak }} <span class="qa-filter-count">{{ src_counts['oak'] }}</span></button>
+            <button class="qa-filter-tab" data-filter="llm_generated">{{ t.admin.qa_filter_llm }} <span class="qa-filter-count">{{ src_counts['llm_generated'] }}</span></button>
+            <button class="qa-filter-tab" data-filter="rule_based">{{ t.admin.qa_filter_rule_based }} <span class="qa-filter-count">{{ src_counts['rule_based'] }}</span></button>
+        </div>
+        <div class="qa-actions">
+            {% if rule_templates %}
+            <button class="gen-chip gen-chip-rule" onclick="document.getElementById('genRuleOverlay').style.display='flex'" title="{{ t.admin.gen_rule_title }}">
+                <i class="fas fa-plus"></i> {{ t.admin.gen_rule_button }}
+            </button>
+            {% endif %}
+            <button class="gen-chip gen-chip-llm" onclick="document.getElementById('genOverlay').style.display='flex'">
+                <i class="fas fa-plus"></i> {{ t.admin.gen_llm_button }}
+            </button>
+        </div>
+    </div>
+    <div class="qa-list" id="qaList">
         {% for q in questions %}
-        <div class="qa-item">
+        <div class="qa-item" data-source="{{ q.source }}">
             <div class="qa-header">
                 <span class="qa-num">{{ loop.index }}</span>
                 <span class="qa-type {{ 'qa-type-mc' if q.question_type == 'multiple_choice' else 'qa-type-fr' }}">
@@ -193,12 +357,8 @@
     </div>
     {% endif %}
 
-    <!-- Generate Questions (per chunk) -->
-    <div style="text-align:center; margin-top:1.5rem;">
-        <button class="generate-btn" onclick="document.getElementById('genOverlay').style.display='flex'">
-            <i class="fas fa-robot" style="margin-right:6px;"></i> Generate Questions
-        </button>
-    </div>
+    <!-- Generate dialogs are triggered by the toolbar at the top -->
+
 
     <div id="genOverlay" class="gen-overlay" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
         <div class="gen-dialog">
@@ -248,6 +408,152 @@
             </div>
         </div>
     </div>
+
+    {% if rule_templates %}
+    <div id="genRuleOverlay" class="gen-overlay" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+        <div class="gen-dialog">
+            <h3 style="font-size:16px; font-weight:700; color:#1e293b; margin-bottom:1rem;">
+                <i class="fas fa-dice" style="color:#d97706; margin-right:6px;"></i> {{ t.admin.gen_rule_title }}: {{ chunk.title }}
+            </h3>
+            <div style="background:#fffbeb; border-left:3px solid #d97706; padding:10px 14px; margin-bottom:1rem; border-radius:6px;">
+                <div style="font-size:12px; font-weight:600; color:#92400e; margin-bottom:4px;">
+                    {{ t.admin.gen_rule_templates_label }} ({{ rule_templates|length }})
+                </div>
+                <ul style="font-size:12px; color:#78350f; margin:0; padding-left:1.25rem; line-height:1.6;">
+                    {% for tpl in rule_templates %}
+                    <li><code>{{ tpl.id }}</code> <span style="color:#a16207;">— {{ tpl.topic }} (lv.{{ tpl.difficulty }})</span></li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <form method="POST" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks/' ~ chunk.chunk_id ~ '/generate-rule') }}" id="genRuleForm">
+                <div class="form-group" style="margin-bottom:1rem;">
+                    <label class="form-label">{{ t.admin.gen_rule_count_label }}</label>
+                    <input type="number" name="count" class="form-input" value="10" min="1" max="50" required>
+                </div>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+                    <button type="submit" class="btn-save" id="genRuleSubmitBtn" style="background:#d97706;">
+                        <i class="fas fa-bolt" style="margin-right:4px;"></i> {{ t.admin.gen_rule_submit }}
+                    </button>
+                    <button type="button" class="btn-cancel" onclick="document.getElementById('genRuleOverlay').style.display='none'">
+                        {{ t.admin.gen_cancel }}
+                    </button>
+                </div>
+            </form>
+            <div id="genRuleLoading" style="display:none; text-align:center; padding:2rem;">
+                <div class="spinner"></div>
+                <p style="margin-top:1rem; color:#64748b; font-size:14px;">Generating...</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Tab: YouTube videos -->
+<div id="tab-youtube" style="display:none;">
+    <div style="background:#fef2f2; border-left:3px solid #dc2626; padding:12px 16px; margin-bottom:1rem; border-radius:6px;">
+        <div style="font-size:12px; font-weight:700; color:#991b1b; margin-bottom:4px;">
+            <i class="fab fa-youtube"></i> {{ t.admin.tab_youtube }}
+        </div>
+        <div style="font-size:13px; color:#7f1d1d; line-height:1.5;">
+            {{ t.admin.youtube_description }}
+        </div>
+    </div>
+
+    <div class="qa-toolbar">
+        <div style="font-size:13px; font-weight:700; color:#475569;">
+            {{ t.admin.youtube_pool_label }} <span style="color:#94a3b8; font-weight:500;">({{ youtube_videos|length }})</span>
+        </div>
+        <div class="qa-actions">
+            <form method="POST" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks/' ~ chunk.chunk_id ~ '/youtube/search') }}" style="display:inline;">
+                <button type="submit" class="gen-chip" style="background:linear-gradient(135deg,#dc2626,#ef4444);">
+                    <i class="fas fa-search"></i> {{ t.admin.youtube_auto_search }}
+                </button>
+            </form>
+            <button class="gen-chip" style="background:#475569;" onclick="document.getElementById('ytAddOverlay').style.display='flex'">
+                <i class="fas fa-plus"></i> {{ t.admin.youtube_add_manual }}
+            </button>
+        </div>
+    </div>
+
+    {% if youtube_videos %}
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:12px;">
+        {% for v in youtube_videos %}
+        <div class="yt-card {{ 'yt-card-primary' if v.is_primary }}">
+            <a href="https://www.youtube.com/watch?v={{ v.video_id }}" target="_blank" rel="noopener">
+                {% if v.thumbnail_url %}
+                <img src="{{ v.thumbnail_url }}" alt="" style="width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:8px 8px 0 0;">
+                {% else %}
+                <div style="aspect-ratio:16/9; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:#94a3b8; border-radius:8px 8px 0 0;">
+                    <i class="fab fa-youtube" style="font-size:32px;"></i>
+                </div>
+                {% endif %}
+            </a>
+            <div style="padding:10px 12px;">
+                <div style="display:flex; gap:6px; align-items:center; font-size:10px; margin-bottom:4px;">
+                    {% if v.is_primary %}
+                    <span style="background:#dc2626; color:white; padding:2px 8px; border-radius:4px; font-weight:700;">PRIMARY</span>
+                    {% endif %}
+                    <span style="color:#94a3b8;">#{{ v.rank_position }} · {{ v.source }}</span>
+                    {% if v.duration_seconds %}
+                    <span style="color:#64748b; margin-left:auto;">{{ (v.duration_seconds // 60) }}:{{ '%02d'|format(v.duration_seconds % 60) }}</span>
+                    {% endif %}
+                </div>
+                <div style="font-size:13px; font-weight:600; color:#1e293b; line-height:1.3; margin-bottom:4px; min-height:34px;">
+                    {{ v.title }}
+                </div>
+                <div style="font-size:11px; color:#64748b; margin-bottom:8px;">{{ v.channel }}</div>
+                <div style="display:flex; gap:6px;">
+                    {% if not v.is_primary %}
+                    <form method="POST" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks/' ~ chunk.chunk_id ~ '/youtube/' ~ v.id ~ '/primary') }}" style="flex:1;">
+                        <button type="submit" class="action-btn" style="width:100%; justify-content:center; padding:6px; background:#fee2e2; color:#991b1b; border-color:#fecaca;">
+                            <i class="fas fa-star"></i> {{ t.admin.youtube_set_primary }}
+                        </button>
+                    </form>
+                    {% endif %}
+                    <form method="POST" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks/' ~ chunk.chunk_id ~ '/youtube/' ~ v.id ~ '/delete') }}"
+                          onsubmit="return confirm('{{ t.admin.youtube_delete_confirm }}');">
+                        <button type="submit" class="action-btn" style="padding:6px 10px; color:#dc2626;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="section-card">
+        <div class="section-body" style="text-align:center; padding:2rem; color:#94a3b8;">
+            {{ t.admin.youtube_pool_empty }}
+        </div>
+    </div>
+    {% endif %}
+
+    <div id="ytAddOverlay" class="gen-overlay" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+        <div class="gen-dialog">
+            <h3 style="font-size:16px; font-weight:700; color:#1e293b; margin-bottom:1rem;">
+                <i class="fab fa-youtube" style="color:#dc2626; margin-right:6px;"></i> {{ t.admin.youtube_add_manual }}
+            </h3>
+            <form method="POST" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks/' ~ chunk.chunk_id ~ '/youtube/add') }}">
+                <div class="form-group" style="margin-bottom:0.75rem;">
+                    <label class="form-label">{{ t.admin.youtube_url_label }}</label>
+                    <input type="text" name="url" class="form-input" placeholder="https://www.youtube.com/watch?v=..." required>
+                </div>
+                <div class="form-group" style="margin-bottom:0.75rem;">
+                    <label class="form-label">{{ t.admin.youtube_title_label }} ({{ t.admin.optional }})</label>
+                    <input type="text" name="title" class="form-input">
+                </div>
+                <div class="form-group" style="margin-bottom:1rem;">
+                    <label class="form-label">{{ t.admin.youtube_channel_label }} ({{ t.admin.optional }})</label>
+                    <input type="text" name="channel" class="form-input">
+                </div>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+                    <button type="submit" class="btn-save"><i class="fas fa-plus" style="margin-right:4px;"></i> Add</button>
+                    <button type="button" class="btn-cancel" onclick="document.getElementById('ytAddOverlay').style.display='none'">{{ t.admin.gen_cancel }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 {% endblock %}
@@ -290,6 +596,42 @@
     .content-text { font-size: 14px; color: #374151; line-height: 1.8; white-space: pre-line; padding: 1rem; }
     .content-full { max-height: 500px; overflow-y: auto; }
 
+    .qa-toolbar {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; margin-bottom: 0.75rem; flex-wrap: wrap;
+    }
+    .qa-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .gen-chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 6px 14px; border: none; border-radius: 999px;
+        font-size: 12px; font-weight: 700; color: white; cursor: pointer;
+        transition: all 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .gen-chip:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.15); }
+    .gen-chip-llm { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+    .gen-chip-rule { background: linear-gradient(135deg, #d97706, #f59e0b); }
+    .yt-card {
+        background: white; border: 1px solid #e2e8f0; border-radius: 10px;
+        overflow: hidden; transition: border 0.15s;
+    }
+    .yt-card:hover { border-color: #94a3b8; }
+    .yt-card-primary { border-color: #dc2626; box-shadow: 0 0 0 1px #dc2626; }
+    .qa-filter-tabs {
+        display: flex; gap: 6px; flex-wrap: wrap;
+    }
+    .qa-filter-tab {
+        padding: 6px 12px; border: 1px solid #e2e8f0; background: white;
+        border-radius: 999px; font-size: 12px; font-weight: 600; color: #64748b;
+        cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+        transition: all 0.15s;
+    }
+    .qa-filter-tab:hover { border-color: #6366f1; color: #4f46e5; }
+    .qa-filter-tab.active { background: #6366f1; border-color: #6366f1; color: white; }
+    .qa-filter-count {
+        background: rgba(0,0,0,0.08); padding: 1px 7px; border-radius: 999px;
+        font-size: 11px; font-weight: 700;
+    }
+    .qa-filter-tab.active .qa-filter-count { background: rgba(255,255,255,0.25); }
     .qa-list { display: flex; flex-direction: column; gap: 0.75rem; }
     .qa-item {
         background: white; border: 1px solid #e2e8f0; border-radius: 12px;
@@ -350,6 +692,10 @@
         box-shadow: 0 2px 8px rgba(99,102,241,0.3);
     }
     .generate-btn:hover { transform: translateY(-1px); }
+    .generate-btn-rule {
+        background: linear-gradient(135deg, #d97706, #f59e0b);
+        box-shadow: 0 2px 8px rgba(217,119,6,0.3);
+    }
     .gen-overlay {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: rgba(0,0,0,0.5); z-index: 2000;
@@ -378,14 +724,25 @@ fetch('{{ lang_url("/child/oak-video-check/" ~ chunk.chunk_id) }}')
     .catch(() => {});
 {% endif %}
 
-// Main tabs
+// Main tabs (3-tab: contents / drill / questions)
+const TAB_ORDER = ['contents', 'drill', 'questions', 'youtube'];
 function switchTab(tab) {
-    document.getElementById('tab-contents').style.display = tab === 'contents' ? '' : 'none';
-    document.getElementById('tab-questions').style.display = tab === 'questions' ? '' : 'none';
-    document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-        btn.classList.toggle('active', (i === 0 && tab === 'contents') || (i === 1 && tab === 'questions'));
+    TAB_ORDER.forEach(t => {
+        const el = document.getElementById('tab-' + t);
+        if (el) el.style.display = (t === tab) ? '' : 'none';
     });
+    document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+        btn.classList.toggle('active', TAB_ORDER[i] === tab);
+    });
+    if (history.replaceState) {
+        history.replaceState(null, '', '#' + tab);
+    }
 }
+// URL の #drill 等で初期タブを選ぶ
+(function() {
+    const hash = (window.location.hash || '').replace('#', '');
+    if (TAB_ORDER.includes(hash)) switchTab(hash);
+})();
 
 // Content sub-tabs
 function switchContentTab(tab) {
@@ -401,5 +758,43 @@ document.getElementById('genForm')?.addEventListener('submit', function() {
     document.getElementById('genSubmitBtn').style.display = 'none';
     document.getElementById('genLoading').style.display = 'block';
 });
+document.getElementById('genRuleForm')?.addEventListener('submit', function() {
+    document.getElementById('genRuleSubmitBtn').style.display = 'none';
+    document.getElementById('genRuleLoading').style.display = 'block';
+});
+
+// Question source filter
+(function() {
+    const tabs = document.querySelectorAll('.qa-filter-tab');
+    const list = document.getElementById('qaList');
+    if (!tabs.length || !list) return;
+    // filter by source directly; 'manual' legacy rows map to 'oak' (already migrated)
+    const groupMap = {
+        'oak': 'oak',
+        'llm_generated': 'llm_generated',
+        'manual': 'oak',
+        'rule_based': 'rule_based',
+    };
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const filter = tab.dataset.filter;
+            const items = list.querySelectorAll('.qa-item');
+            let shownIdx = 0;
+            items.forEach(item => {
+                const src = item.dataset.source;
+                const group = groupMap[src] || src;
+                const show = filter === 'all' || group === filter;
+                item.style.display = show ? '' : 'none';
+                if (show) {
+                    shownIdx++;
+                    const numEl = item.querySelector('.qa-num');
+                    if (numEl) numEl.textContent = shownIdx;
+                }
+            });
+        });
+    });
+})();
 </script>
 {% endblock %}

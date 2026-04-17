@@ -76,70 +76,101 @@ def _extract_json(text):
     return json.loads(text)
 
 
-GENERATE_PROMPT = """You are a KS3 science teacher. Create {count} questions for Year 7 students based on the lesson content below.
+GENERATE_PROMPT = """You are a {subject} teacher. Create {count} questions for Year {year_group} students that match the style of the reference questions below.
+
+LESSON SUMMARY:
+{summary}
+
+REFERENCE QUESTIONS (existing questions from this lesson — follow this style and difficulty level, but do NOT duplicate them):
+{oak_examples}
 
 Requirements:
 - {mc_count} multiple choice (4 options A-D, one correct)
 - {fr_count} free response (with reference_answer and scoring_rubric, max_score=10)
 - Difficulty: {difficulty}
+- Base questions on the lesson summary. Mirror the reference style (phrasing, level, typical pitfalls).
 - Return ONLY a JSON array. No markdown, no explanation outside JSON.
 
 JSON format:
-[{{"question_type":"multiple_choice","question_text":"...","options":[{{"label":"A","text":"..."}},{{"label":"B","text":"..."}},{{"label":"C","text":"..."}},{{"label":"D","text":"..."}}],"correct_answer":"A","explanation":"...","difficulty":"{difficulty}"}},{{"question_type":"free_response","question_text":"...","reference_answer":"...","scoring_rubric":"criterion1(2), criterion2(2), ...","max_score":10,"explanation":"...","difficulty":"{difficulty}"}}]
-
-LESSON CONTENT:
-{content}"""
+[{{"question_type":"multiple_choice","question_text":"...","options":[{{"label":"A","text":"..."}},{{"label":"B","text":"..."}},{{"label":"C","text":"..."}},{{"label":"D","text":"..."}}],"correct_answer":"A","explanation":"...","difficulty":"{difficulty}"}},{{"question_type":"free_response","question_text":"...","reference_answer":"...","scoring_rubric":"criterion1(2), criterion2(2), ...","max_score":10,"explanation":"...","difficulty":"{difficulty}"}}]"""
 
 
-def generate_questions(chunk_text, count=6, mc_count=4, fr_count=2, difficulty='normal'):
-    """チャンクテキストから問題を生成
+def _format_oak_examples(examples):
+    """Format a list of existing-question dicts for the prompt's REFERENCE section."""
+    if not examples:
+        return "(none available — use lesson summary as the sole basis)"
+    lines = []
+    for i, q in enumerate(examples, 1):
+        qtype = "MC" if q.get("question_type") == "multiple_choice" else "FR"
+        lines.append(f"{i}. [{qtype}] {q.get('question_text', '').strip()}")
+        if q.get("question_type") == "multiple_choice" and q.get("options"):
+            for opt in q["options"]:
+                mark = " *" if opt.get("label") == q.get("correct_answer") else "  "
+                lines.append(f"   {mark}{opt.get('label')}) {opt.get('text', '')}")
+        elif q.get("reference_answer"):
+            lines.append(f"   ans: {q['reference_answer']}")
+    return "\n".join(lines)
+
+
+def generate_questions(
+    summary,
+    subject="science",
+    year_group=7,
+    oak_examples=None,
+    count=6,
+    mc_count=4,
+    fr_count=2,
+    difficulty="normal",
+):
+    """Generate questions from a lesson summary, optionally mirroring existing Oak questions.
 
     Args:
-        chunk_text: レッスン内容テキスト
-        count: 生成する問題数
-        mc_count: 4択問題の数
-        fr_count: 自由回答の数
-        difficulty: easy/normal/hard
+        summary: LLM-ready lesson summary (short, concept-focused).
+        subject: Maths / Science / English / etc. — drives teacher persona.
+        year_group: 4-11. Drives difficulty framing.
+        oak_examples: list of existing-question dicts (question_text, options, etc.)
+            used as style references. If None/empty, LLM works from summary alone.
+        count, mc_count, fr_count, difficulty: generation controls.
 
     Returns:
-        list[dict]: 問題のリスト
+        list[dict]: validated question dicts.
     """
-    # テキストが長すぎる場合、transcript部分を切り詰め
-    # key points等の構造化部分は残し、transcriptを制限
-    max_chars = 15000
-    if len(chunk_text) > max_chars:
-        # "--- Lesson Transcript ---" の前後で分割
-        marker = '--- Lesson Transcript ---'
-        if marker in chunk_text:
-            header = chunk_text[:chunk_text.index(marker)]
-            transcript = chunk_text[chunk_text.index(marker) + len(marker):]
-            remaining = max_chars - len(header) - len(marker) - 100
-            chunk_text = header + marker + '\n' + transcript[:max(remaining, 3000)]
-        else:
-            chunk_text = chunk_text[:max_chars]
+    if not summary or not summary.strip():
+        summary = "(no summary available)"
+
+    # Cap summary length to keep prompt small
+    max_summary_chars = 6000
+    if len(summary) > max_summary_chars:
+        summary = summary[:max_summary_chars]
 
     prompt = GENERATE_PROMPT.format(
+        subject=subject or "science",
+        year_group=year_group or 7,
+        summary=summary,
+        oak_examples=_format_oak_examples(oak_examples or []),
         count=count,
         mc_count=mc_count,
         fr_count=fr_count,
         difficulty=difficulty,
-        content=chunk_text,
     )
 
-    logger.info(f'Generating {count} questions ({mc_count} MC + {fr_count} FR), difficulty={difficulty}')
+    logger.info(
+        f"Generating {count} questions ({mc_count} MC + {fr_count} FR), "
+        f"subject={subject}, year={year_group}, refs={len(oak_examples or [])}, "
+        f"difficulty={difficulty}"
+    )
 
     raw = _call_llm(prompt)
     questions = _extract_json(raw)
 
-    # バリデーション
     valid = []
     for q in questions:
-        if q.get('question_type') == 'multiple_choice':
-            if q.get('options') and q.get('correct_answer') and q.get('question_text'):
+        if q.get("question_type") == "multiple_choice":
+            if q.get("options") and q.get("correct_answer") and q.get("question_text"):
                 valid.append(q)
-        elif q.get('question_type') == 'free_response':
-            if q.get('question_text') and q.get('reference_answer'):
+        elif q.get("question_type") == "free_response":
+            if q.get("question_text") and q.get("reference_answer"):
                 valid.append(q)
 
-    logger.info(f'Generated {len(valid)} valid questions out of {len(questions)}')
+    logger.info(f"Generated {len(valid)} valid questions out of {len(questions)}")
     return valid

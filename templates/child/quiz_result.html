@@ -227,11 +227,9 @@
     </div>
 
     <div class="action-btns">
-        {% if mastered < total and incorrect_ids %}
-        <a href="{{ lang_url('/child/quiz/' ~ chunk.chunk_id) }}?retry={{ incorrect_ids|join(',') }}" class="btn-primary">
-            <i class="fas fa-redo"></i> {{ t.child.retry_incorrect or "Retry Incorrect" }} ({{ incorrect_ids|length }})
+        <a href="{{ lang_url('/child/quiz/' ~ chunk.chunk_id) }}" class="btn-primary">
+            <i class="fas fa-redo"></i> {{ t.child.retry_again or "Try Again" }}
         </a>
-        {% endif %}
         <a href="{{ lang_url('/child/subjects/' ~ material.subject) }}" class="btn-secondary">
             {{ t.child.back }} {{ material.subject }}
         </a>

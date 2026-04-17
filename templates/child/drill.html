@@ -1,0 +1,473 @@
+{% extends "child/child_base.html" %}
+{% block title %}{{ t.child.drill_title }} - {{ chunk.title }}{% endblock %}
+{% block back_url %}{{ lang_url('/child/section/' ~ chunk.chunk_id) }}{% endblock %}
+
+{% block page_head %}
+<style>
+.drill-wrap {
+    max-width: 640px; margin: 0 auto; padding: 1rem;
+}
+.drill-card {
+    background: white; border-radius: 24px;
+    padding: 2rem 1.5rem;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+}
+@media (min-width:768px) { .drill-card { padding: 2.5rem 2rem; } }
+
+/* Intro */
+.drill-intro {
+    text-align: center;
+}
+.drill-intro h2 {
+    font-size: 24px; font-weight: 800; color: #1e293b; margin-bottom: 0.75rem;
+}
+.drill-intro .rule-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px 14px; border-radius: 12px; background: #f8fafc;
+    margin-bottom: 8px; text-align: left; font-size: 14px; color: #334155;
+}
+.drill-intro .rule-item i {
+    flex-shrink: 0; margin-top: 2px; font-size: 18px;
+}
+.rule-streak i { color: #6366f1; }
+.rule-reward i { color: #f59e0b; }
+.rule-wrong i { color: #ef4444; }
+.drill-start-btn {
+    margin-top: 1.5rem; padding: 14px 36px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white; border: none; border-radius: 999px;
+    font-size: 18px; font-weight: 800; cursor: pointer;
+    box-shadow: 0 8px 24px rgba(99,102,241,0.35);
+    transition: transform 0.15s;
+}
+.drill-start-btn:hover { transform: translateY(-2px); }
+
+/* Streak bar */
+.streak-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px; margin-bottom: 1rem;
+    background: linear-gradient(135deg, #eef2ff, #f5f3ff);
+    border-radius: 12px;
+}
+.streak-count {
+    font-size: 22px; font-weight: 800; color: #6366f1;
+}
+.streak-dots {
+    display: flex; gap: 6px;
+}
+.streak-dot {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #e2e8f0; transition: all 0.3s;
+}
+.streak-dot.on {
+    background: #6366f1; box-shadow: 0 0 10px rgba(99,102,241,0.5);
+    transform: scale(1.1);
+}
+
+/* Question */
+.q-text {
+    font-size: 18px; font-weight: 600; color: #1e293b;
+    line-height: 1.5; margin-bottom: 1.25rem;
+}
+@media (min-width:768px) { .q-text { font-size: 20px; } }
+
+.choice-btn {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; padding: 14px 16px; margin-bottom: 10px;
+    background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 14px;
+    font-size: 15px; color: #334155; cursor: pointer; text-align: left;
+    transition: all 0.15s;
+}
+.choice-btn:hover:not(:disabled) { border-color: #6366f1; background: #eef2ff; }
+.choice-btn:disabled { cursor: default; }
+.choice-btn .choice-label {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #e2e8f0; color: #475569;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800; flex-shrink: 0;
+}
+.choice-btn.correct {
+    background: #d1fae5; border-color: #10b981;
+}
+.choice-btn.correct .choice-label { background: #10b981; color: white; }
+.choice-btn.wrong {
+    background: #fee2e2; border-color: #ef4444;
+}
+.choice-btn.wrong .choice-label { background: #ef4444; color: white; }
+
+.feedback-box {
+    margin-top: 1rem; padding: 12px 14px; border-radius: 12px;
+    font-size: 14px; line-height: 1.5;
+}
+.feedback-correct { background: #d1fae5; color: #065f46; font-weight: 700; }
+.feedback-wrong { background: #fef2f2; color: #991b1b; }
+.feedback-wrong strong { color: #059669; }
+
+.drill-next-btn {
+    margin-top: 1rem; width: 100%;
+    padding: 12px 24px;
+    background: #6366f1; color: white; border: none;
+    border-radius: 12px; font-size: 16px; font-weight: 700;
+    cursor: pointer;
+}
+.drill-next-btn:hover { background: #4f46e5; }
+
+/* Complete */
+.drill-complete {
+    text-align: center;
+}
+.drill-complete .trophy {
+    font-size: 72px; margin-bottom: 1rem;
+}
+.drill-complete h2 {
+    font-size: 28px; font-weight: 800; color: #1e293b; margin-bottom: 0.5rem;
+}
+.drill-complete .sub {
+    font-size: 15px; color: #64748b; margin-bottom: 1.25rem;
+}
+.drill-complete .pt-badge {
+    display: inline-block; padding: 14px 28px; margin-bottom: 1.5rem;
+    background: linear-gradient(135deg, #f59e0b, #f97316);
+    color: white; border-radius: 999px;
+    font-size: 22px; font-weight: 800;
+    box-shadow: 0 6px 18px rgba(245,158,11,0.35);
+}
+.drill-complete .actions {
+    display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+}
+.drill-complete .btn-go-test {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 16px 36px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white; border: none; border-radius: 14px;
+    font-size: 17px; font-weight: 800; cursor: pointer;
+    text-decoration: none;
+    box-shadow: 0 8px 24px rgba(99,102,241,0.35);
+    transition: transform 0.15s;
+}
+.drill-complete .btn-go-test:hover { transform: translateY(-2px); }
+.drill-complete .btn-again {
+    padding: 10px 24px; background: #f1f5f9; color: #475569;
+    border: 1px solid #e2e8f0; border-radius: 12px; font-size: 13px; font-weight: 700;
+    text-decoration: none; cursor: pointer;
+}
+.drill-complete .btn-back {
+    padding: 10px 24px; background: transparent; color: #94a3b8;
+    border: 1px solid #e2e8f0; border-radius: 12px; font-size: 13px; font-weight: 600;
+    text-decoration: none;
+}
+</style>
+{% endblock %}
+
+{% block sidebar %}
+{% include "child/components/sidebar_profile.html" %}
+
+<!-- Drill Info -->
+<div class="sidebar-card">
+    <div class="sidebar-title">⚡ {{ t.child.drill_title }}</div>
+    <div style="padding: 8px 4px; font-size: 13px; color: rgba(255,255,255,0.85); line-height: 1.6;">
+        <div style="margin-bottom: 8px;">
+            🔥 <strong>{{ streak_target }}</strong>連続正解でクリア
+        </div>
+        <div style="margin-bottom: 8px;">
+            ⭐ クリアで <strong>{{ completion_points }}</strong> ポイント
+        </div>
+    </div>
+</div>
+
+<!-- Streak Progress (updated via JS during drill) -->
+<div class="sidebar-card" id="sidebarStreakCard" style="display:none;">
+    <div class="sidebar-title">{{ t.child.drill_streak_label }}</div>
+    <div style="text-align:center; padding: 12px 4px;">
+        <div style="font-size: 32px; font-weight: 800; color: white;">
+            <span id="sidebarStreakNum">0</span>
+            <span style="font-size: 16px; opacity: 0.6;">/ {{ streak_target }}</span>
+        </div>
+        <div style="display:flex; gap: 6px; justify-content:center; margin-top: 8px;" id="sidebarStreakDots"></div>
+    </div>
+</div>
+
+<div class="sidebar-card" style="flex:1;">
+    <div class="sidebar-title">{{ t.child.session_stats or 'Session' }}</div>
+    <div style="padding: 4px; font-size: 13px; color: rgba(255,255,255,0.85);">
+        <div style="display:flex; justify-content:space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+            <span>{{ t.child.sidebar_answered or 'Answered' }}</span>
+            <strong id="sidebarAnswered">0</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+            <span>{{ t.child.sidebar_correct or 'Correct' }}</span>
+            <strong id="sidebarCorrect">0</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding: 6px 0;">
+            <span>Max Streak</span>
+            <strong id="sidebarMaxStreak">0</strong>
+        </div>
+    </div>
+</div>
+
+{% set active_nav = 'subjects' %}
+{% include "child/components/sidebar_nav.html" %}
+{% endblock %}
+
+{% block main_content %}
+<div class="drill-wrap">
+    <div class="drill-card" id="drillCard">
+        {% if not drill_questions %}
+        <div class="drill-intro">
+            <h2>📭</h2>
+            <p style="color:#64748b;">{{ t.child.drill_no_questions }}</p>
+        </div>
+        {% else %}
+        <!-- Intro -->
+        <div id="introScreen" class="drill-intro">
+            <h2>⚡ {{ t.child.drill_intro_heading }}</h2>
+            <div class="rule-item rule-streak">
+                <i class="fas fa-fire"></i>
+                <span>{{ t.child.drill_intro_rule.replace('{streak}', streak_target|string) }}</span>
+            </div>
+            <div class="rule-item rule-reward">
+                <i class="fas fa-star"></i>
+                <span>{{ t.child.drill_intro_reward.replace('{points}', completion_points|string) }}</span>
+            </div>
+            <div class="rule-item rule-wrong">
+                <i class="fas fa-redo"></i>
+                <span>{{ t.child.drill_intro_wrong }}</span>
+            </div>
+            <button class="drill-start-btn" onclick="startDrill()">
+                <i class="fas fa-play" style="margin-right:6px;"></i>{{ t.child.drill_start }}
+            </button>
+        </div>
+
+        <!-- Quiz screen -->
+        <div id="quizScreen" style="display:none;">
+            <div class="streak-bar">
+                <div>
+                    <div style="font-size:11px; color:#64748b; font-weight:600;">{{ t.child.drill_streak_label }}</div>
+                    <div class="streak-count"><span id="streakNum">0</span> / {{ streak_target }}</div>
+                </div>
+                <div class="streak-dots" id="streakDots"></div>
+            </div>
+            <div class="q-text" id="qText"></div>
+            <div id="choicesEl"></div>
+            <div id="feedbackEl"></div>
+            <button class="drill-next-btn" id="nextBtn" style="display:none;" onclick="nextQuestion()">
+                {{ t.child.drill_next }} <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
+
+        <!-- Complete screen -->
+        <div id="completeScreen" style="display:none;" class="drill-complete">
+            <div class="trophy">🏆</div>
+            <h2>{{ t.child.drill_complete_heading }}</h2>
+            <p class="sub">{{ t.child.drill_complete_sub.replace('{streak}', streak_target|string) }}</p>
+            <div class="pt-badge">
+                <i class="fas fa-star" style="margin-right:6px;"></i>
+                +<span id="ptEarned">{{ completion_points }}</span> pt
+            </div>
+            <div style="font-size:13px; color:#64748b; margin-bottom:1.25rem;">
+                <div>{{ t.child.drill_points_earned }}</div>
+            </div>
+            <div style="margin-bottom: 1rem; padding: 12px 16px; background: #d1fae5; border-radius: 12px; color: #065f46; font-weight: 700; font-size: 14px;">
+                🔓 {{ t.child.drill_quiz_unlocked }}
+            </div>
+            <div class="actions">
+                <a href="{{ lang_url('/child/quiz/' ~ chunk.chunk_id) }}" class="btn-go-test">
+                    <i class="fas fa-pen" style="margin-right:6px;"></i>{{ t.child.drill_go_test }}
+                    <i class="fas fa-arrow-right" style="margin-left:6px;"></i>
+                </a>
+            </div>
+            <div class="actions" style="margin-top: 10px;">
+                <a href="javascript:location.reload()" class="btn-again">
+                    <i class="fas fa-redo" style="margin-right:4px;"></i>{{ t.child.drill_again }}
+                </a>
+                <a href="{{ lang_url('/child/section/' ~ chunk.chunk_id) }}" class="btn-back">
+                    {{ t.child.drill_back }}
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if drill_questions %}
+<script>
+const DRILL_POOL = {{ drill_questions | map(attribute='drill_question_id') | list | tojson }};
+const POOL_DATA = [
+    {% for q in drill_questions %}
+    {
+        id: {{ q.drill_question_id }},
+        text: {{ q.question_text | tojson }},
+        options: {{ q.options | tojson }},
+        source: "{{ q.source }}",
+    },
+    {% endfor %}
+];
+const CHUNK_ID = {{ chunk.chunk_id }};
+const STREAK_TARGET = {{ streak_target }};
+const COMPLETION_POINTS = {{ completion_points }};
+const BLANK_RE = new RegExp('\\{\\{\\s*\\}\\}', 'g');
+
+let sessionId = null;
+let streak = 0;
+let maxStreak = 0;
+let answered = 0;
+let correctCount = 0;
+let queue = [];
+let currentQ = null;
+let answeredAt = 0;
+
+function shuffled(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+function renderStreakDots() {
+    const el = document.getElementById('streakDots');
+    let html = '';
+    for (let i = 0; i < STREAK_TARGET; i++) {
+        html += `<div class="streak-dot ${i < streak ? 'on' : ''}"></div>`;
+    }
+    el.innerHTML = html;
+    document.getElementById('streakNum').textContent = streak;
+
+    // PCサイドバーにも反映
+    const sb = document.getElementById('sidebarStreakNum');
+    if (sb) sb.textContent = streak;
+    const sbDots = document.getElementById('sidebarStreakDots');
+    if (sbDots) sbDots.innerHTML = html;
+    const card = document.getElementById('sidebarStreakCard');
+    if (card) card.style.display = '';
+}
+
+function updateSidebarStats(answered, correct) {
+    const a = document.getElementById('sidebarAnswered'); if (a) a.textContent = answered;
+    const c = document.getElementById('sidebarCorrect'); if (c) c.textContent = correct;
+    const m = document.getElementById('sidebarMaxStreak'); if (m) m.textContent = maxStreak;
+}
+
+async function startDrill() {
+    // Create session
+    const res = await fetch('{{ lang_url("/child/drill/" ~ chunk.chunk_id ~ "/start") }}', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}',
+    });
+    const data = await res.json();
+    sessionId = data.drill_session_id;
+
+    queue = shuffled(POOL_DATA);
+    document.getElementById('introScreen').style.display = 'none';
+    document.getElementById('quizScreen').style.display = '';
+    renderStreakDots();
+    nextQuestion();
+}
+
+function nextQuestion() {
+    document.getElementById('feedbackEl').innerHTML = '';
+    document.getElementById('nextBtn').style.display = 'none';
+
+    if (queue.length === 0) {
+        // ループ: もう一度シャッフルして続行
+        queue = shuffled(POOL_DATA);
+    }
+    currentQ = queue.shift();
+    answeredAt = Date.now();
+
+    // Render question
+    const qText = (currentQ.text || '').replace(BLANK_RE, '______');
+    document.getElementById('qText').textContent = qText;
+
+    // Render choices (shuffle label order for freshness)
+    const choicesEl = document.getElementById('choicesEl');
+    let html = '';
+    const opts = shuffled(currentQ.options || []);
+    opts.forEach(opt => {
+        const text = (opt.text || '').replace(BLANK_RE, '______');
+        html += `<button class="choice-btn" data-label="${opt.label}" onclick="chooseAnswer('${opt.label}', this)">
+            <span class="choice-label">${opt.label}</span><span>${text}</span>
+        </button>`;
+    });
+    choicesEl.innerHTML = html;
+}
+
+async function chooseAnswer(label, btn) {
+    // Disable all buttons
+    document.querySelectorAll('.choice-btn').forEach(b => b.disabled = true);
+
+    const timeSpent = Math.floor((Date.now() - answeredAt) / 1000);
+    const res = await fetch('{{ lang_url("/child/drill/" ~ chunk.chunk_id ~ "/answer") }}', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            drill_session_id: sessionId,
+            drill_question_id: currentQ.id,
+            user_answer: label,
+            time_spent_seconds: timeSpent,
+        }),
+    });
+    const data = await res.json();
+
+    answered += 1;
+    const feedback = document.getElementById('feedbackEl');
+    if (data.is_correct) {
+        btn.classList.add('correct');
+        streak += 1;
+        correctCount += 1;
+        if (streak > maxStreak) maxStreak = streak;
+        renderStreakDots();
+        updateSidebarStats(answered, correctCount);
+        feedback.innerHTML = `<div class="feedback-box feedback-correct">✅ {{ t.child.drill_correct }}</div>`;
+        if (streak >= STREAK_TARGET) {
+            setTimeout(completeDrill, 600);
+            return;
+        }
+    } else {
+        btn.classList.add('wrong');
+        // Highlight correct
+        document.querySelectorAll('.choice-btn').forEach(b => {
+            if (b.dataset.label === data.correct_answer) b.classList.add('correct');
+        });
+        streak = 0;
+        renderStreakDots();
+        updateSidebarStats(answered, correctCount);
+        let html = `<div class="feedback-box feedback-wrong">❌ {{ t.child.drill_wrong }}<br>
+            {{ t.child.drill_correct_is }}: <strong>${data.correct_answer}) ${data.correct_text}</strong>`;
+        if (data.explanation) {
+            html += `<br><span style="font-size:13px; color:#78350f;">💡 ${data.explanation}</span>`;
+        }
+        html += `</div>`;
+        feedback.innerHTML = html;
+    }
+    document.getElementById('nextBtn').style.display = '';
+}
+
+async function completeDrill() {
+    const res = await fetch('{{ lang_url("/child/drill/" ~ chunk.chunk_id ~ "/complete") }}', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            drill_session_id: sessionId,
+            max_streak: maxStreak,
+        }),
+    });
+    const data = await res.json();
+    document.getElementById('quizScreen').style.display = 'none';
+    document.getElementById('completeScreen').style.display = '';
+    document.getElementById('ptEarned').textContent = data.points_earned || COMPLETION_POINTS;
+    // Update header points badge (if exists on base template)
+    const pb = document.getElementById('pointsBadge');
+    if (pb && data.total_points != null) pb.textContent = data.total_points;
+}
+
+// Leave-confirm while in quiz
+window.addEventListener('beforeunload', (e) => {
+    if (sessionId && streak > 0 && document.getElementById('completeScreen').style.display === 'none') {
+        e.preventDefault();
+        e.returnValue = '{{ t.child.drill_leave_confirm }}';
+    }
+});
+</script>
+{% endif %}
+{% endblock %}
