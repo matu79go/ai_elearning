@@ -190,6 +190,9 @@
                 </form>
             </div>
             <div class="qa-question">{{ q.question_text }}</div>
+            {% if q.chart_svg %}
+            <div class="qa-chart">{{ q.chart_svg|safe }}</div>
+            {% endif %}
             {% if q.options %}
             <div class="qa-options">
                 {% for opt in q.options %}
@@ -319,6 +322,9 @@
                 <span class="qa-source">{{ q.source }}</span>
             </div>
             <div class="qa-question">{{ q.question_text }}</div>
+            {% if q.chart_svg %}
+            <div class="qa-chart">{{ q.chart_svg|safe }}</div>
+            {% endif %}
 
             {% if q.question_type == 'multiple_choice' and q.options %}
             <div class="qa-options">
@@ -647,6 +653,12 @@
     .qa-type-mc { background: #dbeafe; color: #1d4ed8; }
     .qa-type-fr { background: #fce7f3; color: #be185d; }
     .qa-source { font-size: 10px; color: #94a3b8; }
+    .qa-chart {
+        margin: 10px 0 12px;
+        padding: 12px; background: #fafbfc; border-radius: 10px;
+        display: flex; justify-content: center;
+    }
+    .qa-chart svg { max-width: 280px; }
     .qa-question { font-size: 14px; font-weight: 600; color: #1e293b; line-height: 1.5; margin-bottom: 10px; white-space: pre-line; }
     .qa-options { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
     .qa-option {

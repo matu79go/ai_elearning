@@ -190,10 +190,21 @@ def _build_query(title: str, subject: str, year_group: int) -> str:
 
 
 def find_and_save_videos(chunk_id: int, title: str, subject: str,
-                        year_group: int, max_results: int = 5) -> list:
-    """検索 → LLMランク付け → DB保存。保存済みを返す。"""
+                        year_group: int, max_results: int = 5,
+                        force: bool = False) -> list:
+    """検索 → LLMランク付け → DB保存。保存済みを返す。
+
+    既にこの chunk に動画が保存されている場合、API quota を節約するため何もしない
+    (force=True で強制再検索可能)。
+    """
     from models import db
     from models.youtube_video import ChunkYoutubeVideo
+
+    if not force:
+        existing_count = ChunkYoutubeVideo.query.filter_by(chunk_id=chunk_id).count()
+        if existing_count > 0:
+            logger.info(f'chunk {chunk_id} already has {existing_count} videos, skipping API call (force=False)')
+            return []
 
     # 検索クエリ組み立て (クリーン + 短縮)
     query = _build_query(title, subject, year_group)

@@ -68,6 +68,7 @@ def generate_test_questions(chunk, material, count=10, mc_count=7, fr_count=3, d
             options=q.get('options'),
             correct_answer=q.get('correct_answer', ''),
             explanation=q.get('explanation'),
+            chart_svg=q.get('chart_svg'),
             reference_answer=q.get('reference_answer'),
             max_score=q.get('max_score', 10),
             scoring_rubric=q.get('scoring_rubric'),

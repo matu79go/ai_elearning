@@ -7,6 +7,7 @@ class Material(db.Model):
     title = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
     source_type = db.Column(db.String(10), nullable=False)
+    material_type = db.Column(db.String(20), nullable=False, default='lesson')
     source_content = db.Column(db.Text, nullable=False)
     file_path = db.Column(db.String(500))
     subject = db.Column(db.String(100))
@@ -49,6 +50,7 @@ class Question(db.Model):
     options = db.Column(db.JSON)
     correct_answer = db.Column(db.String(10), nullable=False)
     explanation = db.Column(db.Text)
+    chart_svg = db.Column(db.Text)  # 任意: 図付き問題の SVG
     reference_answer = db.Column(db.Text)
     max_score = db.Column(db.Integer, nullable=False, default=10)
     scoring_rubric = db.Column(db.Text)

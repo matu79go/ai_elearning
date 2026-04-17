@@ -71,6 +71,13 @@
 }
 @media (min-width:768px) { .q-text { font-size: 20px; } }
 
+.q-chart {
+    display: flex; justify-content: center;
+    padding: 14px; background: #fafbfc; border-radius: 14px;
+    margin-bottom: 1.25rem;
+}
+.q-chart svg { max-width: 280px; height: auto; }
+
 .choice-btn {
     display: flex; align-items: center; gap: 12px;
     width: 100%; padding: 14px 16px; margin-bottom: 10px;
@@ -248,6 +255,7 @@
                 <div class="streak-dots" id="streakDots"></div>
             </div>
             <div class="q-text" id="qText"></div>
+            <div id="chartEl" class="q-chart" style="display:none;"></div>
             <div id="choicesEl"></div>
             <div id="feedbackEl"></div>
             <button class="drill-next-btn" id="nextBtn" style="display:none;" onclick="nextQuestion()">
@@ -300,6 +308,7 @@ const POOL_DATA = [
         id: {{ q.drill_question_id }},
         text: {{ q.question_text | tojson }},
         options: {{ q.options | tojson }},
+        chartSvg: {{ (q.chart_svg or '') | tojson }},
         source: "{{ q.source }}",
     },
     {% endfor %}
@@ -380,6 +389,16 @@ function nextQuestion() {
     // Render question
     const qText = (currentQ.text || '').replace(BLANK_RE, '______');
     document.getElementById('qText').textContent = qText;
+
+    // Chart (optional)
+    const chartEl = document.getElementById('chartEl');
+    if (currentQ.chartSvg) {
+        chartEl.innerHTML = currentQ.chartSvg;
+        chartEl.style.display = '';
+    } else {
+        chartEl.innerHTML = '';
+        chartEl.style.display = 'none';
+    }
 
     // Render choices (shuffle label order for freshness)
     const choicesEl = document.getElementById('choicesEl');

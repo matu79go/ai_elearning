@@ -30,7 +30,7 @@
 <!-- Form -->
 <div class="section-card">
     <div class="section-body" style="padding: 1.5rem;">
-        <form method="POST" class="material-form">
+        <form method="POST" enctype="multipart/form-data" class="material-form">
             <!-- Row 1: Title -->
             <div class="form-group full-width">
                 <label>{{ t.admin.material_title }} <span class="required">*</span></label>
@@ -77,6 +77,27 @@
                 </div>
             </div>
 
+            <!-- Row 2b: Year group + Material type -->
+            <div class="form-row-3" style="grid-template-columns: 1fr 2fr;">
+                <div class="form-group">
+                    <label>{{ t.admin.material_year_group }} <span class="required">*</span></label>
+                    <select name="year_group" class="form-input" required>
+                        {% for y in [4,5,6,7,8,9,10,11] %}
+                        <option value="{{ y }}" {{ 'selected' if (material and material.year_group == y) or (not material and y == 7) }}>Year {{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>{{ t.admin.material_type }}</label>
+                    <select name="material_type" id="materialTypeSel" class="form-input">
+                        {% set types = [('lesson', t.admin.mtype_lesson), ('glossary', t.admin.mtype_glossary), ('worksheet', t.admin.mtype_worksheet), ('assessment', t.admin.mtype_assessment), ('other', t.admin.mtype_other)] %}
+                        {% for tv, tl in types %}
+                        <option value="{{ tv }}" {{ 'selected' if (material and material.material_type == tv) or (not material and tv == 'lesson') }}>{{ tl }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
             <!-- Row 3: Description -->
             <div class="form-group full-width">
                 <label>{{ t.admin.material_description }}</label>
@@ -101,26 +122,54 @@
                                onchange="toggleSourceInput()">
                         <i class="fas fa-link" style="margin-right: 4px;"></i>{{ t.admin.source_url }}
                     </label>
+                    <label class="radio-label">
+                        <input type="radio" name="source_type" value="pdf"
+                               {{ 'checked' if material and material.source_type == 'pdf' }}
+                               onchange="toggleSourceInput()">
+                        <i class="fas fa-file-pdf" style="margin-right: 4px;"></i>{{ t.admin.source_pdf }}
+                    </label>
                 </div>
             </div>
 
             <!-- Row 5: Source Content -->
             <div class="form-group full-width">
                 <label>{{ t.admin.material_content }} <span class="required">*</span></label>
-                <textarea name="source_content" id="sourceText" required
+                <textarea name="source_content" id="sourceText"
                           placeholder="{{ t.admin.material_content_placeholder }}"
                           class="form-input form-textarea"
-                          style="{{ 'display:none' if material and material.source_type == 'url' }}">{{ material.source_content if material else '' }}</textarea>
+                          style="{{ 'display:none' if material and material.source_type != 'text' }}">{{ material.source_content if material and material.source_type == 'text' else '' }}</textarea>
                 <input type="url" name="source_content_url" id="sourceUrl"
                        value="{{ material.source_content if material and material.source_type == 'url' else '' }}"
                        placeholder="{{ t.admin.material_url_placeholder }}"
                        class="form-input"
                        style="{{ '' if material and material.source_type == 'url' else 'display:none' }}">
+                <div id="pdfDropZone" class="pdf-drop-zone"
+                     style="{{ '' if material and material.source_type == 'pdf' else 'display:none' }}">
+                    <input type="file" name="source_pdf" id="sourcePdf" accept="application/pdf" class="pdf-file-input">
+                    <div class="pdf-drop-inner" id="pdfDropInner">
+                        <i class="fas fa-cloud-upload-alt pdf-drop-icon"></i>
+                        <div class="pdf-drop-text">{{ t.admin.pdf_drop_text }}</div>
+                        <div class="pdf-drop-sub">{{ t.admin.pdf_drop_sub }}</div>
+                    </div>
+                    <div class="pdf-selected" id="pdfSelected" style="display:none;">
+                        <i class="fas fa-file-pdf" style="color:#dc2626;"></i>
+                        <span id="pdfSelectedName"></span>
+                        <span id="pdfSelectedSize" style="color:#64748b; font-size:12px; margin-left:auto;"></span>
+                    </div>
+                </div>
+                <div id="pdfAnalyzeStatus" style="display:none; margin-top:8px; font-size:13px; color:#475569;">
+                    <i class="fas fa-spinner fa-spin" style="margin-right:4px;"></i>
+                    <span id="pdfAnalyzeMsg">{{ t.admin.pdf_analyzing }}</span>
+                </div>
+                <div id="pdfHint"
+                     style="{{ '' if material and material.source_type == 'pdf' else 'display:none' }} margin-top:8px; padding:10px 12px; background:#fffbeb; border-left:3px solid #f59e0b; border-radius:6px; font-size:13px; color:#78350f;">
+                    <i class="fas fa-info-circle"></i> {{ t.admin.pdf_upload_hint }}
+                </div>
             </div>
 
             <!-- Actions -->
             <div class="form-actions">
-                <button type="submit" class="btn-save">
+                <button type="submit" class="btn-save" id="saveBtn">
                     <i class="fas fa-check" style="margin-right: 4px;"></i>{{ t.admin.save }}
                 </button>
                 <a href="{{ lang_url('/admin/materials') }}" class="btn-cancel">
@@ -128,6 +177,21 @@
                 </a>
             </div>
         </form>
+
+        <!-- Submit loading overlay -->
+        <div id="submitOverlay" style="display:none;">
+            <div class="submit-overlay-card">
+                <div class="submit-spinner"></div>
+                <div class="submit-title">{{ t.admin.submit_processing }}</div>
+                <div class="submit-steps" id="submitSteps">
+                    <div class="submit-step active"><i class="fas fa-file-pdf"></i> {{ t.admin.submit_step_upload }}</div>
+                    <div class="submit-step"><i class="fas fa-file-alt"></i> {{ t.admin.submit_step_extract }}</div>
+                    <div class="submit-step"><i class="fas fa-robot"></i> {{ t.admin.submit_step_chunk }}</div>
+                    <div class="submit-step"><i class="fas fa-save"></i> {{ t.admin.submit_step_save }}</div>
+                </div>
+                <div class="submit-note">{{ t.admin.submit_dont_close }}</div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -189,6 +253,94 @@
         min-height: 200px;
         resize: vertical;
         line-height: 1.6;
+    }
+
+    /* PDF Drop Zone */
+    .pdf-drop-zone {
+        position: relative;
+        border: 2px dashed #cbd5e1;
+        border-radius: 12px;
+        padding: 2rem 1rem;
+        background: #f8fafc;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    .pdf-drop-zone:hover { border-color: #6366f1; background: #eef2ff; }
+    .pdf-drop-zone.drag-over {
+        border-color: #6366f1; background: #e0e7ff;
+        border-style: solid;
+    }
+    .pdf-file-input {
+        position: absolute; inset: 0;
+        width: 100%; height: 100%;
+        opacity: 0; cursor: pointer;
+    }
+    .pdf-drop-inner {
+        text-align: center; pointer-events: none;
+    }
+    .pdf-drop-icon {
+        font-size: 42px; color: #94a3b8; margin-bottom: 12px; display: block;
+    }
+    .pdf-drop-zone.drag-over .pdf-drop-icon { color: #6366f1; }
+    .pdf-drop-text {
+        font-size: 15px; font-weight: 600; color: #1e293b; margin-bottom: 4px;
+    }
+    .pdf-drop-sub {
+        font-size: 12px; color: #64748b;
+    }
+    .pdf-selected {
+        display: flex; align-items: center; gap: 10px;
+        padding: 12px 16px;
+        background: white; border: 1px solid #e2e8f0; border-radius: 8px;
+        font-size: 14px; color: #1e293b; font-weight: 500;
+    }
+
+    /* Submit loading overlay */
+    #submitOverlay {
+        position: fixed; inset: 0; z-index: 9999;
+        background: rgba(15, 23, 42, 0.75);
+        display: flex; align-items: center; justify-content: center;
+        backdrop-filter: blur(2px);
+    }
+    .submit-overlay-card {
+        background: white; border-radius: 16px;
+        padding: 2rem 2.5rem; max-width: 440px; width: 90%;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .submit-spinner {
+        width: 56px; height: 56px; margin: 0 auto 1.25rem;
+        border: 5px solid #eef2ff; border-top-color: #6366f1;
+        border-radius: 50%;
+        animation: submit-spin 0.8s linear infinite;
+    }
+    @keyframes submit-spin { to { transform: rotate(360deg); } }
+    .submit-title {
+        font-size: 18px; font-weight: 700; color: #1e293b;
+        margin-bottom: 1.25rem;
+    }
+    .submit-steps {
+        display: flex; flex-direction: column; gap: 8px;
+        margin-bottom: 1.25rem; text-align: left;
+    }
+    .submit-step {
+        display: flex; align-items: center; gap: 10px;
+        padding: 8px 14px; border-radius: 8px;
+        background: #f8fafc; color: #94a3b8;
+        font-size: 13px; font-weight: 500;
+        transition: all 0.3s;
+    }
+    .submit-step.active {
+        background: #eef2ff; color: #4338ca; font-weight: 700;
+    }
+    .submit-step.done {
+        background: #d1fae5; color: #065f46;
+    }
+    .submit-step.done i { color: #10b981; }
+    .submit-step.active i { color: #6366f1; }
+    .submit-step i { width: 16px; }
+    .submit-note {
+        font-size: 12px; color: #dc2626; font-weight: 600;
     }
 
     .radio-group {
@@ -253,27 +405,149 @@
 {% block scripts %}
 <script>
 function toggleSourceInput() {
-    const isUrl = document.querySelector('input[name="source_type"][value="url"]').checked;
+    const type = document.querySelector('input[name="source_type"]:checked').value;
     const textArea = document.getElementById('sourceText');
     const urlInput = document.getElementById('sourceUrl');
+    const pdfInput = document.getElementById('sourcePdf');
+    const pdfZone = document.getElementById('pdfDropZone');
+    const pdfHint = document.getElementById('pdfHint');
 
-    if (isUrl) {
-        textArea.style.display = 'none';
-        textArea.removeAttribute('required');
-        textArea.name = '';
-        urlInput.style.display = '';
-        urlInput.setAttribute('required', '');
-        urlInput.name = 'source_content';
-    } else {
+    // reset all
+    textArea.style.display = 'none';
+    textArea.removeAttribute('required');
+    textArea.name = '';
+    urlInput.style.display = 'none';
+    urlInput.removeAttribute('required');
+    urlInput.name = '';
+    if (pdfZone) pdfZone.style.display = 'none';
+    if (pdfInput) pdfInput.removeAttribute('required');
+    if (pdfHint) pdfHint.style.display = 'none';
+
+    if (type === 'text') {
         textArea.style.display = '';
         textArea.setAttribute('required', '');
         textArea.name = 'source_content';
-        urlInput.style.display = 'none';
-        urlInput.removeAttribute('required');
-        urlInput.name = '';
+    } else if (type === 'url') {
+        urlInput.style.display = '';
+        urlInput.setAttribute('required', '');
+        urlInput.name = 'source_content';
+    } else if (type === 'pdf') {
+        if (pdfZone) pdfZone.style.display = '';
+        if (pdfInput) pdfInput.setAttribute('required', '');
+        if (pdfHint) pdfHint.style.display = '';
     }
 }
 // Init on load
 document.addEventListener('DOMContentLoaded', toggleSourceInput);
+
+// Submit: show overlay + animate steps
+document.querySelector('form.material-form')?.addEventListener('submit', function(e) {
+    const type = document.querySelector('input[name="source_type"]:checked').value;
+    // Only show loading overlay for PDF (which takes long). text/url is fast.
+    if (type !== 'pdf') return;
+    const overlay = document.getElementById('submitOverlay');
+    overlay.style.display = 'flex';
+    document.getElementById('saveBtn').disabled = true;
+    // Fake progression (since we can't truly track server-side steps without SSE)
+    const steps = document.querySelectorAll('#submitSteps .submit-step');
+    let idx = 0;
+    function advance() {
+        if (idx >= steps.length - 1) return;
+        steps[idx].classList.remove('active');
+        steps[idx].classList.add('done');
+        idx += 1;
+        steps[idx].classList.add('active');
+    }
+    // Upload → extract (~2s) → chunk (~30s) → save (~1s)
+    setTimeout(advance, 2000);
+    setTimeout(advance, 5000);
+    setTimeout(advance, 35000);
+});
+
+// PDF drag & drop
+(function() {
+    const zone = document.getElementById('pdfDropZone');
+    const input = document.getElementById('sourcePdf');
+    if (!zone || !input) return;
+
+    ['dragenter', 'dragover'].forEach(ev => zone.addEventListener(ev, e => {
+        e.preventDefault();
+        zone.classList.add('drag-over');
+    }));
+    ['dragleave', 'drop'].forEach(ev => zone.addEventListener(ev, e => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+    }));
+    zone.addEventListener('drop', e => {
+        const files = e.dataTransfer?.files;
+        if (!files || !files.length) return;
+        const f = files[0];
+        if (!f.type.includes('pdf') && !f.name.toLowerCase().endsWith('.pdf')) {
+            alert('PDF only');
+            return;
+        }
+        const dt = new DataTransfer();
+        dt.items.add(f);
+        input.files = dt.files;
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+    });
+})();
+
+function updatePdfSelectedDisplay() {
+    const input = document.getElementById('sourcePdf');
+    const inner = document.getElementById('pdfDropInner');
+    const sel = document.getElementById('pdfSelected');
+    const name = document.getElementById('pdfSelectedName');
+    const size = document.getElementById('pdfSelectedSize');
+    if (!input || !sel) return;
+    if (input.files && input.files[0]) {
+        name.textContent = input.files[0].name;
+        const kb = Math.round(input.files[0].size / 1024);
+        size.textContent = kb > 1024 ? (kb/1024).toFixed(1) + ' MB' : kb + ' KB';
+        inner.style.display = 'none';
+        sel.style.display = '';
+    } else {
+        inner.style.display = '';
+        sel.style.display = 'none';
+    }
+}
+
+// PDF 選択時に自動分析 → フォーム入力欄に反映 (編集可能)
+document.getElementById('sourcePdf')?.addEventListener('change', async function() {
+    updatePdfSelectedDisplay();
+    const file = this.files[0];
+    if (!file) return;
+    const status = document.getElementById('pdfAnalyzeStatus');
+    const msg = document.getElementById('pdfAnalyzeMsg');
+    status.style.display = '';
+    msg.textContent = '{{ t.admin.pdf_analyzing }}';
+    const fd = new FormData();
+    fd.append('source_pdf', file);
+    try {
+        const res = await fetch('{{ lang_url("/admin/materials/analyze-pdf") }}', {
+            method: 'POST', body: fd,
+        });
+        const data = await res.json();
+        if (data.error) {
+            msg.innerHTML = '<i class="fas fa-exclamation-triangle" style="color:#dc2626;"></i> ' + data.error;
+            status.style.display = '';
+            return;
+        }
+        // Fill form (only if empty, to preserve user edits)
+        const titleInput = document.querySelector('input[name="title"]');
+        const descInput = document.querySelector('input[name="description"]');
+        const subjectSel = document.querySelector('select[name="subject"]');
+        const diffSel = document.querySelector('select[name="difficulty"]');
+        if (data.title && !titleInput.value.trim()) titleInput.value = data.title;
+        if (data.description && !descInput.value.trim()) descInput.value = data.description;
+        if (data.subject) subjectSel.value = data.subject;
+        if (data.difficulty) diffSel.value = data.difficulty;
+        const typeSel = document.getElementById('materialTypeSel');
+        if (data.material_type && typeSel) typeSel.value = data.material_type;
+        msg.innerHTML = '<i class="fas fa-check-circle" style="color:#059669;"></i> {{ t.admin.pdf_analyze_done }}';
+    } catch (e) {
+        msg.innerHTML = '<i class="fas fa-exclamation-triangle" style="color:#dc2626;"></i> ' + e.message;
+    }
+});
 </script>
 {% endblock %}

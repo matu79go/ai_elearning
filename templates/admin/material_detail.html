@@ -116,7 +116,18 @@
     </div>
     <div id="addChunkForm" style="display: none;">
         <div class="section-body">
-            <form method="POST" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks') }}">
+            <!-- Method tabs -->
+            <div style="display:flex; gap:6px; margin-bottom: 1rem; border-bottom:1px solid #e2e8f0;">
+                <button type="button" id="tabManual" class="method-tab active" onclick="switchMethod('manual')">
+                    <i class="fas fa-keyboard"></i> {{ t.admin.chunk_method_manual }}
+                </button>
+                <button type="button" id="tabPdf" class="method-tab" onclick="switchMethod('pdf')">
+                    <i class="fas fa-file-pdf"></i> {{ t.admin.chunk_method_pdf }}
+                </button>
+            </div>
+
+            <!-- Manual -->
+            <form method="POST" id="manualChunkForm" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks') }}">
                 <div style="margin-bottom: 0.75rem;">
                     <label class="form-label">{{ t.admin.chunk_title }} <span style="color: #ef4444;">*</span></label>
                     <input type="text" name="chunk_title" required
@@ -131,6 +142,34 @@
                 <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
                     <button type="submit" class="btn-save">
                         <i class="fas fa-check" style="margin-right: 4px;"></i>{{ t.admin.save }}
+                    </button>
+                </div>
+            </form>
+
+            <!-- PDF upload -->
+            <form method="POST" id="pdfChunkForm" enctype="multipart/form-data"
+                  action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks/from-pdf') }}"
+                  style="display:none;">
+                <div class="pdf-drop-zone" id="chunkPdfDropZone" style="margin-bottom: 0.75rem;">
+                    <input type="file" name="source_pdf" id="chunkSourcePdf" accept="application/pdf" class="pdf-file-input">
+                    <div class="pdf-drop-inner" id="chunkPdfDropInner">
+                        <i class="fas fa-cloud-upload-alt pdf-drop-icon"></i>
+                        <div class="pdf-drop-text">{{ t.admin.pdf_drop_text }}</div>
+                        <div class="pdf-drop-sub">{{ t.admin.pdf_drop_sub }}</div>
+                    </div>
+                    <div class="pdf-selected" id="chunkPdfSelected" style="display:none;">
+                        <i class="fas fa-file-pdf" style="color:#dc2626;"></i>
+                        <span id="chunkPdfSelectedName"></span>
+                        <span id="chunkPdfSelectedSize" style="color:#64748b; font-size:12px; margin-left:auto;"></span>
+                    </div>
+                </div>
+                <div style="margin-bottom: 0.75rem; font-size:12px; color:#64748b;">
+                    <i class="fas fa-info-circle" style="color:#6366f1;"></i>
+                    {{ t.admin.chunk_pdf_hint_ai }}
+                </div>
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                    <button type="submit" class="btn-save" id="pdfChunkSubmit">
+                        <i class="fas fa-bolt" style="margin-right: 4px;"></i>{{ t.admin.chunk_pdf_submit }}
                     </button>
                 </div>
             </form>
@@ -360,6 +399,33 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (max-width: 768px) { .gen-row { grid-template-columns: 1fr; } }
+
+    .method-tab {
+        padding: 8px 16px; background: none; border: none;
+        font-size: 13px; font-weight: 600; color: #94a3b8;
+        cursor: pointer; border-bottom: 2px solid transparent;
+        display: inline-flex; align-items: center; gap: 6px;
+    }
+    .method-tab:hover { color: #475569; }
+    .method-tab.active { color: #6366f1; border-bottom-color: #6366f1; }
+
+    .pdf-drop-zone {
+        position: relative; border: 2px dashed #cbd5e1; border-radius: 12px;
+        padding: 1.5rem 1rem; background: #f8fafc; transition: all 0.2s; cursor: pointer;
+    }
+    .pdf-drop-zone:hover { border-color: #6366f1; background: #eef2ff; }
+    .pdf-drop-zone.drag-over { border-color: #6366f1; background: #e0e7ff; border-style: solid; }
+    .pdf-file-input { position: absolute; inset: 0; width:100%; height:100%; opacity:0; cursor:pointer; }
+    .pdf-drop-inner { text-align: center; pointer-events: none; }
+    .pdf-drop-icon { font-size: 32px; color: #94a3b8; margin-bottom: 8px; display: block; }
+    .pdf-drop-zone.drag-over .pdf-drop-icon { color: #6366f1; }
+    .pdf-drop-text { font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 2px; }
+    .pdf-drop-sub { font-size: 11px; color: #64748b; }
+    .pdf-selected {
+        display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+        background: white; border: 1px solid #e2e8f0; border-radius: 8px;
+        font-size: 13px; color: #1e293b; font-weight: 500;
+    }
 {% endblock %}
 
 {% block scripts %}
@@ -371,6 +437,59 @@ function toggleAddChunk() {
     form.style.display = isHidden ? '' : 'none';
     arrow.style.transform = isHidden ? 'rotate(180deg)' : '';
 }
+
+function switchMethod(method) {
+    const manual = document.getElementById('manualChunkForm');
+    const pdf = document.getElementById('pdfChunkForm');
+    const tabM = document.getElementById('tabManual');
+    const tabP = document.getElementById('tabPdf');
+    if (method === 'manual') {
+        manual.style.display = ''; pdf.style.display = 'none';
+        tabM.classList.add('active'); tabP.classList.remove('active');
+    } else {
+        manual.style.display = 'none'; pdf.style.display = '';
+        tabP.classList.add('active'); tabM.classList.remove('active');
+    }
+}
+
+// PDF drop zone + selected display (chunk version)
+(function() {
+    const zone = document.getElementById('chunkPdfDropZone');
+    const input = document.getElementById('chunkSourcePdf');
+    if (!zone || !input) return;
+    ['dragenter','dragover'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('drag-over'); }));
+    ['dragleave','drop'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove('drag-over'); }));
+    zone.addEventListener('drop', e => {
+        const files = e.dataTransfer?.files;
+        if (!files || !files.length) return;
+        const f = files[0];
+        if (!f.type.includes('pdf') && !f.name.toLowerCase().endsWith('.pdf')) { alert('PDF only'); return; }
+        const dt = new DataTransfer(); dt.items.add(f);
+        input.files = dt.files;
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+    });
+    input.addEventListener('change', function() {
+        const inner = document.getElementById('chunkPdfDropInner');
+        const sel = document.getElementById('chunkPdfSelected');
+        const name = document.getElementById('chunkPdfSelectedName');
+        const size = document.getElementById('chunkPdfSelectedSize');
+        if (input.files && input.files[0]) {
+            name.textContent = input.files[0].name;
+            const kb = Math.round(input.files[0].size/1024);
+            size.textContent = kb > 1024 ? (kb/1024).toFixed(1)+' MB' : kb+' KB';
+            inner.style.display = 'none'; sel.style.display = '';
+        }
+    });
+})();
+
+// Submit loading for PDF chunk form
+document.getElementById('pdfChunkForm')?.addEventListener('submit', function() {
+    const btn = document.getElementById('pdfChunkSubmit');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> {{ t.admin.submit_processing }}';
+    }
+});
 
 function showGenerateDialog() { document.getElementById('generateOverlay').style.display = 'flex'; }
 function hideGenerateDialog() { document.getElementById('generateOverlay').style.display = 'none'; }

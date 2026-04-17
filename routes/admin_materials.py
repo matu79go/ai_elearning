@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import Blueprint, render_template, request, redirect, flash, abort
+from flask import Blueprint, render_template, request, redirect, flash, abort, jsonify
 from flask_login import login_required, current_user
 from models import db
 from models.material import Material, MaterialChunk, Question
@@ -63,6 +63,30 @@ def admin_materials_list(year, subject):
                            materials=materials, year=year, subject=subject)
 
 
+@dual_route(admin_materials_bp, '/admin/materials/analyze-pdf', methods=['POST'])
+@login_required
+@admin_required
+def admin_materials_analyze_pdf():
+    """PDF を受け取り LLM で メタデータを推定、JSON で返す。
+    フォームの title/subject/difficulty/description に使う (編集可能)。
+    """
+    pdf_file = request.files.get('source_pdf')
+    if not pdf_file or not pdf_file.filename:
+        return jsonify({'error': 'no file'}), 400
+    import tempfile
+    from services.pdf_material import extract_text, extract_metadata
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=True) as tmp:
+            pdf_file.save(tmp.name)
+            text = extract_text(tmp.name)
+        if not text.strip():
+            return jsonify({'error': 'empty pdf'}), 400
+        meta = extract_metadata(text)
+        return jsonify(meta)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @dual_route(admin_materials_bp, '/admin/materials/new', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -70,25 +94,52 @@ def admin_materials_new():
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         subject = request.form.get('subject', '').strip()
+        year_group = int(request.form.get('year_group', 7))
         language = request.form.get('language', 'en')
         difficulty = request.form.get('difficulty', 'normal')
         description = request.form.get('description', '').strip()
         source_type = request.form.get('source_type', 'text')
-        source_content = request.form.get('source_content', '').strip()
+        material_type = request.form.get('material_type', 'lesson')
 
-        if not title or not source_content:
+        if not title:
+            flash('required_fields', 'error')
+            return redirect(_lang_url('/admin/materials/new'))
+
+        # PDF: アップロードファイルから Material + chunks を生成
+        if source_type == 'pdf':
+            pdf_file = request.files.get('source_pdf')
+            if not pdf_file or not pdf_file.filename:
+                flash('required_fields', 'error')
+                return redirect(_lang_url('/admin/materials/new'))
+            from services.pdf_material import create_material_from_pdf
+            try:
+                mid = create_material_from_pdf(
+                    file_storage=pdf_file, title=title, subject=subject,
+                    year_group=year_group, description=description,
+                    language=language, difficulty=difficulty,
+                    material_type=material_type,
+                    created_by=current_user.parent_id,
+                )
+                flash('material_added_pdf', 'success')
+                return redirect(_lang_url(f'/admin/materials/{mid}'))
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error: {str(e)[:200]}', 'error')
+                return redirect(_lang_url('/admin/materials/new'))
+
+        # Text / URL: 従来フロー
+        source_content = request.form.get('source_content', '').strip()
+        if not source_content:
             flash('required_fields', 'error')
             return redirect(_lang_url('/admin/materials/new'))
 
         material = Material(
-            title=title,
-            subject=subject,
-            language=language,
-            difficulty=difficulty,
-            description=description,
-            source_type=source_type,
+            title=title, subject=subject, year_group=year_group,
+            language=language, difficulty=difficulty,
+            description=description, source_type=source_type,
+            material_type=material_type,
             source_content=source_content,
-            created_by=current_user.parent_id
+            created_by=current_user.parent_id,
         )
         db.session.add(material)
         db.session.commit()
@@ -467,6 +518,67 @@ def admin_materials_delete(material_id):
         db.session.commit()
         flash('material_deleted', 'success')
     return redirect(_lang_url('/admin/materials'))
+
+
+@dual_route(admin_materials_bp, '/admin/materials/<int:material_id>/chunks/from-pdf', methods=['POST'])
+@login_required
+@admin_required
+def admin_materials_chunks_from_pdf(material_id):
+    """既存 material に PDF をアップロードして chunks を自動追加 (LLM 分割)。
+
+    種別は PDF 毎に AI が自動判定する (親 material の種別には引っ張られない)。
+    """
+    material = Material.query.get_or_404(material_id)
+
+    pdf_file = request.files.get('source_pdf')
+    if not pdf_file or not pdf_file.filename:
+        flash('required_fields', 'error')
+        return redirect(_lang_url(f'/admin/materials/{material_id}'))
+
+    import tempfile
+    from services.pdf_material import extract_text, extract_metadata, chunk_with_llm
+
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
+            pdf_file.save(tmp.name)
+            text = extract_text(tmp.name)
+        if not text.strip():
+            flash('pdf_empty', 'error')
+            return redirect(_lang_url(f'/admin/materials/{material_id}'))
+
+        # PDF 毎に種別を自動判定
+        try:
+            meta = extract_metadata(text)
+            detected_type = meta.get('material_type', 'lesson')
+        except Exception:
+            detected_type = material.material_type or 'lesson'
+
+        chunks = chunk_with_llm(
+            text, subject=material.subject,
+            year_group=material.year_group,
+            material_type=detected_type,
+        )
+
+        # 既存の最大 sort_order の後ろに追加
+        max_order = db.session.query(db.func.max(MaterialChunk.sort_order)).filter_by(
+            material_id=material_id
+        ).scalar() or 0
+
+        for i, c in enumerate(chunks, 1):
+            chunk = MaterialChunk(
+                material_id=material_id,
+                title=c['title'],
+                content=c['content'],
+                summary=c.get('summary'),
+                sort_order=max_order + i,
+            )
+            db.session.add(chunk)
+        db.session.commit()
+        flash(f'chunks_added_pdf:{len(chunks)}|type:{detected_type}', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error: {str(e)[:200]}', 'error')
+    return redirect(_lang_url(f'/admin/materials/{material_id}'))
 
 
 @dual_route(admin_materials_bp, '/admin/materials/<int:material_id>/chunks', methods=['POST'])

@@ -91,8 +91,28 @@ Requirements:
 - Base questions on the lesson summary. Mirror the reference style (phrasing, level, typical pitfalls).
 - Return ONLY a JSON array. No markdown, no explanation outside JSON.
 
-JSON format:
-[{{"question_type":"multiple_choice","question_text":"...","options":[{{"label":"A","text":"..."}},{{"label":"B","text":"..."}},{{"label":"C","text":"..."}},{{"label":"D","text":"..."}}],"correct_answer":"A","explanation":"...","difficulty":"{difficulty}"}},{{"question_type":"free_response","question_text":"...","reference_answer":"...","scoring_rubric":"criterion1(2), criterion2(2), ...","max_score":10,"explanation":"...","difficulty":"{difficulty}"}}]"""
+OPTIONAL CHARTS:
+If a question genuinely requires a chart to be answered (e.g. "read the value from this pie chart"), include these extra fields in the question object:
+  "chart_type": "pie" | "bar" | "line"
+  "chart_data": {{...}}  (format depends on chart_type)
+
+chart_data formats:
+- pie: {{"data": [{{"label": "Apples", "value": 8}}, ...]}}
+- bar: {{"data": [{{"label": "Apples", "value": 8}}, ...], "x_label": "Fruit", "y_label": "Frequency"}}
+- line: {{"points": [["2012", 10], ["2013", 30], ...], "x_label": "Year", "y_label": "Sales", "title": "Sales trend"}}
+
+Rules for charts:
+- Only include a chart if the question text refers to it (e.g. "the pie chart below", "from the bar graph"). Do NOT add charts to questions that can be answered from data given in the question text.
+- Use sensible data (realistic values, 3-8 categories, totals that divide nicely for pie charts).
+- If no chart is needed, simply omit both fields.
+
+JSON format example (without chart):
+{{"question_type":"multiple_choice","question_text":"...","options":[{{"label":"A","text":"..."}}, ...],"correct_answer":"A","explanation":"...","difficulty":"{difficulty}"}}
+
+JSON format example (with chart):
+{{"question_type":"multiple_choice","question_text":"The pie chart below shows favourite fruits. How many chose Bananas?","options":[...],"correct_answer":"B","explanation":"...","chart_type":"pie","chart_data":{{"data":[{{"label":"Apples","value":8}},{{"label":"Bananas","value":12}}]}},"difficulty":"{difficulty}"}}
+
+Return ONLY a JSON array of these question objects."""
 
 
 def _format_oak_examples(examples):
@@ -165,6 +185,15 @@ def generate_questions(
 
     valid = []
     for q in questions:
+        # chart_type/data があれば SVG に変換して chart_svg として保持
+        if q.get('chart_type') and q.get('chart_data'):
+            svg = _render_chart_if_valid(q['chart_type'], q['chart_data'])
+            if svg:
+                q['chart_svg'] = svg
+            # chart_type / chart_data は DB に保存しない (chart_svg のみ)
+            q.pop('chart_type', None)
+            q.pop('chart_data', None)
+
         if q.get("question_type") == "multiple_choice":
             if q.get("options") and q.get("correct_answer") and q.get("question_text"):
                 valid.append(q)
@@ -174,3 +203,40 @@ def generate_questions(
 
     logger.info(f"Generated {len(valid)} valid questions out of {len(questions)}")
     return valid
+
+
+def _render_chart_if_valid(chart_type: str, chart_data) -> str | None:
+    """LLM の chart_data を検証して SVG 文字列を返す。失敗なら None。"""
+    try:
+        from services.chart_svg import pie_chart, bar_chart, line_chart
+        if chart_type == 'pie':
+            data = chart_data.get('data') if isinstance(chart_data, dict) else None
+            if not data:
+                return None
+            return pie_chart(data)
+        if chart_type == 'bar':
+            data = chart_data.get('data') if isinstance(chart_data, dict) else None
+            if not data:
+                return None
+            return bar_chart(
+                data,
+                x_label=chart_data.get('x_label', ''),
+                y_label=chart_data.get('y_label', ''),
+            )
+        if chart_type == 'line':
+            points_raw = chart_data.get('points') if isinstance(chart_data, dict) else None
+            if not points_raw:
+                return None
+            # ["2012", 10] or [2012, 10] の両対応
+            points = [(p[0], p[1]) for p in points_raw if len(p) >= 2]
+            if not points:
+                return None
+            return line_chart(
+                points,
+                x_label=chart_data.get('x_label', ''),
+                y_label=chart_data.get('y_label', ''),
+                title=chart_data.get('title', ''),
+            )
+    except Exception as e:
+        logger.warning(f'chart rendering failed ({chart_type}): {e}')
+    return None

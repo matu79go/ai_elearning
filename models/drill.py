@@ -12,6 +12,7 @@ class DrillQuestion(db.Model):
     options = db.Column(db.JSON, nullable=False)
     correct_answer = db.Column(db.String(10), nullable=False)
     explanation = db.Column(db.Text)
+    chart_svg = db.Column(db.Text)  # 任意: 図付き問題の SVG (pie/bar/line/function 等)
     source = db.Column(db.String(20), nullable=False)  # llm_generated | rule_based
     template_id = db.Column(db.String(100))
     generated_payload = db.Column(db.JSON)

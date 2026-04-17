@@ -137,6 +137,7 @@ def materialize_drill_llm(
             options=q['options'],
             correct_answer=q['correct_answer'],
             explanation=q.get('explanation'),
+            chart_svg=q.get('chart_svg'),
             source="llm_generated",
             difficulty=q.get('difficulty', difficulty),
         )
