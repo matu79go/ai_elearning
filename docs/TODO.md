@@ -23,14 +23,11 @@ docker exec elearn_app python batch/find_youtube_videos.py --subject <科目> --
 **リセット**: 毎日 PST 0:00 = 日本時間 17:00（冬時間）。
 
 - [x] **2026-04-17** Y7 Science 82/96 完了 (残り14件 quota切れ)
-- [ ] **2026-04-18** Y7 Science 残り 14 chunk + Y7 Maths ~85 chunk
-- [ ] **2026-04-19** Y7 Maths 残り + Y7 Spanish ~70 chunk
-- [ ] **2026-04-20** Y7 English 63 + 余った枠
-- [ ] **2026-04-21** Y7 History 75
-- [ ] **2026-04-22** Y7 Geography 70
-- [ ] **2026-04-23** Y7 Computing 36 + 余りでY4 Maths開始
-- [ ] **2026-04-24** Y4 Maths 残り ~65
-- [ ] **2026-04-25** Y4 Science 90
+- [x] **2026-04-20** Y4 Maths 84/165 完了 (残り81件 quota切れ)、本番にも反映済み
+- **Y7 は手作業で search するため以降バッチ対象外**
+- [ ] **次回** Y4 Maths 残り 81 chunk
+- [ ] Y4 Science 90
+- [ ] Y4 English / History / Geography / Computing / Spanish
 - 終わったら Y5/6/8-11 も同じ要領
 
 ---
@@ -119,6 +116,30 @@ docker exec elearn_app python batch/find_youtube_videos.py --subject <科目> --
 ---
 
 ## 完了済み
+
+### 2026-04-20 完了
+
+#### 学習スケジュール機能 (親 + 子)
+- [x] `study_plans` / `study_deadlines` テーブル追加 (migration: `sql/09_add_schedule_tables.sql`)
+- [x] モデル: `models/schedule.py`
+- [x] 親画面: `/admin/children/<id>/schedule` フル月カレンダー (追加/編集/削除/ステータス切替、日 DnD なしのシンプル実装)
+- [x] 親画面: `/admin/children/<id>` に今月+来月サマリ (教科別集計バー + 締切リスト + subject/material/chunk 直リンク)
+- [x] 子画面: `/child/dashboard` に今月+来月プレビューカード (教科バー + 締切トップ2)
+- [x] 子画面: `/child/schedule` フル月カレンダー + アイテムリスト (44px の「できた！」トグル、モバイル最適化)
+- [x] 子画面: サイドバー/ボトムナビに Schedule リンク追加
+- [x] material_id のみの予定は `/child/subjects/<subject>?unit=<material_id>` で対象ユニット自動展開
+
+#### admin child_section タブ統一
+- [x] Drill/YouTube/共通CSS を `components/chunk_tab_{drill,youtube,tabs_css}.html` に抽出
+- [x] material_chunk_detail と child_section で再利用 (Progress / Lesson / Drill / Q&A / YouTube)
+
+#### year_group フィルタ不備修正
+- [x] `_build_child_stats` と `admin_children_detail` を子の学年で絞り込み (Y7 児童に Y4 教材が混入する問題を解消)
+- [x] スケジュール追加モーダルの教材 select も学年フィルタ
+
+#### YouTube マッピング継続
+- [x] Y4 Maths 84/165 chunk 処理 (420 動画、quota 切れで残り 81)
+- [x] 本番 DB に `chunk_youtube_videos` を INSERT IGNORE でインポート
 
 ### 2026-04-17 完了
 
