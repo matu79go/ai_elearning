@@ -90,6 +90,7 @@
                             </div>
                             {% set it_url = None %}
                             {% if p.chunk_id %}{% set it_url = lang_url('/child/section/' ~ p.chunk_id) %}
+                            {% elif p.material_id and p.subject %}{% set it_url = lang_url('/child/subjects/' ~ p.subject) ~ '?unit=' ~ p.material_id %}
                             {% elif p.subject %}{% set it_url = lang_url('/child/subjects/' ~ p.subject) %}{% endif %}
                             {% if it_url %}
                             <a href="{{ it_url }}" class="ksched-item-title">
