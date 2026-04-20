@@ -19,6 +19,9 @@
         {% endfor %}
     </div>
     {% endif %}
+    <a href="{{ lang_url('/child/schedule') }}" class="sidebar-link {{ 'active' if active_nav == 'schedule' }}">
+        <i class="fas fa-calendar-alt"></i> {{ t.child.nav_schedule }}
+    </a>
     <a href="#" class="sidebar-link {{ 'active' if active_nav == 'badges' }}">
         <i class="fas fa-award"></i> {{ t.child.nav_badges }}
     </a>

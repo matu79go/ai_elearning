@@ -27,6 +27,98 @@
 
 {% include "admin/components/child_header.html" %}
 
+<!-- Schedule preview: this month + next month (summary) -->
+<div class="section-card" style="margin-bottom:1.5rem;">
+    <div class="section-header">
+        <div class="section-title">
+            <i class="fas fa-calendar-alt"></i> {{ t.admin.schedule_title }}
+        </div>
+        <a href="{{ lang_url('/admin/children/' ~ child.child_id ~ '/schedule') }}"
+           style="font-size:12px; color:#6366f1; text-decoration:none; font-weight:600;">
+            {{ t.admin.schedule_open_full }} <i class="fas fa-arrow-right" style="margin-left:2px;"></i>
+        </a>
+    </div>
+    <div class="section-body">
+        <div class="sched-sum-row">
+            {% for prev in [schedule_this, schedule_next] %}
+            {% set is_current = (prev.month == schedule_today.month and prev.year == schedule_today.year) %}
+            <div class="sched-sum-card">
+                <a href="{{ lang_url('/admin/children/' ~ child.child_id ~ '/schedule?year=' ~ prev.year ~ '&month=' ~ prev.month) }}"
+                   class="sched-sum-head">
+                    <span class="sched-sum-month">{{ prev.year }}/{{ '%02d' | format(prev.month) }}</span>
+                    <span class="sched-sum-badge {% if not is_current %}sched-sum-badge-next{% endif %}">
+                        {% if is_current %}{{ t.admin.schedule_this_month }}{% else %}{{ t.admin.schedule_next_month }}{% endif %}
+                    </span>
+                    <span class="sched-sum-total">{{ prev.plan_done }}/{{ prev.plan_total }} {{ t.admin.schedule_done_unit }}</span>
+                </a>
+
+                {% if prev.by_subject %}
+                <div class="sched-sum-section-label">
+                    <i class="fas fa-book-open"></i> {{ t.admin.schedule_by_subject }}
+                </div>
+                {% for s in prev.by_subject %}
+                <details class="sched-sum-subj">
+                    <summary>
+                        <span class="sched-sum-dot" style="background:{{ s.color }};"></span>
+                        <span class="sched-sum-subj-name">{{ s.subject }}</span>
+                        <div class="sched-sum-bar">
+                            <div class="sched-sum-bar-fill" style="width:{{ (s.done / s.total * 100) if s.total > 0 else 0 }}%; background:{{ s.color }};"></div>
+                        </div>
+                        <span class="sched-sum-subj-count">{{ s.done }}/{{ s.total }}</span>
+                        <i class="fas fa-chevron-down sched-sum-chev"></i>
+                    </summary>
+                    <ul class="sched-sum-items">
+                        {% for it in s.plan_items %}
+                        {% set it_url = None %}
+                        {% if it.chunk_id %}
+                            {% set it_url = lang_url('/admin/children/' ~ child.child_id ~ '/section/' ~ it.chunk_id) %}
+                        {% elif it.material_id %}
+                            {% set it_url = lang_url('/admin/materials/' ~ it.material_id) %}
+                        {% endif %}
+                        <li class="sched-sum-item {% if it.status == 'done' %}sched-sum-item-done{% elif it.status == 'skipped' %}sched-sum-item-skipped{% endif %}">
+                            {% if it.status == 'done' %}<i class="fas fa-check" style="color:#10b981; font-size:10px;"></i>
+                            {% elif it.status == 'skipped' %}<i class="fas fa-minus" style="color:#f59e0b; font-size:10px;"></i>
+                            {% else %}<i class="far fa-circle" style="color:#cbd5e1; font-size:10px;"></i>{% endif %}
+                            {% if it_url %}
+                            <a href="{{ it_url }}" class="sched-sum-item-link">{{ it.title or '(no title)' }}
+                                <i class="fas fa-external-link-alt" style="font-size:8px; margin-left:2px; color:#cbd5e1;"></i>
+                            </a>
+                            {% else %}
+                            <span>{{ it.title or '(no title)' }}</span>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </details>
+                {% endfor %}
+                {% else %}
+                <div class="sched-sum-empty">{{ t.admin.schedule_no_plans }}</div>
+                {% endif %}
+
+                {% if prev.deadlines %}
+                <div class="sched-sum-section-label" style="margin-top:0.75rem;">
+                    <i class="fas fa-flag" style="color:#f59e0b;"></i> {{ t.admin.schedule_deadlines_this_month }}
+                </div>
+                <div class="sched-sum-dl-list">
+                    {% for dl in prev.deadlines %}
+                    <div class="sched-sum-dl {% if dl.done %}sched-sum-dl-done{% endif %}">
+                        <span class="sched-sum-dl-kind sched-dl-kind-{{ dl.kind }}">
+                            {% if dl.kind == 'test' %}{{ t.admin.schedule_kind_test }}
+                            {% elif dl.kind == 'homework' %}{{ t.admin.schedule_kind_homework }}
+                            {% else %}{{ t.admin.schedule_kind_other }}{% endif %}
+                        </span>
+                        <span class="sched-sum-dl-title">{{ dl.title }}</span>
+                        <span class="sched-sum-dl-date">{{ '%02d/%02d' | format(dl.due_date.month, dl.due_date.day) }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
 <!-- Weekly Activity -->
 {% set day_names = [t.admin.day_mon, t.admin.day_tue, t.admin.day_wed, t.admin.day_thu, t.admin.day_fri, t.admin.day_sat, t.admin.day_sun] %}
 <div class="section-card" style="margin-bottom: 1.5rem;">
@@ -405,6 +497,137 @@
     .tree-row-chunk { padding-left: 52px; text-decoration: none; color: inherit; }
     .tree-row-link:hover { background: #eef2ff; }
     .tree-row-link:hover .tree-name { color: #6366f1; }
+
+    /* Schedule summary (two months, side-by-side) */
+    .sched-sum-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+    .sched-sum-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 1rem;
+        background: #fafbfc;
+    }
+    .sched-sum-head {
+        display: flex; align-items: center; gap: 8px;
+        text-decoration: none;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #e2e8f0;
+        margin-bottom: 0.75rem;
+    }
+    .sched-sum-month { font-size: 16px; font-weight: 800; color: #1e293b; }
+    .sched-sum-head:hover .sched-sum-month { color: #6366f1; }
+    .sched-sum-badge {
+        font-size: 10px; font-weight: 700;
+        padding: 2px 8px; border-radius: 4px;
+        background: #e0e7ff; color: #3730a3;
+    }
+    .sched-sum-badge-next { background: #fef3c7; color: #92400e; }
+    .sched-sum-total {
+        margin-left: auto; font-size: 12px; color: #64748b; font-weight: 600;
+    }
+    .sched-sum-section-label {
+        font-size: 11px; font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+    .sched-sum-section-label i { color: #6366f1; margin-right: 4px; }
+
+    .sched-sum-subj {
+        margin-bottom: 6px;
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #f1f5f9;
+    }
+    .sched-sum-subj summary {
+        list-style: none;
+        display: flex; align-items: center; gap: 8px;
+        padding: 8px 10px;
+        cursor: pointer;
+    }
+    .sched-sum-subj summary::-webkit-details-marker { display: none; }
+    .sched-sum-subj[open] .sched-sum-chev { transform: rotate(180deg); }
+    .sched-sum-subj:hover { background: #f8fafc; }
+
+    .sched-sum-dot {
+        width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+    .sched-sum-subj-name {
+        font-size: 13px; font-weight: 700; color: #1e293b;
+        min-width: 70px;
+    }
+    .sched-sum-bar {
+        flex: 1; height: 8px; background: #f1f5f9;
+        border-radius: 4px; overflow: hidden;
+    }
+    .sched-sum-bar-fill { height: 100%; border-radius: 4px; }
+    .sched-sum-subj-count {
+        font-size: 11px; color: #64748b; font-weight: 700;
+        min-width: 40px; text-align: right;
+    }
+    .sched-sum-chev {
+        font-size: 10px; color: #94a3b8;
+        transition: transform 0.2s;
+    }
+    .sched-sum-items {
+        list-style: none;
+        padding: 0 10px 8px 34px;
+        margin: 0;
+        display: flex; flex-direction: column; gap: 4px;
+    }
+    .sched-sum-item {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 12px; color: #475569;
+    }
+    .sched-sum-item-done span,
+    .sched-sum-item-done .sched-sum-item-link { text-decoration: line-through; color: #94a3b8; }
+    .sched-sum-item-skipped span,
+    .sched-sum-item-skipped .sched-sum-item-link { color: #94a3b8; }
+    .sched-sum-item-link {
+        color: #475569;
+        text-decoration: none;
+        transition: color 0.15s;
+    }
+    .sched-sum-item-link:hover { color: #6366f1; text-decoration: underline; }
+
+    .sched-sum-empty {
+        font-size: 12px; color: #94a3b8; padding: 8px 0;
+    }
+
+    .sched-sum-dl-list {
+        display: flex; flex-direction: column; gap: 4px;
+    }
+    .sched-sum-dl {
+        display: flex; align-items: center; gap: 8px;
+        padding: 6px 10px;
+        background: white;
+        border-radius: 8px;
+        border-left: 3px solid #f59e0b;
+    }
+    .sched-sum-dl-done { opacity: 0.5; }
+    .sched-sum-dl-done .sched-sum-dl-title { text-decoration: line-through; }
+    .sched-sum-dl-kind {
+        padding: 2px 6px; border-radius: 4px;
+        font-size: 10px; font-weight: 700;
+    }
+    .sched-dl-kind-test { background: #fee2e2; color: #991b1b; }
+    .sched-dl-kind-homework { background: #fed7aa; color: #9a3412; }
+    .sched-dl-kind-other { background: #e0e7ff; color: #3730a3; }
+    .sched-sum-dl-title {
+        flex: 1; font-size: 12px; font-weight: 600; color: #1e293b;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sched-sum-dl-date {
+        font-size: 11px; font-weight: 700; color: #64748b;
+    }
+
+    @media (max-width: 768px) {
+        .sched-sum-row { grid-template-columns: 1fr; }
+    }
 
     /* Admin Subject Filter Pills */
     .admin-subject-pills {

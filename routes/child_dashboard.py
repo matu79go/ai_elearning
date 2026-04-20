@@ -255,10 +255,21 @@ def child_dashboard():
     today_count = today_data['total'] if today_data else 0
     daily_goal = current_user.daily_goal
 
+    # スケジュールプレビュー (今月 + 来月)
+    from routes.admin_schedule import build_month_preview
+    today = date_type.today()
+    next_m_year = today.year if today.month < 12 else today.year + 1
+    next_m_month = today.month + 1 if today.month < 12 else 1
+    schedule_this = build_month_preview(current_user.child_id, today.year, today.month)
+    schedule_next = build_month_preview(current_user.child_id, next_m_year, next_m_month)
+
     return render_template('child/dashboard.html', subjects_data=subjects_data,
                            all_badges=all_badges, earned_ids=earned_ids,
                            weekly=weekly, today_count=today_count,
-                           daily_goal=daily_goal, today_date=date_type.today())
+                           daily_goal=daily_goal, today_date=date_type.today(),
+                           schedule_this=schedule_this,
+                           schedule_next=schedule_next,
+                           schedule_today=today)
 
 
 @dual_route(child_dashboard_bp, '/child/profile')

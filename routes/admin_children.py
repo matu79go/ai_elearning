@@ -28,19 +28,24 @@ def parent_required(f):
 
 
 def _build_child_stats(child_id):
-    """子供の教科別進捗データを構築"""
-    # 全公開問題の教科別件数
+    """子供の教科別進捗データを構築 — その子の学年の教材のみ"""
+    child = db.session.get(Child, child_id)
+    year_group = (child.grade if child else None) or 7
+
+    # その学年の公開問題の教科別件数
     subject_totals = db.session.query(
         Material.subject,
         func.count(Question.question_id).label('total'),
     ).join(Question, Question.material_id == Material.material_id
-    ).filter(Material.status == 'published'
+    ).filter(
+        Material.status == 'published',
+        Material.year_group == year_group,
     ).group_by(Material.subject).all()
 
     subject_total_map = {s.subject: s.total for s in subject_totals}
     all_total = sum(s.total for s in subject_totals)
 
-    # この子供の教科別mastered数
+    # この子供の教科別mastered数 (同じ学年の教材に限る)
     subject_mastered = db.session.query(
         Material.subject,
         func.count(QuestionMastery.id).label('mastered'),
@@ -49,6 +54,7 @@ def _build_child_stats(child_id):
     ).filter(
         QuestionMastery.child_id == child_id,
         QuestionMastery.mastered == True,
+        Material.year_group == year_group,
     ).group_by(Material.subject).all()
 
     subject_mastered_map = {s.subject: s.mastered for s in subject_mastered}
@@ -230,7 +236,8 @@ def admin_children_detail(child_id):
         return redirect(_lang_url('/admin/children'))
 
     # 階層データ構築: Subject > Material > Chunk > Questions
-    # 全問題 + マスタリー状態を一括取得
+    # この子の学年の公開教材のみ
+    year_group = (child.grade or 7)
     rows = db.session.query(
         Material.subject,
         Material.material_id,
@@ -250,6 +257,7 @@ def admin_children_detail(child_id):
         QuestionMastery.child_id == child_id,
     )).filter(
         Material.status == 'published',
+        Material.year_group == year_group,
     ).order_by(
         Material.subject, Material.title,
         MaterialChunk.sort_order, Question.question_id,
@@ -333,6 +341,14 @@ def admin_children_detail(child_id):
     # 教科の和集合
     all_activity_subjects = sorted(set(weekly['subjects'] + monthly['subjects']))
 
+    # スケジュールプレビュー (今月 + 来月)
+    from routes.admin_schedule import build_month_preview
+    today = date_type.today()
+    next_m_year = today.year if today.month < 12 else today.year + 1
+    next_m_month = today.month + 1 if today.month < 12 else 1
+    schedule_this = build_month_preview(child_id, today.year, today.month)
+    schedule_next = build_month_preview(child_id, next_m_year, next_m_month)
+
     return render_template('admin/child_detail.html',
                            child=child, subjects=subjects,
                            total_questions=total_questions,
@@ -342,7 +358,10 @@ def admin_children_detail(child_id):
                            all_badges=all_badges, earned_ids=earned_ids,
                            earned_map=earned_map,
                            weekly=weekly, monthly=monthly,
-                           all_activity_subjects=all_activity_subjects)
+                           all_activity_subjects=all_activity_subjects,
+                           schedule_this=schedule_this,
+                           schedule_next=schedule_next,
+                           schedule_today=today)
 
 
 # ---- セクション別問題管理ページ ----
@@ -404,13 +423,32 @@ def admin_children_section(child_id, chunk_id):
         video_url = f'/child/drive-video/{chunk_id}'
         video_type = 'gdrive'
 
+    # Drill + YouTube (material_chunk_detail と同じデータを流用)
+    from models.drill import DrillQuestion
+    from models.youtube_video import ChunkYoutubeVideo
+    from config import DRILL_STREAK_TO_MASTER, DRILL_COMPLETION_POINTS
+    from services.math_generator import templates_for_chunk
+    rule_templates = [
+        {'id': t.id, 'topic': t.topic, 'difficulty': t.difficulty}
+        for t in templates_for_chunk(chunk_id)
+    ]
+    drill_questions = DrillQuestion.query.filter_by(chunk_id=chunk_id)\
+        .order_by(DrillQuestion.drill_question_id).all()
+    youtube_videos = ChunkYoutubeVideo.query.filter_by(chunk_id=chunk_id)\
+        .order_by(ChunkYoutubeVideo.is_primary.desc(), ChunkYoutubeVideo.rank_position).all()
+
     return render_template('admin/child_section.html',
                            child=child, chunk=chunk, material=material,
                            questions=q_list, full_questions=full_questions,
                            mastered_count=mastered_count,
                            total_questions=total_questions,
                            total_mastered=total_mastered,
-                           video_url=video_url, video_type=video_type)
+                           video_url=video_url, video_type=video_type,
+                           rule_templates=rule_templates,
+                           drill_questions=drill_questions,
+                           drill_streak=DRILL_STREAK_TO_MASTER,
+                           drill_points=DRILL_COMPLETION_POINTS,
+                           youtube_videos=youtube_videos)
 
 
 # ---- ポイント編集 ----

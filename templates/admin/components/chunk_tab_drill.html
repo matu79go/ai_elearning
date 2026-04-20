@@ -1,0 +1,136 @@
+<!-- Chunk Drill tab — requires: material, chunk, drill_questions, drill_streak, drill_points, rule_templates -->
+<div id="tab-drill" style="display:none;">
+    <div style="background:#eef2ff; border-left:3px solid #6366f1; padding:12px 16px; margin-bottom:1rem; border-radius:6px;">
+        <div style="font-size:12px; font-weight:700; color:#4338ca; margin-bottom:4px;">
+            <i class="fas fa-info-circle"></i> {{ t.admin.tab_drill }}
+        </div>
+        <div style="font-size:13px; color:#3730a3; line-height:1.6;">
+            {{ t.admin.drill_description.replace('{streak}', drill_streak|string).replace('{points}', drill_points|string) }}
+        </div>
+    </div>
+
+    <div class="qa-toolbar">
+        <div style="font-size:13px; font-weight:700; color:#475569;">
+            {{ t.admin.drill_pool_label }} <span style="color:#94a3b8; font-weight:500;">({{ drill_questions|length }})</span>
+        </div>
+        <div class="qa-actions">
+            {% if rule_templates %}
+            <button class="gen-chip gen-chip-rule" onclick="document.getElementById('genDrillRuleOverlay').style.display='flex'">
+                <i class="fas fa-plus"></i> {{ t.admin.gen_rule_button }}
+            </button>
+            {% endif %}
+            <button class="gen-chip gen-chip-llm" onclick="document.getElementById('genDrillLlmOverlay').style.display='flex'">
+                <i class="fas fa-plus"></i> {{ t.admin.gen_llm_button }}
+            </button>
+        </div>
+    </div>
+
+    {% if drill_questions %}
+    <div class="qa-list">
+        {% for q in drill_questions %}
+        <div class="qa-item" data-source="{{ q.source }}">
+            <div class="qa-header">
+                <span class="qa-num">{{ loop.index }}</span>
+                <span class="qa-type qa-type-mc">MC</span>
+                <span class="qa-source">{{ q.source }}</span>
+                <form method="POST" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks/' ~ chunk.chunk_id ~ '/drill/' ~ q.drill_question_id ~ '/delete') }}"
+                      style="margin-left:auto;" onsubmit="return confirm('{{ t.admin.drill_delete_confirm }}');">
+                    <button type="submit" class="action-btn" style="padding:4px 10px; font-size:11px; color:#dc2626;">
+                        <i class="fas fa-trash"></i> {{ t.admin.drill_delete }}
+                    </button>
+                </form>
+            </div>
+            <div class="qa-question">{{ q.question_text }}</div>
+            {% if q.chart_svg %}
+            <div class="qa-chart">{{ q.chart_svg|safe }}</div>
+            {% endif %}
+            {% if q.options %}
+            <div class="qa-options">
+                {% for opt in q.options %}
+                <div class="qa-option {{ 'qa-option-correct' if opt.label == q.correct_answer }}">
+                    <span class="qa-option-label">{{ opt.label }}</span>
+                    <span>{{ opt.text }}</span>
+                    {% if opt.label == q.correct_answer %}
+                    <i class="fas fa-check" style="margin-left:auto; color:#059669;"></i>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% if q.explanation %}
+            <div class="qa-explanation">
+                <i class="fas fa-lightbulb" style="color:#f59e0b;"></i>
+                {{ q.explanation }}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="section-card">
+        <div class="section-body" style="text-align:center; padding:2rem; color:#94a3b8;">
+            {{ t.admin.drill_pool_empty }}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if rule_templates %}
+    <div id="genDrillRuleOverlay" class="gen-overlay" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+        <div class="gen-dialog">
+            <h3 style="font-size:16px; font-weight:700; color:#1e293b; margin-bottom:1rem;">
+                <i class="fas fa-dice" style="color:#d97706; margin-right:6px;"></i> {{ t.admin.gen_rule_title }}: {{ chunk.title }}
+            </h3>
+            <form method="POST" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks/' ~ chunk.chunk_id ~ '/drill/generate-rule') }}">
+                <div class="form-group" style="margin-bottom:1rem;">
+                    <label class="form-label">{{ t.admin.gen_rule_count_label }}</label>
+                    <input type="number" name="count" class="form-input" value="10" min="1" max="50" required>
+                </div>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+                    <button type="submit" class="btn-save" style="background:#d97706;">
+                        <i class="fas fa-bolt" style="margin-right:4px;"></i> {{ t.admin.gen_rule_submit }}
+                    </button>
+                    <button type="button" class="btn-cancel" onclick="document.getElementById('genDrillRuleOverlay').style.display='none'">
+                        {{ t.admin.gen_cancel }}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <div id="genDrillLlmOverlay" class="gen-overlay" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+        <div class="gen-dialog">
+            <h3 style="font-size:16px; font-weight:700; color:#1e293b; margin-bottom:1rem;">
+                <i class="fas fa-robot" style="color:#6366f1; margin-right:6px;"></i> {{ t.admin.gen_llm_button }}: {{ chunk.title }}
+            </h3>
+            <form method="POST" action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks/' ~ chunk.chunk_id ~ '/drill/generate-llm') }}">
+                <div class="gen-row">
+                    <div class="form-group">
+                        <label class="form-label">Count</label>
+                        <select name="count" class="form-input">
+                            <option value="3">3</option>
+                            <option value="5" selected>5</option>
+                            <option value="10">10</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Difficulty</label>
+                        <select name="difficulty" class="form-input">
+                            <option value="easy">Easy</option>
+                            <option value="normal" selected>Normal</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+                    <button type="submit" class="btn-save">
+                        <i class="fas fa-bolt" style="margin-right:4px;"></i> Generate
+                    </button>
+                    <button type="button" class="btn-cancel" onclick="document.getElementById('genDrillLlmOverlay').style.display='none'">
+                        {{ t.admin.gen_cancel }}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,730 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ child.display_name }} - {{ t.admin.schedule_title }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div style="display:flex; align-items:center; gap:8px; font-size:13px; color:#64748b; margin-bottom:1rem; padding:10px 16px; background:#f8fafc; border-radius:10px;">
+    <a href="{{ lang_url('/admin/children') }}" style="color:#6366f1; text-decoration:none;">{{ t.admin.menu_children }}</a>
+    <i class="fas fa-chevron-right" style="font-size:8px; color:#cbd5e1;"></i>
+    <a href="{{ lang_url('/admin/children/' ~ child.child_id) }}" style="color:#6366f1; text-decoration:none;">{{ child.display_name }}</a>
+    <i class="fas fa-chevron-right" style="font-size:8px; color:#cbd5e1;"></i>
+    <span style="color:#1e293b; font-weight:600;">{{ t.admin.schedule_title }}</span>
+</div>
+
+<div class="section-card" style="margin-bottom:1.5rem;">
+    <div class="section-header">
+        <div class="section-title">
+            <i class="fas fa-calendar-alt"></i> {{ t.admin.schedule_title }} — {{ child.display_name }}
+        </div>
+        <span style="font-size:12px; color:#94a3b8;">
+            {{ plan_count }} {{ t.admin.schedule_items_this_month }}
+        </span>
+    </div>
+    <div class="section-body">
+
+        <!-- Month Nav -->
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+            <a href="{{ lang_url('/admin/children/' ~ child.child_id ~ '/schedule?year=' ~ prev_year ~ '&month=' ~ prev_month) }}"
+               style="font-size:13px; color:#6366f1; text-decoration:none; font-weight:600;">
+                <i class="fas fa-chevron-left"></i> {{ t.admin.prev_month }}
+            </a>
+            <span style="font-size:18px; font-weight:700; color:#1e293b;">
+                {{ year }}/{{ '%02d' | format(month) }}
+            </span>
+            <a href="{{ lang_url('/admin/children/' ~ child.child_id ~ '/schedule?year=' ~ next_year ~ '&month=' ~ next_month) }}"
+               style="font-size:13px; color:#6366f1; text-decoration:none; font-weight:600;">
+                {{ t.admin.next_month }} <i class="fas fa-chevron-right"></i>
+            </a>
+        </div>
+
+        <!-- Weekday header -->
+        <div class="sched-grid sched-head">
+            {% for key in weekday_labels_key %}
+            <div class="sched-head-cell">{{ t.admin[key] }}</div>
+            {% endfor %}
+        </div>
+
+        <!-- Calendar grid -->
+        <div class="sched-grid sched-body">
+            {% for week in weeks %}
+                {% for d in week %}
+                    {% set in_month = (d.month == month and d.year == year) %}
+                    {% set day_data = by_date.get(d) %}
+                    {% set is_today = (d == today) %}
+                    <div class="sched-cell {% if not in_month %}sched-cell-out{% endif %} {% if is_today %}sched-cell-today{% endif %}">
+                        <div class="sched-cell-head">
+                            <span class="sched-date {% if d.weekday() == 6 %}sched-sun{% elif d.weekday() == 5 %}sched-sat{% endif %}">{{ d.day }}</span>
+                            <button type="button" class="sched-add-btn"
+                                    onclick="openAddModal('{{ d.strftime('%Y-%m-%d') }}')"
+                                    title="{{ t.admin.schedule_add }}">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="sched-cell-body">
+                            {% if day_data %}
+                                {% for p in day_data.plans %}
+                                <div class="sched-chip sched-chip-plan {% if p.status == 'done' %}sched-chip-done{% elif p.status == 'skipped' %}sched-chip-skipped{% endif %}"
+                                     style="border-left-color:{{ p.color }};"
+                                     onclick="openPlanModal({{ p.id }})"
+                                     title="{{ p.title }}">
+                                    <span class="sched-chip-dot" style="background:{{ p.color }};"></span>
+                                    <span class="sched-chip-text">
+                                        {% if p.subject %}<strong>{{ p.subject }}</strong> {% endif %}{{ p.title }}
+                                    </span>
+                                </div>
+                                {% endfor %}
+                                {% for dl in day_data.deadlines %}
+                                <div class="sched-chip sched-chip-dl {% if dl.done %}sched-chip-done{% endif %}"
+                                     style="border-left-color:{{ dl.color }};"
+                                     onclick="openDeadlineModal({{ dl.id }})"
+                                     title="{{ dl.title }}">
+                                    <i class="fas {% if dl.kind == 'test' %}fa-file-signature{% elif dl.kind == 'homework' %}fa-book{% else %}fa-flag{% endif %}"
+                                       style="color:{{ dl.color }}; font-size:10px;"></i>
+                                    <span class="sched-chip-text">{{ dl.title }}</span>
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+
+        <!-- Month summary -->
+        <div style="margin-top:1.5rem; padding-top:1rem; border-top:1px solid #f1f5f9;">
+            <div style="font-size:13px; font-weight:700; color:#374151; margin-bottom:8px;">
+                <i class="fas fa-chart-pie" style="color:#6366f1; margin-right:4px;"></i>
+                {{ t.admin.schedule_month_summary }}
+            </div>
+            {% if summary %}
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                {% for s in summary %}
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="width:12px; height:12px; border-radius:3px; background:{{ s.color }}; flex-shrink:0;"></span>
+                    <span style="font-size:13px; font-weight:600; color:#374151; min-width:90px;">{{ s.subject }}</span>
+                    <div style="flex:1; background:#f1f5f9; border-radius:4px; height:10px; overflow:hidden;">
+                        <div style="height:100%; background:{{ s.color }}; width:{{ (s.done / s.total * 100) if s.total > 0 else 0 }}%;"></div>
+                    </div>
+                    <span style="font-size:12px; color:#64748b; min-width:80px; text-align:right;">
+                        {{ s.done }}/{{ s.total }} {{ t.admin.schedule_done_unit }}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="font-size:13px; color:#94a3b8;">{{ t.admin.schedule_no_plans }}</div>
+            {% endif %}
+        </div>
+
+        <!-- Upcoming deadlines -->
+        {% if month_deadlines %}
+        <div style="margin-top:1.5rem; padding-top:1rem; border-top:1px solid #f1f5f9;">
+            <div style="font-size:13px; font-weight:700; color:#374151; margin-bottom:8px;">
+                <i class="fas fa-exclamation-triangle" style="color:#f59e0b; margin-right:4px;"></i>
+                {{ t.admin.schedule_deadlines_this_month }}
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                {% for dl in month_deadlines %}
+                <div class="sched-dl-row {% if dl.done %}sched-dl-row-done{% endif %}">
+                    <span style="font-size:12px; color:#64748b; min-width:70px;">
+                        {{ dl.due_date.strftime('%m/%d') }}
+                    </span>
+                    <span class="sched-dl-kind sched-dl-kind-{{ dl.kind }}">
+                        {% if dl.kind == 'test' %}{{ t.admin.schedule_kind_test }}
+                        {% elif dl.kind == 'homework' %}{{ t.admin.schedule_kind_homework }}
+                        {% else %}{{ t.admin.schedule_kind_other }}{% endif %}
+                    </span>
+                    <span style="flex:1; font-size:13px; font-weight:600; color:#1e293b;">{{ dl.title }}</span>
+                    {% if dl.subject %}<span style="font-size:11px; color:#64748b;">{{ dl.subject }}</span>{% endif %}
+                    <form method="POST" action="{{ lang_url('/admin/children/' ~ child.child_id ~ '/schedule/deadlines/' ~ dl.id ~ '/toggle') }}" style="display:inline;">
+                        <button type="submit" style="padding:3px 10px; border:none; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer;
+                                {% if dl.done %}background:#d1fae5; color:#059669;{% else %}background:#f1f5f9; color:#64748b;{% endif %}">
+                            {% if dl.done %}<i class="fas fa-check"></i> {{ t.admin.schedule_done }}{% else %}{{ t.admin.schedule_mark_done }}{% endif %}
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ lang_url('/admin/children/' ~ child.child_id ~ '/schedule/deadlines/' ~ dl.id ~ '/delete') }}" style="display:inline;"
+                          onsubmit="return confirm('{{ t.admin.schedule_delete_confirm }}');">
+                        <button type="submit" style="padding:3px 8px; background:#fee2e2; color:#991b1b; border:none; border-radius:6px; font-size:11px; cursor:pointer;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ========= Add Modal (日セル +) ========= -->
+<div id="addModal" class="sched-modal-bg" onclick="if(event.target===this) closeAddModal()">
+    <div class="sched-modal">
+        <div class="sched-modal-head">
+            <h3 id="addModalTitle" style="font-size:16px; font-weight:700; color:#1e293b;">
+                <i class="fas fa-calendar-plus" style="color:#6366f1;"></i> <span id="addModalDate"></span>
+            </h3>
+            <button type="button" onclick="closeAddModal()" class="sched-modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Tab switcher -->
+        <div class="sched-tab-switch">
+            <button type="button" class="sched-tab-btn active" data-tab="plan" onclick="switchAddTab('plan')">
+                <i class="fas fa-book-open"></i> {{ t.admin.schedule_tab_plan }}
+            </button>
+            <button type="button" class="sched-tab-btn" data-tab="deadline" onclick="switchAddTab('deadline')">
+                <i class="fas fa-flag"></i> {{ t.admin.schedule_tab_deadline }}
+            </button>
+        </div>
+
+        <!-- Plan form -->
+        <form id="planForm" method="POST" action="{{ lang_url('/admin/children/' ~ child.child_id ~ '/schedule/plans/add') }}">
+            <input type="hidden" name="planned_date" id="planDate">
+            <div class="sched-field">
+                <label class="form-label">{{ t.admin.schedule_subject }}</label>
+                <select name="subject" id="planSubject" class="form-input" onchange="updatePlanMaterials()">
+                    <option value="">—</option>
+                    {% for subj in materials_by_subject.keys() %}
+                    <option value="{{ subj }}">{{ subj }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="sched-field">
+                <label class="form-label">{{ t.admin.schedule_material }} ({{ t.admin.optional }})</label>
+                <select name="material_id" id="planMaterial" class="form-input" onchange="updatePlanChunks()">
+                    <option value="">—</option>
+                </select>
+            </div>
+            <div class="sched-field">
+                <label class="form-label">{{ t.admin.schedule_chunk }} ({{ t.admin.optional }})</label>
+                <select name="chunk_id" id="planChunk" class="form-input">
+                    <option value="">—</option>
+                </select>
+            </div>
+            <div class="sched-field">
+                <label class="form-label">{{ t.admin.schedule_custom_title }} ({{ t.admin.optional }})</label>
+                <input type="text" name="title" class="form-input" placeholder="{{ t.admin.schedule_custom_title_ph }}">
+            </div>
+            <div class="sched-field">
+                <label class="form-label">{{ t.admin.schedule_note }} ({{ t.admin.optional }})</label>
+                <textarea name="note" class="form-input" rows="2"></textarea>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:1rem;">
+                <button type="button" class="sched-btn-secondary" onclick="closeAddModal()">{{ t.admin.cancel }}</button>
+                <button type="submit" class="btn-save"><i class="fas fa-save"></i> {{ t.admin.save }}</button>
+            </div>
+        </form>
+
+        <!-- Deadline form -->
+        <form id="deadlineForm" method="POST" action="{{ lang_url('/admin/children/' ~ child.child_id ~ '/schedule/deadlines/add') }}" style="display:none;">
+            <input type="hidden" name="due_date" id="dlDate">
+            <div class="sched-field">
+                <label class="form-label">{{ t.admin.schedule_kind }}</label>
+                <select name="kind" class="form-input">
+                    <option value="test">{{ t.admin.schedule_kind_test }}</option>
+                    <option value="homework">{{ t.admin.schedule_kind_homework }}</option>
+                    <option value="other">{{ t.admin.schedule_kind_other }}</option>
+                </select>
+            </div>
+            <div class="sched-field">
+                <label class="form-label">{{ t.admin.schedule_title_label }} *</label>
+                <input type="text" name="title" class="form-input" required placeholder="{{ t.admin.schedule_deadline_title_ph }}">
+            </div>
+            <div class="sched-field">
+                <label class="form-label">{{ t.admin.schedule_subject }} ({{ t.admin.optional }})</label>
+                <select name="subject" class="form-input">
+                    <option value="">—</option>
+                    {% for subj in materials_by_subject.keys() %}
+                    <option value="{{ subj }}">{{ subj }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="sched-field">
+                <label class="form-label">{{ t.admin.schedule_note }} ({{ t.admin.optional }})</label>
+                <textarea name="note" class="form-input" rows="2"></textarea>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:1rem;">
+                <button type="button" class="sched-btn-secondary" onclick="closeAddModal()">{{ t.admin.cancel }}</button>
+                <button type="submit" class="btn-save"><i class="fas fa-save"></i> {{ t.admin.save }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ========= Plan Detail Modal ========= -->
+<div id="planDetailModal" class="sched-modal-bg" onclick="if(event.target===this) closePlanDetail()">
+    <div class="sched-modal"></div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+    .sched-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 2px;
+        background: #e2e8f0;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .sched-head-cell {
+        background: #f8fafc;
+        padding: 8px 4px;
+        text-align: center;
+        font-size: 11px;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .sched-cell {
+        background: white;
+        min-height: 110px;
+        padding: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        position: relative;
+        transition: background 0.15s;
+    }
+    .sched-cell:hover { background: #fafbfc; }
+    .sched-cell-out { background: #f9fafb; }
+    .sched-cell-out .sched-date { color: #cbd5e1; }
+    .sched-cell-today { background: #eef2ff; }
+    .sched-cell-today .sched-date {
+        background: #6366f1; color: white; border-radius: 50%;
+        width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+    }
+
+    .sched-cell-head {
+        display: flex; justify-content: space-between; align-items: center;
+        min-height: 22px;
+    }
+    .sched-date {
+        font-size: 13px; font-weight: 700; color: #1e293b;
+    }
+    .sched-sat { color: #2563eb; }
+    .sched-sun { color: #dc2626; }
+    .sched-add-btn {
+        width: 20px; height: 20px; border-radius: 4px;
+        border: none; background: transparent; color: #cbd5e1;
+        cursor: pointer; font-size: 10px; opacity: 0;
+        transition: all 0.15s;
+    }
+    .sched-cell:hover .sched-add-btn { opacity: 1; }
+    .sched-add-btn:hover { background: #6366f1; color: white; }
+
+    .sched-cell-body {
+        display: flex; flex-direction: column; gap: 2px; flex: 1;
+    }
+    .sched-chip {
+        display: flex; align-items: center; gap: 4px;
+        padding: 3px 6px;
+        background: #f8fafc;
+        border-left: 3px solid #cbd5e1;
+        border-radius: 4px;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.15s;
+        overflow: hidden;
+    }
+    .sched-chip:hover { background: #eef2ff; }
+    .sched-chip-dot {
+        width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    }
+    .sched-chip-text {
+        font-size: 11px; color: #1e293b;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sched-chip-done {
+        background: #d1fae5;
+        opacity: 0.75;
+    }
+    .sched-chip-done .sched-chip-text {
+        text-decoration: line-through; color: #059669;
+    }
+    .sched-chip-skipped {
+        background: #fef3c7; opacity: 0.6;
+    }
+    .sched-chip-dl {
+        background: #fef2f2;
+    }
+
+    /* Deadline row */
+    .sched-dl-row {
+        display: flex; align-items: center; gap: 10px;
+        padding: 8px 12px; background: #f8fafc; border-radius: 8px;
+    }
+    .sched-dl-row-done { opacity: 0.6; }
+    .sched-dl-row-done span:nth-child(3) { text-decoration: line-through; }
+    .sched-dl-kind {
+        padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;
+    }
+    .sched-dl-kind-test { background: #fee2e2; color: #991b1b; }
+    .sched-dl-kind-homework { background: #fed7aa; color: #9a3412; }
+    .sched-dl-kind-other { background: #e0e7ff; color: #3730a3; }
+
+    /* Modal */
+    .sched-modal-bg {
+        display: none;
+        position: fixed; inset: 0;
+        background: rgba(15, 23, 42, 0.5);
+        z-index: 2000;
+        align-items: flex-start; justify-content: center;
+        padding: 60px 1rem 1rem;
+        overflow-y: auto;
+    }
+    .sched-modal-bg.open { display: flex; }
+    .sched-modal {
+        background: white; border-radius: 16px;
+        width: 100%; max-width: 480px;
+        padding: 1.5rem;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    .sched-modal-head {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 1rem;
+    }
+    .sched-modal-close {
+        background: transparent; border: none; font-size: 16px;
+        color: #94a3b8; cursor: pointer; padding: 4px 8px;
+    }
+    .sched-modal-close:hover { color: #1e293b; }
+
+    .sched-tab-switch {
+        display: flex; gap: 4px; margin-bottom: 1rem;
+        background: #f1f5f9; padding: 4px; border-radius: 10px;
+    }
+    .sched-tab-btn {
+        flex: 1; padding: 8px; border: none; background: transparent;
+        border-radius: 8px; font-size: 13px; font-weight: 600;
+        color: #64748b; cursor: pointer; transition: all 0.15s;
+    }
+    .sched-tab-btn:hover { color: #1e293b; }
+    .sched-tab-btn.active { background: white; color: #6366f1; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+    .sched-field { margin-bottom: 0.75rem; }
+    .sched-field .form-input {
+        display: block; width: 100%;
+        padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px;
+        font-size: 14px; outline: none; font-family: inherit;
+    }
+    .sched-field .form-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+
+    .form-label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px; }
+    .btn-save {
+        padding: 8px 20px; background: #6366f1; color: white;
+        border: none; border-radius: 8px; font-size: 14px;
+        font-weight: 600; cursor: pointer;
+    }
+    .btn-save:hover { background: #4f46e5; }
+    .sched-btn-secondary {
+        padding: 8px 16px; background: #f1f5f9; color: #64748b;
+        border: none; border-radius: 8px; font-size: 13px;
+        font-weight: 600; cursor: pointer;
+    }
+
+    @media (max-width: 768px) {
+        .sched-cell { min-height: 80px; padding: 4px; }
+        .sched-date { font-size: 11px; }
+        .sched-chip { padding: 2px 4px; }
+        .sched-chip-text { font-size: 10px; }
+        .sched-head-cell { font-size: 10px; padding: 6px 2px; }
+        .sched-add-btn { opacity: 1; }
+    }
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Material hierarchy data
+const MATERIALS_BY_SUBJECT = {{ materials_by_subject | tojson }};
+
+// Plan detail data for modal
+const PLANS_BY_ID = {};
+{% for d, data in by_date.items() %}
+  {% for p in data.plans %}
+  PLANS_BY_ID[{{ p.id }}] = {
+      id: {{ p.id }},
+      subject: {{ (p.subject or '')|tojson }},
+      title: {{ (p.title or '')|tojson }},
+      chunk_title: {{ (p.chunk_title or '')|tojson }},
+      material_id: {{ p.material_id|tojson }},
+      chunk_id: {{ p.chunk_id|tojson }},
+      status: {{ p.status|tojson }},
+      color: {{ p.color|tojson }},
+      note: {{ (p.note or '')|tojson }},
+      planned_date: {{ d.strftime('%Y-%m-%d')|tojson }}
+  };
+  {% endfor %}
+{% endfor %}
+
+const DEADLINES_BY_ID = {};
+{% for d, data in by_date.items() %}
+  {% for dl in data.deadlines %}
+  DEADLINES_BY_ID[{{ dl.id }}] = {
+      id: {{ dl.id }},
+      kind: {{ dl.kind|tojson }},
+      title: {{ dl.title|tojson }},
+      subject: {{ (dl.subject or '')|tojson }},
+      done: {{ dl.done|tojson }},
+      note: {{ (dl.note or '')|tojson }},
+      due_date: {{ d.strftime('%Y-%m-%d')|tojson }}
+  };
+  {% endfor %}
+{% endfor %}
+
+const T = {
+    delete_confirm: {{ t.admin.schedule_delete_confirm|tojson }},
+    status_planned: {{ t.admin.schedule_status_planned|tojson }},
+    status_done: {{ t.admin.schedule_status_done|tojson }},
+    status_skipped: {{ t.admin.schedule_status_skipped|tojson }},
+    kind_test: {{ t.admin.schedule_kind_test|tojson }},
+    kind_homework: {{ t.admin.schedule_kind_homework|tojson }},
+    kind_other: {{ t.admin.schedule_kind_other|tojson }},
+    delete: {{ t.admin.schedule_delete|tojson }},
+    close: {{ t.admin.cancel|tojson }},
+    note_label: {{ t.admin.schedule_note|tojson }},
+    mark_done: {{ t.admin.schedule_mark_done|tojson }},
+    chunk_label: {{ t.admin.schedule_chunk|tojson }},
+    subject_label: {{ t.admin.schedule_subject|tojson }},
+    material_label: {{ t.admin.schedule_material|tojson }},
+    custom_title_label: {{ t.admin.schedule_custom_title|tojson }},
+    title_label: {{ t.admin.schedule_title_label|tojson }},
+    date_label: {{ t.admin.date_label|tojson }},
+    kind_label: {{ t.admin.schedule_kind|tojson }},
+    optional_label: {{ t.admin.optional|tojson }},
+    save: {{ t.admin.save|tojson }},
+    edit_plan: {{ t.admin.schedule_edit_plan|tojson }},
+    edit_deadline: {{ t.admin.schedule_edit_deadline|tojson }},
+};
+
+const CHILD_URL_BASE = {{ lang_url('/admin/children/' ~ child.child_id ~ '/schedule')|tojson }};
+
+function openAddModal(dateStr) {
+    document.getElementById('planDate').value = dateStr;
+    document.getElementById('dlDate').value = dateStr;
+    document.getElementById('addModalDate').textContent = dateStr;
+    document.getElementById('addModal').classList.add('open');
+    switchAddTab('plan');
+}
+function closeAddModal() {
+    document.getElementById('addModal').classList.remove('open');
+}
+function switchAddTab(tab) {
+    document.querySelectorAll('.sched-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.getElementById('planForm').style.display = tab === 'plan' ? '' : 'none';
+    document.getElementById('deadlineForm').style.display = tab === 'deadline' ? '' : 'none';
+}
+
+function updatePlanMaterials() {
+    const subj = document.getElementById('planSubject').value;
+    const matSel = document.getElementById('planMaterial');
+    matSel.innerHTML = '<option value="">—</option>';
+    (MATERIALS_BY_SUBJECT[subj] || []).forEach(m => {
+        const o = document.createElement('option');
+        o.value = m.material_id;
+        o.textContent = m.title;
+        matSel.appendChild(o);
+    });
+    updatePlanChunks();
+}
+function updatePlanChunks() {
+    const subj = document.getElementById('planSubject').value;
+    const matId = document.getElementById('planMaterial').value;
+    const chunkSel = document.getElementById('planChunk');
+    chunkSel.innerHTML = '<option value="">—</option>';
+    if (!matId) return;
+    const mat = (MATERIALS_BY_SUBJECT[subj] || []).find(m => String(m.material_id) === String(matId));
+    if (!mat) return;
+    mat.chunks.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c.chunk_id;
+        o.textContent = c.title;
+        chunkSel.appendChild(o);
+    });
+}
+
+function openPlanModal(planId) {
+    const p = PLANS_BY_ID[planId];
+    if (!p) return;
+    const modal = document.getElementById('planDetailModal');
+    const body = modal.querySelector('.sched-modal');
+
+    const subjectOptions = Object.keys(MATERIALS_BY_SUBJECT).map(s =>
+        `<option value="${escapeHtml(s)}" ${s === p.subject ? 'selected' : ''}>${escapeHtml(s)}</option>`
+    ).join('');
+
+    body.innerHTML = `
+        <div class="sched-modal-head">
+            <h3 style="font-size:16px; font-weight:700; color:#1e293b;">
+                <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${p.color}; margin-right:6px;"></span>
+                ${T.edit_plan}
+            </h3>
+            <button type="button" class="sched-modal-close" onclick="closePlanDetail()"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="${CHILD_URL_BASE}/plans/${p.id}/edit">
+            <div class="sched-field">
+                <label class="form-label">${T.date_label}</label>
+                <input type="date" name="planned_date" value="${p.planned_date}" class="form-input" required>
+            </div>
+            <div class="sched-field">
+                <label class="form-label">${T.subject_label}</label>
+                <select name="subject" id="editPlanSubject" class="form-input" onchange="updateEditPlanMaterials(${p.id})">
+                    <option value="">—</option>
+                    ${subjectOptions}
+                </select>
+            </div>
+            <div class="sched-field">
+                <label class="form-label">${T.material_label} (${T.optional_label})</label>
+                <select name="material_id" id="editPlanMaterial" class="form-input" onchange="updateEditPlanChunks(${p.id})">
+                    <option value="">—</option>
+                </select>
+            </div>
+            <div class="sched-field">
+                <label class="form-label">${T.chunk_label} (${T.optional_label})</label>
+                <select name="chunk_id" id="editPlanChunk" class="form-input">
+                    <option value="">—</option>
+                </select>
+            </div>
+            <div class="sched-field">
+                <label class="form-label">${T.custom_title_label} (${T.optional_label})</label>
+                <input type="text" name="title" value="${escapeHtml(p.title)}" class="form-input">
+            </div>
+            <div class="sched-field">
+                <label class="form-label">${T.note_label} (${T.optional_label})</label>
+                <textarea name="note" class="form-input" rows="2">${escapeHtml(p.note)}</textarea>
+            </div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; margin-top:1rem; padding-top:1rem; border-top:1px solid #f1f5f9;">
+                <button type="submit" class="btn-save" style="font-size:13px; padding:6px 14px;">
+                    <i class="fas fa-save"></i> ${T.save}
+                </button>
+            </div>
+        </form>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid #f1f5f9;">
+            <form method="POST" action="${CHILD_URL_BASE}/plans/${p.id}/status" style="flex:1;">
+                <input type="hidden" name="status" value="${p.status === 'done' ? 'planned' : 'done'}">
+                <button type="submit" style="width:100%; padding:6px 12px; background:${p.status === 'done' ? '#f1f5f9' : '#10b981'}; color:${p.status === 'done' ? '#64748b' : 'white'}; border:none; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">
+                    <i class="fas ${p.status === 'done' ? 'fa-undo' : 'fa-check'}"></i>
+                    ${p.status === 'done' ? T.status_planned : T.mark_done}
+                </button>
+            </form>
+            <form method="POST" action="${CHILD_URL_BASE}/plans/${p.id}/delete" onsubmit="return confirm(T.delete_confirm)">
+                <button type="submit" style="padding:6px 12px; background:#fee2e2; color:#991b1b; border:none; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">
+                    <i class="fas fa-trash"></i> ${T.delete}
+                </button>
+            </form>
+        </div>
+    `;
+
+    // populate material/chunk dropdowns to match current plan
+    updateEditPlanMaterials(p.id, p.material_id, p.chunk_id);
+
+    modal.classList.add('open');
+}
+
+function updateEditPlanMaterials(planId, preselectMaterial, preselectChunk) {
+    const p = PLANS_BY_ID[planId];
+    const subj = document.getElementById('editPlanSubject').value;
+    const matSel = document.getElementById('editPlanMaterial');
+    matSel.innerHTML = '<option value="">—</option>';
+    (MATERIALS_BY_SUBJECT[subj] || []).forEach(m => {
+        const o = document.createElement('option');
+        o.value = m.material_id;
+        o.textContent = m.title;
+        if (preselectMaterial && String(m.material_id) === String(preselectMaterial)) o.selected = true;
+        matSel.appendChild(o);
+    });
+    updateEditPlanChunks(planId, preselectChunk);
+}
+
+function updateEditPlanChunks(planId, preselectChunk) {
+    const subj = document.getElementById('editPlanSubject').value;
+    const matId = document.getElementById('editPlanMaterial').value;
+    const chunkSel = document.getElementById('editPlanChunk');
+    chunkSel.innerHTML = '<option value="">—</option>';
+    if (!matId) return;
+    const mat = (MATERIALS_BY_SUBJECT[subj] || []).find(m => String(m.material_id) === String(matId));
+    if (!mat) return;
+    mat.chunks.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c.chunk_id;
+        o.textContent = c.title;
+        if (preselectChunk && String(c.chunk_id) === String(preselectChunk)) o.selected = true;
+        chunkSel.appendChild(o);
+    });
+}
+
+function openDeadlineModal(dlId) {
+    const dl = DEADLINES_BY_ID[dlId];
+    if (!dl) return;
+    const modal = document.getElementById('planDetailModal');
+    const body = modal.querySelector('.sched-modal');
+    const subjectOptions = ['', ...Object.keys(MATERIALS_BY_SUBJECT)].map(s =>
+        `<option value="${escapeHtml(s)}" ${s === dl.subject ? 'selected' : ''}>${s || '—'}</option>`
+    ).join('');
+    const kindOpts = [
+        ['test', T.kind_test], ['homework', T.kind_homework], ['other', T.kind_other],
+    ].map(([v, lbl]) => `<option value="${v}" ${v === dl.kind ? 'selected' : ''}>${escapeHtml(lbl)}</option>`).join('');
+
+    body.innerHTML = `
+        <div class="sched-modal-head">
+            <h3 style="font-size:16px; font-weight:700; color:#1e293b;">
+                <i class="fas ${dl.kind === 'test' ? 'fa-file-signature' : dl.kind === 'homework' ? 'fa-book' : 'fa-flag'}" style="color:#f59e0b;"></i>
+                ${T.edit_deadline}
+            </h3>
+            <button type="button" class="sched-modal-close" onclick="closePlanDetail()"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="${CHILD_URL_BASE}/deadlines/${dl.id}/edit">
+            <div class="sched-field">
+                <label class="form-label">${T.date_label}</label>
+                <input type="date" name="due_date" value="${dl.due_date}" class="form-input" required>
+            </div>
+            <div class="sched-field">
+                <label class="form-label">${T.kind_label}</label>
+                <select name="kind" class="form-input">${kindOpts}</select>
+            </div>
+            <div class="sched-field">
+                <label class="form-label">${T.title_label} *</label>
+                <input type="text" name="title" value="${escapeHtml(dl.title)}" class="form-input" required>
+            </div>
+            <div class="sched-field">
+                <label class="form-label">${T.subject_label} (${T.optional_label})</label>
+                <select name="subject" class="form-input">${subjectOptions}</select>
+            </div>
+            <div class="sched-field">
+                <label class="form-label">${T.note_label} (${T.optional_label})</label>
+                <textarea name="note" class="form-input" rows="2">${escapeHtml(dl.note)}</textarea>
+            </div>
+            <div style="display:flex; gap:6px; justify-content:flex-end; margin-top:1rem; padding-top:1rem; border-top:1px solid #f1f5f9;">
+                <button type="submit" class="btn-save" style="font-size:13px; padding:6px 14px;">
+                    <i class="fas fa-save"></i> ${T.save}
+                </button>
+            </div>
+        </form>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid #f1f5f9;">
+            <form method="POST" action="${CHILD_URL_BASE}/deadlines/${dl.id}/toggle" style="flex:1;">
+                <button type="submit" style="width:100%; padding:6px 12px; background:${dl.done ? '#f1f5f9' : '#10b981'}; color:${dl.done ? '#64748b' : 'white'}; border:none; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">
+                    <i class="fas ${dl.done ? 'fa-undo' : 'fa-check'}"></i>
+                    ${dl.done ? T.status_planned : T.mark_done}
+                </button>
+            </form>
+            <form method="POST" action="${CHILD_URL_BASE}/deadlines/${dl.id}/delete" onsubmit="return confirm(T.delete_confirm)">
+                <button type="submit" style="padding:6px 12px; background:#fee2e2; color:#991b1b; border:none; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">
+                    <i class="fas fa-trash"></i> ${T.delete}
+                </button>
+            </form>
+        </div>
+    `;
+    modal.classList.add('open');
+}
+function closePlanDetail() {
+    document.getElementById('planDetailModal').classList.remove('open');
+}
+
+function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
+{% endblock %}

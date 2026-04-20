@@ -1,0 +1,288 @@
+{% extends "child/child_base.html" %}
+{% block title %}{{ t.child.nav_schedule }}{% endblock %}
+{% block back_url %}{{ lang_url('/child/dashboard') }}{% endblock %}
+
+{% block sidebar %}
+{% include "child/components/sidebar_profile.html" %}
+{% set active_nav = 'schedule' %}
+{% include "child/components/sidebar_nav.html" %}
+{% endblock %}
+
+{% block main_content %}
+<div class="content-card">
+
+    <!-- Month Nav -->
+    <div class="ksched-nav">
+        <a href="{{ lang_url('/child/schedule?year=' ~ prev_year ~ '&month=' ~ prev_month) }}" class="ksched-nav-btn">
+            <i class="fas fa-chevron-left"></i>
+        </a>
+        <div class="ksched-month">{{ year }}/{{ '%02d' | format(month) }}</div>
+        <a href="{{ lang_url('/child/schedule?year=' ~ next_year ~ '&month=' ~ next_month) }}" class="ksched-nav-btn">
+            <i class="fas fa-chevron-right"></i>
+        </a>
+    </div>
+    <div class="ksched-nav-sub">
+        {{ done_count }}/{{ plan_count }} {{ t.child.schedule_done_unit }}
+    </div>
+
+    <!-- Weekday header -->
+    {% set day_labels = [t.child.day_mon, t.child.day_tue, t.child.day_wed, t.child.day_thu, t.child.day_fri, t.child.day_sat, t.child.day_sun] %}
+    <div class="ksched-grid ksched-head">
+        {% for lbl in day_labels %}
+        <div class="ksched-head-cell">{{ lbl[0] }}</div>
+        {% endfor %}
+    </div>
+
+    <!-- Calendar grid -->
+    <div class="ksched-grid ksched-body">
+        {% for week in weeks %}
+            {% for d in week %}
+                {% set in_month = (d.month == month and d.year == year) %}
+                {% set slot = by_date.get(d) %}
+                {% set is_today = (d == today) %}
+                <div class="ksched-cell {% if not in_month %}ksched-cell-out{% endif %} {% if is_today %}ksched-cell-today{% endif %}">
+                    <span class="ksched-date {% if d.weekday() == 6 %}ksched-sun{% elif d.weekday() == 5 %}ksched-sat{% endif %}">{{ d.day }}</span>
+                    {% if slot %}
+                    <div class="ksched-chips">
+                        {% for p in slot.plans %}
+                        <span class="ksched-chip {% if p.status == 'done' %}ksched-chip-done{% endif %}"
+                              style="background:{{ p.color }};">
+                            {% if p.subject %}{{ p.subject[:2] }}{% else %}•{% endif %}
+                        </span>
+                        {% endfor %}
+                        {% for dl in slot.deadlines %}
+                        <span class="ksched-chip ksched-chip-dl {% if dl.done %}ksched-chip-done{% endif %}"
+                              style="background:{{ dl.color }};">
+                            <i class="fas fa-flag"></i>
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        {% endfor %}
+    </div>
+
+    <!-- Today and upcoming plans -->
+    <div class="ksched-section-label">
+        <i class="fas fa-clipboard-list" style="color:#6366f1;"></i> {{ t.child.schedule_this_month_plans }}
+    </div>
+
+    {% if summary %}
+    {# Flatten items day by day in order #}
+    <div class="ksched-item-list">
+        {% for d in weeks | sum(start=[]) %}
+            {% if d.month == month and d.year == year %}
+                {% set slot = by_date.get(d) %}
+                {% if slot %}
+                    {% for p in slot.plans %}
+                    <div class="ksched-item {% if p.status == 'done' %}ksched-item-done{% endif %}">
+                        <div class="ksched-item-date" style="background:{{ p.color }};">
+                            <span class="ksched-item-day">{{ d.day }}</span>
+                            <span class="ksched-item-dow">{{ day_labels[d.weekday()][0] }}</span>
+                        </div>
+                        <div class="ksched-item-body">
+                            <div class="ksched-item-subj">
+                                {% if p.subject %}
+                                {% set cfg = SUBJ.get(p.subject, {'emoji':'📚'}) %}
+                                <span>{{ cfg.emoji }}</span> {{ p.subject }}
+                                {% endif %}
+                            </div>
+                            {% set it_url = None %}
+                            {% if p.chunk_id %}{% set it_url = lang_url('/child/section/' ~ p.chunk_id) %}
+                            {% elif p.subject %}{% set it_url = lang_url('/child/subjects/' ~ p.subject) %}{% endif %}
+                            {% if it_url %}
+                            <a href="{{ it_url }}" class="ksched-item-title">
+                                {{ p.title or '-' }}
+                                <i class="fas fa-chevron-right" style="font-size:10px; color:#94a3b8; margin-left:4px;"></i>
+                            </a>
+                            {% else %}
+                            <div class="ksched-item-title">{{ p.title or '-' }}</div>
+                            {% endif %}
+                        </div>
+                        <form method="POST" action="{{ lang_url('/child/schedule/plans/' ~ p.id ~ '/done') }}" class="ksched-item-action">
+                            <input type="hidden" name="status" value="{{ 'planned' if p.status == 'done' else 'done' }}">
+                            <button type="submit" class="ksched-done-btn {% if p.status == 'done' %}ksched-done-btn-on{% endif %}">
+                                <i class="fas fa-check"></i>
+                            </button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="ksched-empty">
+        <div style="font-size:36px; margin-bottom:8px;">🗓️</div>
+        {{ t.child.schedule_empty }}
+    </div>
+    {% endif %}
+
+    {% if month_deadlines %}
+    <div class="ksched-section-label">
+        <i class="fas fa-flag" style="color:#f59e0b;"></i> {{ t.child.schedule_deadlines }}
+    </div>
+    <div class="ksched-item-list">
+        {% for dl in month_deadlines %}
+        <div class="ksched-item {% if dl.done %}ksched-item-done{% endif %}">
+            <div class="ksched-item-date" style="background:{{ dl.color }};">
+                <span class="ksched-item-day">{{ dl.due_date.day }}</span>
+                <span class="ksched-item-dow">{{ '%02d' | format(dl.due_date.month) }}/{{ '%02d' | format(dl.due_date.day) }}</span>
+            </div>
+            <div class="ksched-item-body">
+                <div class="ksched-item-subj">
+                    {% if dl.kind == 'test' %}📝 {{ t.child.schedule_kind_test }}
+                    {% elif dl.kind == 'homework' %}📚 {{ t.child.schedule_kind_homework }}
+                    {% else %}🏁 {{ t.child.schedule_kind_other }}{% endif %}
+                    {% if dl.subject %} · {{ dl.subject }}{% endif %}
+                </div>
+                <div class="ksched-item-title">{{ dl.title }}</div>
+            </div>
+            <form method="POST" action="{{ lang_url('/child/schedule/deadlines/' ~ dl.id ~ '/toggle') }}" class="ksched-item-action">
+                <button type="submit" class="ksched-done-btn {% if dl.done %}ksched-done-btn-on{% endif %}">
+                    <i class="fas fa-check"></i>
+                </button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block page_head %}
+<style>
+    .ksched-nav {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 4px 0 0;
+    }
+    .ksched-nav-btn {
+        width: 44px; height: 44px; border-radius: 12px;
+        background: #eef2ff; color: #6366f1;
+        display: flex; align-items: center; justify-content: center;
+        text-decoration: none; font-size: 14px;
+        transition: all 0.15s;
+    }
+    .ksched-nav-btn:hover { background: #e0e7ff; }
+    .ksched-month { font-size: 22px; font-weight: 800; color: #1e293b; }
+    .ksched-nav-sub {
+        text-align: center; font-size: 13px; color: #64748b;
+        margin-bottom: 12px; font-weight: 600;
+    }
+
+    .ksched-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 3px;
+        background: #e2e8f0;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    .ksched-head-cell {
+        background: #f8fafc;
+        padding: 8px 0;
+        text-align: center;
+        font-size: 11px; font-weight: 700;
+        color: #64748b;
+    }
+    .ksched-cell {
+        background: white;
+        min-height: 56px;
+        padding: 6px 4px;
+        display: flex; flex-direction: column;
+        align-items: center; gap: 3px;
+    }
+    .ksched-cell-out { background: #f9fafb; }
+    .ksched-cell-out .ksched-date { color: #cbd5e1; }
+    .ksched-cell-today {
+        background: #eef2ff;
+        box-shadow: inset 0 0 0 2px #6366f1;
+    }
+    .ksched-cell-today .ksched-date { color: #4f46e5; font-weight: 800; }
+    .ksched-date { font-size: 13px; font-weight: 700; color: #1e293b; }
+    .ksched-sat { color: #2563eb; }
+    .ksched-sun { color: #dc2626; }
+
+    .ksched-chips {
+        display: flex; flex-wrap: wrap; gap: 2px; justify-content: center;
+    }
+    .ksched-chip {
+        font-size: 8px; font-weight: 700; color: white;
+        padding: 1px 4px; border-radius: 4px;
+        letter-spacing: 0.5px;
+        min-width: 14px; text-align: center;
+        line-height: 1.3;
+        box-shadow: 0 0 0 1px rgba(255,255,255,0.9);
+    }
+    .ksched-chip-done { opacity: 0.4; text-decoration: line-through; }
+    .ksched-chip-dl { padding: 1px 5px; }
+
+    .ksched-section-label {
+        font-size: 16px; font-weight: 700; color: #1e293b;
+        margin: 1.25rem 0 0.75rem;
+        display: flex; align-items: center; gap: 8px;
+    }
+
+    .ksched-item-list { display: flex; flex-direction: column; gap: 8px; }
+    .ksched-item {
+        display: flex; align-items: center; gap: 12px;
+        background: #f8fafc; border-radius: 14px;
+        padding: 10px 12px;
+    }
+    .ksched-item-done { opacity: 0.55; }
+    .ksched-item-done .ksched-item-title {
+        text-decoration: line-through; color: #94a3b8;
+    }
+    .ksched-item-date {
+        width: 48px; min-height: 48px;
+        border-radius: 10px;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        color: white; flex-shrink: 0;
+    }
+    .ksched-item-day { font-size: 18px; font-weight: 800; line-height: 1; }
+    .ksched-item-dow { font-size: 9px; font-weight: 700; opacity: 0.8; margin-top: 2px; }
+    .ksched-item-body { flex: 1; min-width: 0; overflow: hidden; }
+    .ksched-item-subj {
+        font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 2px;
+    }
+    .ksched-item-title {
+        display: block;
+        font-size: 14px; font-weight: 700; color: #1e293b;
+        text-decoration: none;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    a.ksched-item-title:hover { color: #6366f1; }
+
+    .ksched-item-action { flex-shrink: 0; }
+    .ksched-done-btn {
+        width: 44px; height: 44px; border-radius: 50%;
+        border: 2px solid #cbd5e1; background: white;
+        color: #cbd5e1;
+        cursor: pointer; font-size: 16px;
+        transition: all 0.15s;
+    }
+    .ksched-done-btn:active { transform: scale(0.92); }
+    .ksched-done-btn:hover { border-color: #6366f1; color: #6366f1; }
+    .ksched-done-btn-on {
+        background: #10b981; border-color: #10b981; color: white;
+    }
+    .ksched-done-btn-on:hover { background: #059669; border-color: #059669; color: white; }
+
+    .ksched-empty {
+        text-align: center; padding: 2rem 1rem;
+        color: #94a3b8; font-size: 14px;
+    }
+
+    @media (max-width: 480px) {
+        .ksched-cell { min-height: 48px; padding: 4px 2px; }
+        .ksched-date { font-size: 12px; }
+        .ksched-month { font-size: 18px; }
+        .ksched-nav-btn { width: 40px; height: 40px; }
+        .ksched-chip { font-size: 7px; padding: 0 3px; min-width: 10px; }
+        .ksched-item-date { width: 44px; min-height: 44px; }
+        .ksched-item-day { font-size: 16px; }
+    }
+</style>
+{% endblock %}

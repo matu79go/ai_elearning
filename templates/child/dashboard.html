@@ -66,6 +66,89 @@
     }
     .progress-bar-mini-fill.complete { background: linear-gradient(90deg, #10b981, #059669); }
 
+    /* Dashboard schedule preview (two months, side-by-side on desktop, stacked on mobile) */
+    .dsched-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+    .dsched-card {
+        background: #f8fafc; border: 2px solid #f1f5f9;
+        border-radius: 16px; padding: 14px;
+        text-decoration: none; color: inherit;
+        transition: all 0.2s; display: block;
+    }
+    .dsched-card:active { transform: scale(0.98); }
+    .dsched-card:hover { border-color: #c7d2fe; box-shadow: 0 4px 16px rgba(99,102,241,0.1); }
+
+    .dsched-head {
+        display: flex; align-items: center; gap: 6px;
+        padding-bottom: 10px; border-bottom: 1px solid #e2e8f0;
+        margin-bottom: 10px;
+    }
+    .dsched-month { font-size: 15px; font-weight: 800; color: #1e293b; }
+    .dsched-badge {
+        font-size: 10px; font-weight: 700;
+        padding: 2px 8px; border-radius: 4px;
+        background: #e0e7ff; color: #3730a3;
+    }
+    .dsched-badge-next { background: #fef3c7; color: #92400e; }
+    .dsched-count {
+        margin-left: auto; font-size: 12px; font-weight: 700; color: #64748b;
+    }
+
+    .dsched-subj-list { display: flex; flex-direction: column; gap: 6px; }
+    .dsched-subj {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 12px;
+    }
+    .dsched-dot {
+        width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .dsched-subj-name {
+        font-weight: 700; color: #1e293b;
+        min-width: 60px; font-size: 12px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .dsched-bar {
+        flex: 1; height: 6px; background: #e2e8f0;
+        border-radius: 3px; overflow: hidden;
+    }
+    .dsched-bar-fill { height: 100%; border-radius: 3px; }
+    .dsched-subj-count {
+        font-size: 10px; font-weight: 700; color: #64748b;
+        min-width: 32px; text-align: right;
+    }
+    .dsched-empty {
+        font-size: 12px; color: #94a3b8;
+        text-align: center; padding: 12px 0;
+    }
+
+    .dsched-dl-list {
+        margin-top: 10px; padding-top: 10px;
+        border-top: 1px solid #e2e8f0;
+        display: flex; flex-direction: column; gap: 6px;
+    }
+    .dsched-dl {
+        display: flex; align-items: center; gap: 6px;
+        padding: 6px 8px; background: white; border-radius: 8px;
+        border-left: 3px solid #f59e0b;
+    }
+    .dsched-dl-done { opacity: 0.5; }
+    .dsched-dl-done .dsched-dl-title { text-decoration: line-through; }
+    .dsched-dl-kind { font-size: 14px; flex-shrink: 0; }
+    .dsched-dl-title {
+        flex: 1; font-size: 12px; font-weight: 700; color: #1e293b;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .dsched-dl-date {
+        font-size: 11px; font-weight: 700; color: #64748b;
+    }
+
+    @media (max-width: 640px) {
+        .dsched-row { grid-template-columns: 1fr; }
+    }
+
     /* Section Labels */
     .section-label {
         font-size: 16px; font-weight: 700; color: #1e293b;
@@ -393,6 +476,69 @@
         });
     })();
     </script>
+
+    <!-- Schedule preview: this + next month -->
+    <div class="section-label" style="margin-top: 1.5rem;">
+        {{ t.child.schedule_title }}
+        <a href="{{ lang_url('/child/schedule') }}" class="view-all">
+            {{ t.child.schedule_open }} <i class="fas fa-arrow-right" style="font-size:10px;"></i>
+        </a>
+    </div>
+    <div class="dsched-row">
+        {% for prev in [schedule_this, schedule_next] %}
+        {% set is_current = (prev.month == schedule_today.month and prev.year == schedule_today.year) %}
+        <a href="{{ lang_url('/child/schedule?year=' ~ prev.year ~ '&month=' ~ prev.month) }}" class="dsched-card">
+            <div class="dsched-head">
+                <span class="dsched-month">{{ prev.year }}/{{ '%02d'|format(prev.month) }}</span>
+                <span class="dsched-badge {% if not is_current %}dsched-badge-next{% endif %}">
+                    {% if is_current %}{{ t.child.schedule_this_month }}{% else %}{{ t.child.schedule_next_month }}{% endif %}
+                </span>
+                <span class="dsched-count">{{ prev.plan_done }}/{{ prev.plan_total }}</span>
+            </div>
+
+            {% if prev.by_subject %}
+            <div class="dsched-subj-list">
+                {% for s in prev.by_subject[:5] %}
+                <div class="dsched-subj">
+                    <span class="dsched-dot" style="background:{{ s.color }};"></span>
+                    <span class="dsched-subj-name">{{ s.subject }}</span>
+                    <div class="dsched-bar">
+                        <div class="dsched-bar-fill" style="width:{{ (s.done / s.total * 100) if s.total > 0 else 0 }}%; background:{{ s.color }};"></div>
+                    </div>
+                    <span class="dsched-subj-count">{{ s.done }}/{{ s.total }}</span>
+                </div>
+                {% endfor %}
+                {% if prev.by_subject|length > 5 %}
+                <div style="font-size:11px; color:#94a3b8; text-align:center; margin-top:2px;">
+                    +{{ prev.by_subject|length - 5 }} {{ t.child.schedule_more }}
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="dsched-empty">{{ t.child.schedule_empty_short }}</div>
+            {% endif %}
+
+            {% if prev.deadlines %}
+            <div class="dsched-dl-list">
+                {% for dl in prev.deadlines[:2] %}
+                <div class="dsched-dl {% if dl.done %}dsched-dl-done{% endif %}">
+                    <span class="dsched-dl-kind dsched-dl-kind-{{ dl.kind }}">
+                        {% if dl.kind == 'test' %}📝{% elif dl.kind == 'homework' %}📚{% else %}🏁{% endif %}
+                    </span>
+                    <span class="dsched-dl-title">{{ dl.title }}</span>
+                    <span class="dsched-dl-date">{{ '%02d/%02d' | format(dl.due_date.month, dl.due_date.day) }}</span>
+                </div>
+                {% endfor %}
+                {% if prev.deadlines|length > 2 %}
+                <div style="font-size:11px; color:#94a3b8; text-align:center;">
+                    +{{ prev.deadlines|length - 2 }} {{ t.child.schedule_more }}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
 
     <!-- Continue / Start Playing (subjects with progress or published questions) -->
     {% set active_subjects = subjects_data | selectattr('total', 'gt', 0) | list %}

@@ -436,9 +436,9 @@
         <div class="bnav-play-circle"><i class="fas fa-play"></i></div>
         <span>{{ t.child.nav_play }}</span>
     </a>
-    <a href="#" class="bnav-tab">
-        <i class="fas fa-award"></i>
-        <span>{{ t.child.nav_badges }}</span>
+    <a href="{{ lang_url('/child/schedule') }}" class="bnav-tab {{ 'active' if '/schedule' in request.path }}">
+        <i class="fas fa-calendar-alt"></i>
+        <span>{{ t.child.nav_schedule }}</span>
     </a>
     <a href="{{ lang_url('/child/profile') }}" class="bnav-tab {{ 'active' if '/profile' in request.path }}">
         <i class="fas fa-user-circle"></i>

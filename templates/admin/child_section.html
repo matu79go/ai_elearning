@@ -79,8 +79,14 @@
     <button class="tab-btn" onclick="switchTab('content')">
         <i class="fas fa-book-open"></i> Lesson
     </button>
+    <button class="tab-btn" onclick="switchTab('drill')">
+        <i class="fas fa-bolt"></i> {{ t.admin.tab_drill }} ({{ drill_questions|length }})
+    </button>
     <button class="tab-btn" onclick="switchTab('qa')">
         <i class="fas fa-question-circle"></i> Q&A ({{ full_questions|length }})
+    </button>
+    <button class="tab-btn" onclick="switchTab('youtube')">
+        <i class="fab fa-youtube"></i> {{ t.admin.tab_youtube }} ({{ youtube_videos|length }})
     </button>
 </div>
 
@@ -220,6 +226,8 @@
     </div>
 </div>
 
+{% include "admin/components/chunk_tab_drill.html" %}
+
 <!-- Tab: Q&A -->
 <div id="tab-qa" style="display: none;">
     {% if full_questions %}
@@ -271,10 +279,13 @@
     {% endif %}
 </div>
 
+{% include "admin/components/chunk_tab_youtube.html" %}
+
 {% endblock %}
 
 {% block extra_css %}
     {% include "admin/components/child_header_css.html" %}
+    {% include "admin/components/chunk_tabs_css.html" %}
 
     .breadcrumb {
         display: flex; align-items: center; gap: 8px;
@@ -432,7 +443,7 @@
 {% endif %}
 
 // Main tabs
-const TAB_IDS = ['progress', 'content', 'qa'];
+const TAB_IDS = ['progress', 'content', 'drill', 'qa', 'youtube'];
 function switchTab(tab) {
     TAB_IDS.forEach(id => {
         const el = document.getElementById('tab-' + id);
@@ -442,6 +453,11 @@ function switchTab(tab) {
         btn.classList.toggle('active', TAB_IDS[i] === tab);
     });
 }
+// Open from #hash
+(function() {
+    const hash = (window.location.hash || '').replace('#', '');
+    if (TAB_IDS.includes(hash)) switchTab(hash);
+})();
 
 // Content sub-tabs (Summary / Full)
 function switchContentTab(tab) {
