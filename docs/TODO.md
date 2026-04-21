@@ -24,9 +24,11 @@ docker exec elearn_app python batch/find_youtube_videos.py --subject <科目> --
 
 - [x] **2026-04-17** Y7 Science 82/96 完了 (残り14件 quota切れ)
 - [x] **2026-04-20** Y4 Maths 84/165 完了 (残り81件 quota切れ)、本番にも反映済み
+- [x] **2026-04-21** Y4 Maths 残り 81 chunk 完了 (本番直接実行、397 videos saved、165/165)
+- [x] **2026-04-21** Y4 Science material 180 "KS2 Science - More about food chains" 8/10 chunk (残り 2 件 chunk 1519, 1525 は quota 切れ)
 - **Y7 は手作業で search するため以降バッチ対象外**
-- [ ] **次回** Y4 Maths 残り 81 chunk
-- [ ] Y4 Science 90
+- [ ] **次回 (quota リセット JST 17:00 以降)** Y4 Science chunk 1519, 1525 + 残り 80 chunk
+- [ ] **要整理**: material_id=179 と 180 が "KS2 Science - More about food chains" で重複インポート (同一タイトル・同一チャンク構成)
 - [ ] Y4 English / History / Geography / Computing / Spanish
 - 終わったら Y5/6/8-11 も同じ要領
 
