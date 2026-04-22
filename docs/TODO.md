@@ -22,10 +22,6 @@ docker exec elearn_app python batch/find_youtube_videos.py --subject <科目> --
 **quota**: YouTube Data API v3 = 10,000 units/日、search = 100 units → **99 chunks/日**。  
 **リセット**: 毎日 PST 0:00 = 日本時間 17:00（冬時間）。
 
-- [x] **2026-04-17** Y7 Science 82/96 完了 (残り14件 quota切れ)
-- [x] **2026-04-20** Y4 Maths 84/165 完了 (残り81件 quota切れ)、本番にも反映済み
-- [x] **2026-04-21** Y4 Maths 残り 81 chunk 完了 (本番直接実行、397 videos saved、165/165)
-- [x] **2026-04-21** Y4 Science material 180 "KS2 Science - More about food chains" 8/10 chunk (残り 2 件 chunk 1519, 1525 は quota 切れ)
 - **Y7 は手作業で search するため以降バッチ対象外**
 - [ ] **次回 (quota リセット JST 17:00 以降)** Y4 Science chunk 1519, 1525 + 残り 80 chunk
 - [ ] **要整理**: material_id=179 と 180 が "KS2 Science - More about food chains" で重複インポート (同一タイトル・同一チャンク構成)
@@ -118,6 +114,38 @@ docker exec elearn_app python batch/find_youtube_videos.py --subject <科目> --
 ---
 
 ## 完了済み
+
+### 2026-04-22 完了
+
+#### 宿題 (Assignment) 機能
+- [x] `questions.is_assignment` フラグ追加 (ローカル + 本番)
+- [x] 管理画面: chunk detail / material detail に Assignment タブ
+- [x] Y7 Averages PDF から 63 問抽出 (chunks 範囲/最頻値/中央値/平均/逆平均/最適平均)
+- [x] Y7 Graphs PDF から 10 問抽出 (棒グラフ読取 + 円グラフ扇形角度 + SVG図付き)
+- [x] 子供画面: `/child/chunks/<c>/assignment`、`/child/materials/<m>/assignment`、`/child/subjects/<s>/assignment`
+- [x] 1セッション 15 問 (未マスタリー優先、再走で別の組合せ)
+- [x] 導線: subjects アコーディオンのUnit行ボタン + 教科上部バナー + chunk画面の宿題カード
+- [x] Schedule 拡張: `study_deadlines.material_id`/`chunk_id` 追加、homework kind で subject→material→chunk カスケードドロップダウン、子供 schedule 画面から直接プレイ
+- [x] ポイント仕様は既存 quiz と共通 (初回正解 +1pt、再正解 0pt、マスタリー連動)
+- [x] Mojibake 一括修正 (`−`→`-`、`×`→`x`、`°`/`£` 復元など)
+- [x] 本番反映: DB migration + 73 問インポート (prod material 279 + 281)
+
+#### Y7 教材追加 (Week 2026-04-22 宿題対応)
+- [x] material 283 "MYP1E - Acids and Alkalis in Industry (Research)" 5 chunk, drill 25問 + test 73問
+- [x] material 284 "Unit 6 - Measures of Central Tendency (Averages)" 7 chunk, drill 35問 + test 105問
+- [x] YouTube 動画マッピング (12 chunk × 5 本、58 件保存 / 一部 primary 要調整)
+- [x] 本番反映 (prod material 280 + 281)
+
+#### chunk 生成UI 不具合修正
+- [x] 質問 0 件 chunk で Generate ボタンが表示されない問題を修正
+- [x] MC/FR ドロップダウンに 0 オプション追加 (片方だけ生成可能に、両方 0 はサーバー側でガード)
+
+### 2026-04-21 完了
+
+#### YouTube マッピング
+- [x] Y4 Maths 残り 81 chunk 完了 (本番直接実行、397 videos saved、165/165)
+- [x] Y4 Science material 180 "KS2 Science - More about food chains" 8/10 chunk (残り 2 件 chunk 1519, 1525 は quota 切れ)
+- [x] Y7 Science 82/96 (2026-04-17 着手、残り 14 件 quota 切れ)
 
 ### 2026-04-20 完了
 
