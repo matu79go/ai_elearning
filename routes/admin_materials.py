@@ -434,6 +434,10 @@ def admin_materials_chunk_generate(material_id, chunk_id):
     fr_count = int(request.form.get('fr_count', 2))
     difficulty = request.form.get('difficulty', material.difficulty)
 
+    if mc_count + fr_count == 0:
+        flash('Error: MC and FR are both 0 — nothing to generate.', 'error')
+        return redirect(_lang_url(f'/admin/materials/{material_id}/chunks/{chunk_id}'))
+
     # Sample up to 5 existing Oak/LLM questions from this chunk as style reference
     ref_rows = Question.query.filter(
         Question.chunk_id == chunk_id,

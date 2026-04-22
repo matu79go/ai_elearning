@@ -26,7 +26,11 @@ def main() -> int:
     ap.add_argument('--test-mc', type=int, default=10)
     ap.add_argument('--test-fr', type=int, default=5)
     ap.add_argument('--sleep', type=float, default=1.5)
+    ap.add_argument('--skip-chunks', type=str, default='',
+                    help='Comma-separated chunk_ids to skip, e.g. "2100,2101"')
     args = ap.parse_args()
+
+    skip_ids = {int(x) for x in args.skip_chunks.split(',') if x.strip()}
 
     with app.app_context():
         material = db.session.get(Material, args.material)
@@ -44,6 +48,9 @@ def main() -> int:
         failures = []
 
         for i, chunk in enumerate(chunks, 1):
+            if chunk.chunk_id in skip_ids:
+                print(f'[{i}/{total}] chunk {chunk.chunk_id} {chunk.title[:60]} SKIPPED')
+                continue
             print(f'[{i}/{total}] chunk {chunk.chunk_id} {chunk.title[:60]}')
 
             # drill

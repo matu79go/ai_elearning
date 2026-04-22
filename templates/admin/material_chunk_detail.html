@@ -151,7 +151,6 @@
 
 <!-- Tab: Questions -->
 <div id="tab-questions" style="display:none;">
-    {% if questions %}
     {% set src_counts = {
         'all': questions|length,
         'oak': questions|selectattr('source', 'equalto', 'oak')|list|length,
@@ -159,12 +158,16 @@
         'rule_based': questions|selectattr('source', 'equalto', 'rule_based')|list|length,
     } %}
     <div class="qa-toolbar">
+        {% if questions %}
         <div class="qa-filter-tabs">
             <button class="qa-filter-tab active" data-filter="all">{{ t.admin.qa_filter_all }} <span class="qa-filter-count">{{ src_counts['all'] }}</span></button>
             <button class="qa-filter-tab" data-filter="oak">{{ t.admin.qa_filter_oak }} <span class="qa-filter-count">{{ src_counts['oak'] }}</span></button>
             <button class="qa-filter-tab" data-filter="llm_generated">{{ t.admin.qa_filter_llm }} <span class="qa-filter-count">{{ src_counts['llm_generated'] }}</span></button>
             <button class="qa-filter-tab" data-filter="rule_based">{{ t.admin.qa_filter_rule_based }} <span class="qa-filter-count">{{ src_counts['rule_based'] }}</span></button>
         </div>
+        {% else %}
+        <div></div>
+        {% endif %}
         <div class="qa-actions">
             {% if rule_templates %}
             <button class="gen-chip gen-chip-rule" onclick="document.getElementById('genRuleOverlay').style.display='flex'" title="{{ t.admin.gen_rule_title }}">
@@ -176,6 +179,7 @@
             </button>
         </div>
     </div>
+    {% if questions %}
     <div class="qa-list" id="qaList">
         {% for q in questions %}
         <div class="qa-item" data-source="{{ q.source }}">
@@ -241,6 +245,8 @@
                     <div class="form-group">
                         <label class="form-label">MC</label>
                         <select name="mc_count" class="form-input">
+                            <option value="0">0</option>
+                            <option value="1">1</option>
                             <option value="2">2</option>
                             <option value="3">3</option>
                             <option value="4" selected>4</option>
@@ -250,6 +256,7 @@
                     <div class="form-group">
                         <label class="form-label">FR</label>
                         <select name="fr_count" class="form-input">
+                            <option value="0">0</option>
                             <option value="1">1</option>
                             <option value="2" selected>2</option>
                             <option value="3">3</option>
