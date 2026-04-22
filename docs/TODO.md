@@ -23,7 +23,6 @@ docker exec elearn_app python batch/find_youtube_videos.py --subject <科目> --
 **リセット**: 毎日 PST 0:00 = 日本時間 17:00（冬時間）。
 
 - **Y7 は手作業で search するため以降バッチ対象外**
-- [ ] **次回 (quota リセット JST 17:00 以降)** Y4 Science chunk 1519, 1525 + 残り 80 chunk
 - [ ] **要整理**: material_id=179 と 180 が "KS2 Science - More about food chains" で重複インポート (同一タイトル・同一チャンク構成)
 - [ ] Y4 English / History / Geography / Computing / Spanish
 - 終わったら Y5/6/8-11 も同じ要領
@@ -139,6 +138,9 @@ docker exec elearn_app python batch/find_youtube_videos.py --subject <科目> --
 #### chunk 生成UI 不具合修正
 - [x] 質問 0 件 chunk で Generate ボタンが表示されない問題を修正
 - [x] MC/FR ドロップダウンに 0 オプション追加 (片方だけ生成可能に、両方 0 はサーバー側でガード)
+
+#### YouTube マッピング継続
+- [x] Y4 Science 本番直接実行、**90/90 chunk 完了** (403 videos saved、8件既存スキップ)
 
 ### 2026-04-21 完了
 
