@@ -30,3 +30,8 @@ QUIZ_QUESTIONS_PER_SESSION = 10
 DRILL_STREAK_TO_MASTER = 3
 # ドリル完了時に付与するポイント
 DRILL_COMPLETION_POINTS = 5
+
+# 宿題 (Assignment) 設定
+# material/subject単位でも1セッションはこの問題数で区切る
+# (「もう一度」で次のN問が出る仕組み)
+ASSIGNMENT_QUESTIONS_PER_SESSION = 15

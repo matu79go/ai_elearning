@@ -221,7 +221,7 @@
             <input type="hidden" name="due_date" id="dlDate">
             <div class="sched-field">
                 <label class="form-label">{{ t.admin.schedule_kind }}</label>
-                <select name="kind" class="form-input">
+                <select name="kind" id="dlKind" class="form-input" onchange="updateDeadlineKindUI()">
                     <option value="test">{{ t.admin.schedule_kind_test }}</option>
                     <option value="homework">{{ t.admin.schedule_kind_homework }}</option>
                     <option value="other">{{ t.admin.schedule_kind_other }}</option>
@@ -233,11 +233,23 @@
             </div>
             <div class="sched-field">
                 <label class="form-label">{{ t.admin.schedule_subject }} ({{ t.admin.optional }})</label>
-                <select name="subject" class="form-input">
+                <select name="subject" id="dlSubject" class="form-input" onchange="updateDeadlineMaterials()">
                     <option value="">—</option>
                     {% for subj in materials_by_subject.keys() %}
                     <option value="{{ subj }}">{{ subj }}</option>
                     {% endfor %}
+                </select>
+            </div>
+            <div class="sched-field dl-hw-only" style="display:none;">
+                <label class="form-label">{{ t.admin.schedule_material }} ({{ t.admin.optional }})</label>
+                <select name="material_id" id="dlMaterial" class="form-input" onchange="updateDeadlineChunks()">
+                    <option value="">—</option>
+                </select>
+            </div>
+            <div class="sched-field dl-hw-only" style="display:none;">
+                <label class="form-label">{{ t.admin.schedule_chunk }} ({{ t.admin.optional }})</label>
+                <select name="chunk_id" id="dlChunk" class="form-input">
+                    <option value="">—</option>
                 </select>
             </div>
             <div class="sched-field">
@@ -528,6 +540,46 @@ function updatePlanMaterials() {
         matSel.appendChild(o);
     });
     updatePlanChunks();
+}
+
+function updateDeadlineKindUI() {
+    const kind = document.getElementById('dlKind').value;
+    const show = kind === 'homework';
+    document.querySelectorAll('.dl-hw-only').forEach(el => {
+        el.style.display = show ? '' : 'none';
+    });
+    if (!show) {
+        // 他の種別に切り替えたらリセット
+        document.getElementById('dlMaterial').value = '';
+        document.getElementById('dlChunk').value = '';
+    }
+}
+function updateDeadlineMaterials() {
+    const subj = document.getElementById('dlSubject').value;
+    const matSel = document.getElementById('dlMaterial');
+    matSel.innerHTML = '<option value="">—</option>';
+    (MATERIALS_BY_SUBJECT[subj] || []).forEach(m => {
+        const o = document.createElement('option');
+        o.value = m.material_id;
+        o.textContent = m.title;
+        matSel.appendChild(o);
+    });
+    updateDeadlineChunks();
+}
+function updateDeadlineChunks() {
+    const subj = document.getElementById('dlSubject').value;
+    const matId = document.getElementById('dlMaterial').value;
+    const chunkSel = document.getElementById('dlChunk');
+    chunkSel.innerHTML = '<option value="">—</option>';
+    if (!matId) return;
+    const mat = (MATERIALS_BY_SUBJECT[subj] || []).find(m => String(m.material_id) === String(matId));
+    if (!mat) return;
+    mat.chunks.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c.chunk_id;
+        o.textContent = c.title;
+        chunkSel.appendChild(o);
+    });
 }
 function updatePlanChunks() {
     const subj = document.getElementById('planSubject').value;

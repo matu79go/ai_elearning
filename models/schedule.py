@@ -30,6 +30,8 @@ class StudyDeadline(db.Model):
     kind = db.Column(db.Enum('test', 'homework', 'other'), nullable=False, default='other')
     title = db.Column(db.String(255), nullable=False)
     subject = db.Column(db.String(50))
+    material_id = db.Column(db.Integer, db.ForeignKey('materials.material_id'))
+    chunk_id = db.Column(db.Integer, db.ForeignKey('material_chunks.chunk_id'))
     note = db.Column(db.Text)
     done = db.Column(db.Boolean, nullable=False, default=False)
     color = db.Column(db.String(20))

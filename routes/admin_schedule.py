@@ -203,6 +203,8 @@ def admin_schedule(child_id):
             'kind': d.kind,
             'title': d.title,
             'subject': d.subject,
+            'material_id': d.material_id,
+            'chunk_id': d.chunk_id,
             'done': d.done,
             'color': d.color or ('#dc2626' if d.kind == 'test' else '#f97316'),
             'note': d.note,
@@ -405,12 +407,21 @@ def admin_schedule_deadline_add(child_id):
     subject = request.form.get('subject') or None
     note = (request.form.get('note') or '').strip() or None
 
+    # homework kind では material_id / chunk_id を受け取り、assignment play にリンク
+    material_id = request.form.get('material_id') or None
+    chunk_id = request.form.get('chunk_id') or None
+    if kind != 'homework':
+        material_id = None
+        chunk_id = None
+
     dl = StudyDeadline(
         child_id=child_id,
         due_date=due_date,
         kind=kind,
         title=title,
         subject=subject,
+        material_id=int(material_id) if material_id else None,
+        chunk_id=int(chunk_id) if chunk_id else None,
         note=note,
         created_by=current_user.parent_id,
     )

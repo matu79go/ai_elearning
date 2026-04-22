@@ -1,5 +1,5 @@
 {% extends "child/child_base.html" %}
-{% block title %}Quiz - {{ chunk.title }}{% endblock %}
+{% block title %}{% if is_assignment %}{{ t.child.assignment }}{% else %}Quiz{% endif %} - {{ chunk.title }}{% endblock %}
 {% block back_url %}{{ lang_url('/child/section/' ~ chunk.chunk_id) }}{% endblock %}
 
 {% block page_head %}
@@ -303,7 +303,7 @@
     <i class="fas fa-chevron-right" style="font-size:8px;"></i>
     <a href="{{ lang_url('/child/section/' ~ chunk.chunk_id) }}" style="color:rgba(255,255,255,0.8); text-decoration:none;">{{ chunk.title }}</a>
     <i class="fas fa-chevron-right" style="font-size:8px;"></i>
-    <span>Quiz</span>
+    <span>{% if is_assignment %}{{ t.child.assignment }}{% else %}Quiz{% endif %}</span>
 </div>
 
 <!-- Score Banner (shown after check) -->
@@ -313,6 +313,7 @@
 <div class="question-card" id="questionCard">
     <div class="q-number" id="qNumber"></div>
     <div class="q-text" id="qText"></div>
+    <div class="q-chart" id="qChart" style="display:none; margin: 0.75rem 0; text-align:center;"></div>
     <div class="choices" id="choices"></div>
     <div id="explanationArea"></div>
     <div class="q-actions" id="actions"></div>
@@ -359,6 +360,7 @@ const questions = [
         type: "{{ q.question_type }}",
         source: "{{ q.source }}",
         text: {{ q.question_text|tojson }},
+        chartSvg: {{ (q.chart_svg or '') | tojson }},
         options: {{ q.options|tojson if q.options else '[]' }},
         multiAnswer: {{ 'true' if q.correct_answer and ',' in q.correct_answer else 'false' }},
         mastered: {{ 'true' if mastery_map.get(q.question_id) and mastery_map[q.question_id].mastered else 'false' }},
@@ -443,6 +445,9 @@ if (retryIds) {
 const totalQ = questions.length;
 const chunkId = {{ chunk.chunk_id }};
 const langPrefix = '{{ "/ja" if lang == "ja" else "" }}';
+const isAssignment = {{ 'true' if is_assignment else 'false' }};
+const assignmentScope = '{{ assignment_scope or "" }}';
+const materialId = {{ material.material_id if material else 'null' }};
 
 // Rebuild navigation if in retry mode
 if (retryIds) {
@@ -499,6 +504,15 @@ function render() {
         `{{ t.child.question_label }} ${currentIdx + 1} / ${totalQ} ${typeBadge} ${sourceBadge} ${masteredBadge}`;
     document.getElementById('qText').textContent = q.text;
     renderMath(document.getElementById('qText'));
+    // Optional chart (SVG)
+    const chartEl = document.getElementById('qChart');
+    if (q.chartSvg) {
+        chartEl.innerHTML = q.chartSvg;
+        chartEl.style.display = '';
+    } else {
+        chartEl.innerHTML = '';
+        chartEl.style.display = 'none';
+    }
     const oldHint = document.getElementById('multiHint');
     if (oldHint) oldHint.remove();
     if (q.multiAnswer) {
@@ -698,12 +712,27 @@ function renderChecked(q, ans, choicesEl, expArea, actionsEl) {
     if (r.points_earned > 0) msg += ` <strong>+${r.points_earned} pt!</strong>`;
     expArea.innerHTML = `<div class="explanation ${r.correct ? 'correct-bg' : 'wrong-bg'}">${icon} ${msg}</div>`;
 
-    actionsEl.innerHTML = `
-        <div></div>
-        <a href="${langPrefix}/child/quiz/${chunkId}/result" class="results-btn">
-            See Results <i class="fas fa-arrow-right"></i>
-        </a>
-    `;
+    // assignment モードは chunk-level result page を使わず、もう一度 or 教科へ戻る
+    if (isAssignment) {
+        const subjectHref = `${langPrefix}/child/subjects/{{ material.subject if material else '' }}`;
+        // 「もう一度」はこのURLをリロード = 新しい順でもう1回
+        const retryHref = window.location.pathname + window.location.search;
+        actionsEl.innerHTML = `
+            <a href="${subjectHref}" class="results-btn" style="background:#94a3b8;">
+                <i class="fas fa-arrow-left"></i> {{ t.child.back }}
+            </a>
+            <a href="${retryHref}" class="results-btn">
+                <i class="fas fa-redo"></i> {{ t.child.retry_quiz }}
+            </a>
+        `;
+    } else {
+        actionsEl.innerHTML = `
+            <div></div>
+            <a href="${langPrefix}/child/quiz/${chunkId}/result" class="results-btn">
+                See Results <i class="fas fa-arrow-right"></i>
+            </a>
+        `;
+    }
 }
 
 // ---- Actions ----
@@ -826,10 +855,18 @@ function checkAnswers() {
         }
     });
 
-    fetch(langPrefix + '/child/quiz/' + chunkId + '/check', {
+    // 宿題(material単位)の場合は専用エンドポイント。それ以外(quizもchunk単位宿題も)は既存のquiz checkを使う。
+    const checkUrl = (isAssignment && assignmentScope === 'material')
+        ? langPrefix + '/child/assignment/check'
+        : langPrefix + '/child/quiz/' + chunkId + '/check';
+    const checkBody = (isAssignment && assignmentScope === 'material')
+        ? { material_id: materialId, answers: answeredPayload, skipped_ids: skippedIds }
+        : { answers: answeredPayload, skipped_ids: skippedIds };
+
+    fetch(checkUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers: answeredPayload, skipped_ids: skippedIds }),
+        body: JSON.stringify(checkBody),
     })
     .then(r => r.json())
     .then(data => {

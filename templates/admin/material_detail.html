@@ -187,11 +187,12 @@
     </div>
     {% for chunk in chunks %}
     {% set q_count = questions_by_chunk.get(chunk.chunk_id, [])|length %}
+    {% set a_count = assignments_by_chunk.get(chunk.chunk_id, [])|length %}
     <a href="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks/' ~ chunk.chunk_id) }}"
        class="chunk-link">
         <span class="chunk-number">{{ loop.index }}</span>
         <span class="chunk-link-text">{{ chunk.title }}</span>
-        <span class="chunk-link-meta">{{ q_count }} Q</span>
+        <span class="chunk-link-meta">{{ q_count }} Q{% if a_count %} · {{ a_count }} 宿題{% endif %}</span>
         <div style="display:flex; align-items:center; gap:6px;">
             <form method="POST"
                   action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks/' ~ chunk.chunk_id ~ '/delete') }}"
@@ -210,6 +211,59 @@
     <div class="section-body" style="text-align: center; padding: 2rem;">
         <p style="color: #94a3b8; font-size: 14px;">{{ t.admin.no_chunks_yet }}</p>
     </div>
+</div>
+{% endif %}
+
+<!-- Assignment Section (material-level aggregate) -->
+{% if assignments_all %}
+<div class="section-card" style="margin-bottom: 1rem; border:1px solid #fed7aa; background:#fff7ed;">
+    <div class="section-header">
+        <div class="section-title" style="color:#9a3412;">
+            <i class="fas fa-book"></i> {{ t.admin.tab_assignment }} ({{ assignments_all|length }})
+        </div>
+    </div>
+    <div class="section-body" style="font-size:13px; color:#9a3412; margin-bottom:10px;">
+        {{ t.admin.assignment_description }}
+    </div>
+    {% for chunk in chunks %}
+    {% set chunk_assignments = assignments_by_chunk.get(chunk.chunk_id, []) %}
+    {% if chunk_assignments %}
+    <details style="border-top:1px solid #fed7aa; padding:10px 14px;">
+        <summary style="cursor:pointer; font-weight:600; color:#9a3412; font-size:13px;">
+            {{ chunk.title }} — {{ chunk_assignments|length }} Q
+        </summary>
+        <div class="qa-list" style="margin-top:10px;">
+            {% for q in chunk_assignments %}
+            <div class="qa-item">
+                <div class="qa-header">
+                    <span class="qa-num">{{ loop.index }}</span>
+                    <span class="qa-type {{ 'qa-type-mc' if q.question_type == 'multiple_choice' else 'qa-type-fr' }}">
+                        {{ 'MC' if q.question_type == 'multiple_choice' else 'FR' }}
+                    </span>
+                </div>
+                <div class="qa-question">{{ q.question_text }}</div>
+                {% if q.question_type == 'multiple_choice' and q.options %}
+                <div class="qa-options">
+                    {% for opt in q.options %}
+                    {% set correct_labels = q.correct_answer.split(',') if q.correct_answer else [] %}
+                    <div class="qa-option {{ 'qa-option-correct' if opt.label in correct_labels }}">
+                        <span class="qa-option-label">{{ opt.label }}</span>
+                        <span>{{ opt.text }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% elif q.correct_answer or q.reference_answer %}
+                <div class="qa-answer">
+                    <i class="fas fa-check-circle" style="color:#059669;"></i>
+                    <span>{{ q.correct_answer or q.reference_answer }}</span>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </details>
+    {% endif %}
+    {% endfor %}
 </div>
 {% endif %}
 

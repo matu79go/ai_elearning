@@ -1,0 +1,70 @@
+<!-- Tab: Assignment -->
+<div id="tab-assignment" style="display:none;">
+    <div class="section-card" style="background:#fff7ed; border:1px solid #fed7aa; margin-bottom:1rem;">
+        <div class="section-body" style="font-size:13px; color:#9a3412;">
+            <i class="fas fa-book" style="color:#ea580c; margin-right:6px;"></i>
+            {{ t.admin.assignment_description }}
+        </div>
+    </div>
+
+    {% if assignments %}
+    <div class="qa-list">
+        {% for q in assignments %}
+        <div class="qa-item">
+            <div class="qa-header">
+                <span class="qa-num">{{ loop.index }}</span>
+                <span class="qa-type {{ 'qa-type-mc' if q.question_type == 'multiple_choice' else 'qa-type-fr' }}">
+                    {{ 'MC' if q.question_type == 'multiple_choice' else 'FR' }}
+                </span>
+                <span class="qa-source">assignment</span>
+                <form method="POST"
+                      action="{{ lang_url('/admin/materials/' ~ material.material_id ~ '/chunks/' ~ chunk.chunk_id ~ '/assignment/' ~ q.question_id ~ '/delete') }}"
+                      onsubmit="return confirm('Delete this assignment question?')"
+                      style="margin-left:auto;">
+                    <button type="submit" class="btn-delete-icon" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </form>
+            </div>
+            <div class="qa-question">{{ q.question_text }}</div>
+            {% if q.chart_svg %}
+            <div class="qa-chart">{{ q.chart_svg|safe }}</div>
+            {% endif %}
+
+            {% if q.question_type == 'multiple_choice' and q.options %}
+            <div class="qa-options">
+                {% for opt in q.options %}
+                {% set correct_labels = q.correct_answer.split(',') if q.correct_answer else [] %}
+                <div class="qa-option {{ 'qa-option-correct' if opt.label in correct_labels }}">
+                    <span class="qa-option-label">{{ opt.label }}</span>
+                    <span>{{ opt.text }}</span>
+                    {% if opt.label in correct_labels %}
+                    <i class="fas fa-check" style="margin-left:auto; color:#059669;"></i>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% elif q.correct_answer or q.reference_answer %}
+            <div class="qa-answer">
+                <i class="fas fa-check-circle" style="color:#059669;"></i>
+                <span>{{ q.correct_answer or q.reference_answer }}</span>
+            </div>
+            {% endif %}
+
+            {% if q.explanation %}
+            <div class="qa-explanation">
+                <i class="fas fa-lightbulb" style="color:#f59e0b;"></i>
+                {{ q.explanation }}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="section-card">
+        <div class="section-body" style="text-align:center; padding:2rem; color:#94a3b8;">
+            {{ t.admin.assignment_empty }}
+        </div>
+    </div>
+    {% endif %}
+</div>

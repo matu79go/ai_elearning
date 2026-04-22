@@ -98,11 +98,17 @@ def child_units(subject):
                 'total': cs.total, 'mastered': int(cs.mastered or 0),
             }
 
+        # 宿題(assignment)の有無
+        assignment_count = Question.query.filter_by(
+            material_id=m.material_id, is_assignment=True,
+        ).count()
+
         units_data.append({
             'material': m,
             'total': total_q,
             'mastered': mastered_q,
             'chunk_progress': chunk_progress,
+            'assignment_count': assignment_count,
         })
 
     # サイドバー用: 全教科一覧
@@ -116,8 +122,11 @@ def child_units(subject):
     ).group_by(Material.subject).all()
     all_subjects = sorted(all_subjects, key=lambda s: _SUBJ_ORDER_MAP.get(s[0], 999))
 
+    subject_assignment_count = sum(ud['assignment_count'] for ud in units_data)
+
     return render_template('child/units.html',
                            subject=subject, units_data=units_data,
+                           subject_assignment_count=subject_assignment_count,
                            all_subjects=all_subjects)
 
 
@@ -214,6 +223,11 @@ def child_section(chunk_id):
     # 小テストが用意されていないchunkはゲート対象外 (旧来と同じくquiz即開放)
     quiz_unlocked = (drill_count == 0) or drill_mastered
 
+    # 宿題(assignment)の件数
+    assignment_count = Question.query.filter_by(
+        chunk_id=chunk_id, is_assignment=True,
+    ).count()
+
     return render_template('child/section.html',
                            chunk=chunk, material=material, parsed=parsed,
                            total_questions=len(questions), mastered_count=mastered_count,
@@ -224,6 +238,7 @@ def child_section(chunk_id):
                            drill_mastered=drill_mastered,
                            quiz_unlocked=quiz_unlocked,
                            drill_streak_target=DRILL_STREAK_TO_MASTER,
+                           assignment_count=assignment_count,
                            youtube_videos=youtube_videos)
 
 

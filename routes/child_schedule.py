@@ -79,11 +79,21 @@ def child_schedule():
             'note': p.note,
         })
     for d in deadlines:
+        # homework で material/chunk が設定されていれば宿題プレイへのリンクを生成
+        play_url = None
+        if d.kind == 'homework':
+            if d.chunk_id:
+                play_url = f'/child/chunks/{d.chunk_id}/assignment'
+            elif d.material_id:
+                play_url = f'/child/materials/{d.material_id}/assignment'
         by_date.setdefault(d.due_date, {'plans': [], 'deadlines': []})['deadlines'].append({
             'id': d.id,
             'kind': d.kind,
             'title': d.title,
             'subject': d.subject,
+            'material_id': d.material_id,
+            'chunk_id': d.chunk_id,
+            'play_url': play_url,
             'done': d.done,
             'color': d.color or ('#dc2626' if d.kind == 'test' else '#f97316'),
             'note': d.note,

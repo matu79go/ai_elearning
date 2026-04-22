@@ -159,21 +159,30 @@ def admin_materials_detail(material_id):
         material_id=material_id
     ).order_by(MaterialChunk.sort_order).all()
 
-    # チャンク別に問題をグループ化
+    # チャンク別に問題をグループ化 (questions と assignments を分離)
     all_questions = material.questions.all()
     questions_by_chunk = {}
+    assignments_by_chunk = {}
     unlinked_questions = []
+    assignments_all = []
     for q in all_questions:
+        bucket = assignments_by_chunk if q.is_assignment else questions_by_chunk
+        if q.is_assignment:
+            assignments_all.append(q)
         if q.chunk_id:
-            questions_by_chunk.setdefault(q.chunk_id, []).append(q)
-        else:
+            bucket.setdefault(q.chunk_id, []).append(q)
+        elif not q.is_assignment:
             unlinked_questions.append(q)
+
+    total_test = sum(len(v) for v in questions_by_chunk.values()) + len(unlinked_questions)
 
     return render_template('admin/material_detail.html',
                            material=material, chunks=chunks,
                            questions_by_chunk=questions_by_chunk,
+                           assignments_by_chunk=assignments_by_chunk,
+                           assignments_all=assignments_all,
                            unlinked_questions=unlinked_questions,
-                           total_questions=len(all_questions))
+                           total_questions=total_test)
 
 
 @dual_route(admin_materials_bp, '/admin/materials/<int:material_id>/chunks/<int:chunk_id>', methods=['GET'])
@@ -186,7 +195,9 @@ def admin_materials_chunk_detail(material_id, chunk_id):
     if chunk.material_id != material_id:
         abort(404)
 
-    questions = Question.query.filter_by(chunk_id=chunk_id)\
+    questions = Question.query.filter_by(chunk_id=chunk_id, is_assignment=False)\
+        .order_by(Question.question_id).all()
+    assignments = Question.query.filter_by(chunk_id=chunk_id, is_assignment=True)\
         .order_by(Question.question_id).all()
 
     # サイドバー用: 同じマテリアルの全チャンク
@@ -218,7 +229,8 @@ def admin_materials_chunk_detail(material_id, chunk_id):
 
     return render_template('admin/material_chunk_detail.html',
                            material=material, chunk=chunk,
-                           questions=questions, all_chunks=all_chunks,
+                           questions=questions, assignments=assignments,
+                           all_chunks=all_chunks,
                            video_url=video_url,
                            rule_templates=rule_templates,
                            drill_questions=drill_questions,
@@ -374,6 +386,20 @@ def admin_materials_chunk_youtube_add(material_id, chunk_id):
     db.session.commit()
     flash('youtube_added', 'success')
     return redirect(_lang_url(f'/admin/materials/{material_id}/chunks/{chunk_id}') + '#youtube')
+
+
+@dual_route(admin_materials_bp, '/admin/materials/<int:material_id>/chunks/<int:chunk_id>/assignment/<int:question_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def admin_materials_chunk_assignment_delete(material_id, chunk_id, question_id):
+    """宿題問題を1件削除"""
+    q = Question.query.get_or_404(question_id)
+    if q.chunk_id != chunk_id or not q.is_assignment:
+        abort(404)
+    db.session.delete(q)
+    db.session.commit()
+    flash('assignment_deleted', 'success')
+    return redirect(_lang_url(f'/admin/materials/{material_id}/chunks/{chunk_id}') + '#assignment')
 
 
 @dual_route(admin_materials_bp, '/admin/materials/<int:material_id>/chunks/<int:chunk_id>/drill/<int:drill_question_id>/delete', methods=['POST'])

@@ -83,6 +83,9 @@
     <button class="tab-btn" onclick="switchTab('questions')">
         <i class="fas fa-question-circle"></i> Questions ({{ questions|length }})
     </button>
+    <button class="tab-btn" onclick="switchTab('assignment')">
+        <i class="fas fa-book"></i> {{ t.admin.tab_assignment }} ({{ assignments|length }})
+    </button>
     <button class="tab-btn" onclick="switchTab('youtube')">
         <i class="fab fa-youtube"></i> {{ t.admin.tab_youtube }} ({{ youtube_videos|length }})
     </button>
@@ -326,6 +329,8 @@
     {% endif %}
 </div>
 
+{% include "admin/components/chunk_tab_assignment.html" %}
+
 {% include "admin/components/chunk_tab_youtube.html" %}
 
 {% endblock %}
@@ -502,8 +507,8 @@ fetch('{{ lang_url("/child/oak-video-check/" ~ chunk.chunk_id) }}')
     .catch(() => {});
 {% endif %}
 
-// Main tabs (3-tab: contents / drill / questions)
-const TAB_ORDER = ['contents', 'drill', 'questions', 'youtube'];
+// Main tabs: contents / drill / questions / assignment / youtube (order must match the tab-btn buttons)
+const TAB_ORDER = ['contents', 'drill', 'questions', 'assignment', 'youtube'];
 function switchTab(tab) {
     TAB_ORDER.forEach(t => {
         const el = document.getElementById('tab-' + t);

@@ -126,11 +126,27 @@
     </div>
     <div class="ksched-item-list">
         {% for dl in month_deadlines %}
+        {% set play_url = '' %}
+        {% if dl.kind == 'homework' and dl.chunk_id %}
+            {% set play_url = '/child/chunks/' ~ dl.chunk_id ~ '/assignment' %}
+        {% elif dl.kind == 'homework' and dl.material_id %}
+            {% set play_url = '/child/materials/' ~ dl.material_id ~ '/assignment' %}
+        {% endif %}
         <div class="ksched-item {% if dl.done %}ksched-item-done{% endif %}">
-            <div class="ksched-item-date" style="background:{{ dl.color }};">
+            <div class="ksched-item-date" style="background:{{ dl.color or ('#dc2626' if dl.kind == 'test' else '#f97316') }};">
                 <span class="ksched-item-day">{{ dl.due_date.day }}</span>
                 <span class="ksched-item-dow">{{ '%02d' | format(dl.due_date.month) }}/{{ '%02d' | format(dl.due_date.day) }}</span>
             </div>
+            {% if play_url %}
+            <a href="{{ lang_url(play_url) }}" class="ksched-item-body" style="text-decoration:none; color:inherit; cursor:pointer;">
+                <div class="ksched-item-subj">
+                    📚 {{ t.child.schedule_kind_homework }}
+                    {% if dl.subject %} · {{ dl.subject }}{% endif %}
+                    <span style="color:#ea580c; margin-left:6px; font-weight:700;"><i class="fas fa-play-circle"></i></span>
+                </div>
+                <div class="ksched-item-title">{{ dl.title }}</div>
+            </a>
+            {% else %}
             <div class="ksched-item-body">
                 <div class="ksched-item-subj">
                     {% if dl.kind == 'test' %}📝 {{ t.child.schedule_kind_test }}
@@ -140,6 +156,7 @@
                 </div>
                 <div class="ksched-item-title">{{ dl.title }}</div>
             </div>
+            {% endif %}
             <form method="POST" action="{{ lang_url('/child/schedule/deadlines/' ~ dl.id ~ '/toggle') }}" class="ksched-item-action">
                 <button type="submit" class="ksched-done-btn {% if dl.done %}ksched-done-btn-on{% endif %}">
                     <i class="fas fa-check"></i>
