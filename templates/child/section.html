@@ -115,12 +115,6 @@
     }
     .cta-quiz-locked .icon-box { background: #e2e8f0; }
 
-    .cta-assignment {
-        background: linear-gradient(135deg, #ea580c, #f97316);
-        color: white; box-shadow: 0 4px 16px rgba(234,88,12,0.35);
-    }
-    .cta-assignment .icon-box { background: rgba(255,255,255,0.22); }
-
     .cta-sub-btn {
         display: inline-flex; align-items: center; gap: 6px;
         padding: 8px 18px; border-radius: 999px;
@@ -516,19 +510,6 @@
         </div>
         {% endif %}
         {% endif %}
-    </div>
-    {% endif %}
-
-    {% if assignment_count and assignment_count > 0 %}
-    <div class="quiz-cta" style="margin-top:0.75rem;">
-        <a href="{{ lang_url('/child/chunks/' ~ chunk.chunk_id ~ '/assignment') }}" class="cta-card cta-assignment">
-            <div class="icon-box"><i class="fas fa-book"></i></div>
-            <div class="body">
-                <div class="title">{{ t.child.assignment }}</div>
-                <div class="sub">{{ assignment_count }} {{ t.child.questions_suffix or 'questions' }}</div>
-            </div>
-            <div class="arrow"><i class="fas fa-chevron-right"></i></div>
-        </a>
     </div>
     {% endif %}
 </div>
