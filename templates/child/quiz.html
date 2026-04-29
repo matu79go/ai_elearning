@@ -309,6 +309,26 @@
 <!-- Score Banner (shown after check) -->
 <div id="scoreBanner" style="display:none;"></div>
 
+{% if not questions %}
+<!-- Empty state: all questions mastered or none available -->
+<div class="question-card" id="emptyCard" style="text-align:center;">
+    <div style="font-size: 64px; margin-bottom: 0.75rem;">🏆</div>
+    <h2 style="font-size: 22px; font-weight: 800; color: #1e293b; margin-bottom: 0.5rem;">
+        {{ t.child.quiz_all_mastered_heading }}
+    </h2>
+    <p style="color: #64748b; font-size: 14px; margin-bottom: 1.25rem;">
+        {{ t.child.quiz_all_mastered_sub }}
+    </p>
+    <a href="{{ lang_url('/child/section/' ~ chunk.chunk_id) }}"
+       style="display:inline-block; padding: 12px 28px;
+              background: linear-gradient(135deg, #6366f1, #8b5cf6);
+              color: white; border-radius: 14px; font-size: 16px;
+              font-weight: 700; text-decoration: none;
+              box-shadow: 0 8px 24px rgba(99,102,241,0.35);">
+        <i class="fas fa-arrow-left" style="margin-right:6px;"></i>{{ t.child.quiz_back_to_section }}
+    </a>
+</div>
+{% else %}
 <!-- Question Card -->
 <div class="question-card" id="questionCard">
     <div class="q-number" id="qNumber"></div>
@@ -318,6 +338,7 @@
     <div id="explanationArea"></div>
     <div class="q-actions" id="actions"></div>
 </div>
+{% endif %}
 
 <!-- Hint Panel -->
 <div class="hint-panel" id="hintPanel">
@@ -337,6 +358,7 @@
 {% block bottom_nav %}{% endblock %}
 
 {% block scripts %}
+{% if questions %}
 <script>
 // ---- Math rendering helper ----
 function renderMath(el) {
@@ -1090,4 +1112,5 @@ document.querySelector('.study-back')?.addEventListener('click', function(e) {
 render();
 </script>
 {% include "components/badge_animation.html" %}
+{% endif %}
 {% endblock %}

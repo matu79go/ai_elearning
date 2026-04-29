@@ -243,16 +243,15 @@ def child_section(chunk_id):
 
 
 # ---- クイズ画面 ----
-def _answered_today_qids(child_id, chunk_id):
-    """今日(ローカル0時以降)にこの子が答えた、このchunk内のquestion_idセット"""
-    today_start = datetime.combine(datetime.now().date(), datetime.min.time())
-    rows = db.session.query(AnswerHistory.question_id).join(
-        Question, AnswerHistory.question_id == Question.question_id,
+def _mastered_qids(child_id, chunk_id):
+    """このchunk内でマスター済み(question_mastery.mastered=1)のquestion_idセット"""
+    rows = db.session.query(QuestionMastery.question_id).join(
+        Question, QuestionMastery.question_id == Question.question_id,
     ).filter(
-        AnswerHistory.child_id == child_id,
-        AnswerHistory.answered_at >= today_start,
+        QuestionMastery.child_id == child_id,
+        QuestionMastery.mastered == True,  # noqa: E712
         Question.chunk_id == chunk_id,
-    ).distinct().all()
+    ).all()
     return {r[0] for r in rows}
 
 
@@ -315,11 +314,11 @@ def _refill_rule_based_if_short(chunk_id, needed):
 
 def _pick_quiz_questions_for_child(child_id, chunk_id, material_id, limit):
     """1セッション分のクイズ問題を返す。
-    A. 今日答えた問題はプールから除外
+    A. マスター済み(正解済み)の問題はプールから除外。誤答済みは同日中も再挑戦可能。
     B. 直近3日で誤答したrule_based templateは、新インスタンスを生成して優先枠に入れる
     不足時: rule_basedテンプレがあれば自動補充
     """
-    excluded = _answered_today_qids(child_id, chunk_id)
+    excluded = _mastered_qids(child_id, chunk_id)
 
     # B: 3日以内の誤答テンプレに対して新インスタンスを先に作る
     wrong_templates = _recent_wrong_templates(child_id, chunk_id)
