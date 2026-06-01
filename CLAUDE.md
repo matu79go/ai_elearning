@@ -31,6 +31,7 @@
 9. **DB設計ルールは `docs/database.md` を参照** — マスターテーブルのバイリンガル規約（`_en`/`_ja` カラム必須）等、DB関連のルールはすべて `docs/database.md` に記載
 10. **Oak APIインポート時は sort_order を必ずセットする** — Material には units API の返却順（カリキュラム順）で `sort_order` をセット。MaterialChunk には lessons の返却順で `sort_order` をセット。`sort_order=0` のままにしない
 11. **Oak API MC問題は複数正解に対応必須** — `answers` の `distractor: false` が複数ある場合、`correct_answer` はカンマ区切り（例: `"A,C,D"`）で保存する。単一回答への上書きは厳禁
+12. **図形問題には図（SVG）を付ける** — 数学の図形問題（体積・表面積・面積等）は `chart_svg` にラベル付き図を付与する。作図は `services/shape_svg.py`（直方体/立方体/三角柱）、生成はパラメトリック（数値と図をPythonで同時に決め、図と答えを必ず一致させる）。詳細は `docs/diagram_questions.md` を参照
 
 ---
 
@@ -125,3 +126,4 @@ ssh -i ~/.ssh/github_matu79go ubuntu@153.126.192.71 \
 - `docs/design.md` — システム設計
 - `docs/database.md` — DB設計
 - `docs/deployment.md` — デプロイ手順・VPS設定
+- `docs/diagram_questions.md` — 図形問題への図（SVG）付与ガイド
